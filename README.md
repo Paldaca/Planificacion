@@ -8,6 +8,8 @@ Planificación PALDACA: satélite **federado** de PALDACA Suite (React + Django)
 - Identidad por SSO federado (`backend/paldaca_sso/`): cookie-forwarding contra
   `GET /api/auth/me/` del Portal. Código de módulo: `planificacion`.
 
+Diseño funcional y plan por fases: [`docs/plan-modulo-planificacion.md`](docs/plan-modulo-planificacion.md).
+
 Contrato: `Portal-Paldaca/docs/PALDACA_SUITE/CONTRATO_SSO_FEDERADO.md` y
 [`docs/guia-integracion-programas-satelite.md`](docs/guia-integracion-programas-satelite.md).
 
