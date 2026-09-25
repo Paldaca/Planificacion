@@ -13,7 +13,7 @@ from django.db import transaction
 from django.db.models import Count, F, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework import status
+from rest_framework import serializers, status
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -43,6 +43,17 @@ SIN_PERMISO_GESTIONAR = "Solo los administradores del equipo pueden cambiar esto
 
 def _contexto(request):
     return {"request": request, "hoy": timezone.localdate()}
+
+
+def _booleano(request, campo: str, defecto: bool) -> bool:
+    """Lee un booleano del cuerpo sin la trampa de `bool("false") is True`."""
+    if campo not in request.data:
+        return defecto
+    campo_bool = serializers.BooleanField()
+    try:
+        return campo_bool.to_internal_value(request.data[campo])
+    except serializers.ValidationError:
+        raise ValidationError({campo: "Debe ser verdadero o falso."})
 
 
 def _regla(exc: servicios.ReglaDeNegocio):
@@ -172,7 +183,7 @@ class TableroArchivarView(APIView):
                 {"detail": "El tablero personal no se puede archivar."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        tablero.archivado = bool(request.data.get("archivado", True))
+        tablero.archivado = _booleano(request, "archivado", True)
         tablero.save(update_fields=["archivado", "actualizado_en"])
         return Response(TableroResumenSerializer(tablero, context=_contexto(request)).data)
 
@@ -342,7 +353,7 @@ class CardMoverView(APIView):
 class CardArchivarView(APIView):
     def post(self, request, pk):
         card = obtener_card(request, pk, editar=True)
-        if request.data.get("archivada", True):
+        if _booleano(request, "archivada", True):
             servicios.archivar_card(card)
         else:
             servicios.restaurar_card(card)

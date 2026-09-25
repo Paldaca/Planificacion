@@ -65,7 +65,7 @@ Navegador ──► Portal (cpaldaca.com)  ── iframe /planificacion ──�
                  ├──────────────────────────────────────────────────┤
                  │  POST /api/notificaciones/eventos/ (firmado)     │
                  ├──────────────────────────────────────────────────┤
-                 │  Directorio de personas (fase 2)                 │
+                 │  GET directorio/modulos/planificacion/personas/  │
                  └──────────────────────────────────────────────────┘
 
 Planificación
@@ -240,19 +240,21 @@ Problema: el satélite solo conoce a una persona después de que esta entra al
 módulo una vez. Para agregar a un compañero que nunca entró hace falta
 preguntar al Portal.
 
-- **Fase 1 (sin cambios en el Portal):** el buscador de invitados ofrece solo
-  personas que ya entraron alguna vez a Planificación. La UI lo explica
-  ("¿No aparece? Pídele que entre una vez a Planificación").
-- **Fase 2 (cambio acotado en el Portal):** un endpoint de **solo lectura**
-  para buscar usuarios **con acceso a un módulo** dado, accesible a cualquier
-  usuario de ese módulo (no solo a sus administradores). El directorio actual
-  (`/api/auth/directorio/*`, `PALDACA_DIRECTORIO_MODULOS`) **no sirve tal
-  cual**: está limitado a administradores y además permite crear usuarios en
-  el Portal, un poder que Planificación no necesita ni debe tener.
-  - Al elegir a alguien del resultado, Planificación crea su cuenta espejo
-    **por adelantado** (sin contraseña utilizable, igual que en el SSO) usando
-    el mismo mapeo de `paldaca_sso/identity.py`, porque el endpoint devuelve la
-    misma forma que `/api/auth/me/`.
+- **Hecho (fase 1):** el Portal expone
+  `GET /api/auth/directorio/modulos/<codigo>/personas/` (`?q=` o `?id=`), de
+  **solo lectura**, para cualquier usuario con acceso a ese módulo. Devuelve
+  solo cuentas activas con el módulo asignado explícitamente, sin
+  superusuarios ni staff, en forma mínima. Cada módulo debe estar en
+  `PALDACA_DIRECTORIO_LECTURA_MODULOS` (por defecto `planificacion`). El
+  directorio de administradores (`/api/auth/directorio/*`) no se usa: además
+  de buscar permite crear usuarios en el Portal.
+- Planificación consulta ese endpoint con la cookie del Portal de quien opera
+  (`integracion_portal/directorio.py`). Si el Portal no responde, el buscador
+  cae a las cuentas que ya entraron al módulo y lo avisa.
+- Al invitar a alguien que nunca entró, se **confirma con el Portal** (`?id=`)
+  y solo entonces se crea su cuenta espejo (contraseña inutilizable, nunca
+  superusuario, revisión vacía para que su primer ingreso sincronice todo).
+  Nunca con datos enviados por el navegador.
 
 ### 6.3 Notificaciones
 
@@ -369,7 +371,7 @@ comentar las cards, dentro del Portal.
 Alcance:
 - **Equipos:** crear, editar, archivar; roles administrador / miembro /
   lector; salir del equipo.
-- **Invitaciones:** invitar (entre quienes ya entraron al módulo, §6.2) con
+- **Invitaciones:** invitar a cualquier persona del Portal con el módulo (§6.2) con
   rol y mensaje; aviso `planificacion.invitacion_equipo` en la campana del
   Portal; aceptar / rechazar desde *Invitaciones*; cancelar; el aviso se
   resuelve al responder.
@@ -413,8 +415,7 @@ Fuera de alcance: notificaciones, Gantt, exportaciones, checklist, adjuntos.
 que hayan entrado antes.
 
 Alcance:
-- **Portal:** migración con los tipos `planificacion.*` restantes (§6.3);
-  endpoint de directorio de solo lectura por módulo (§6.2).
+- **Portal:** migración con los tipos `planificacion.*` restantes (§6.3).
 - **Satélite:** emisión de asignación, mención y comentario nuevo (el cliente
   firmado ya existe desde la fase 1).
 - **Menciones** con `@` en comentarios (autocompletado entre miembros).

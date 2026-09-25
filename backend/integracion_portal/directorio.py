@@ -22,6 +22,7 @@ from __future__ import annotations
 import logging
 
 import requests
+from django.db import IntegrityError
 
 from core.models import Modulo, UsuarioModulo
 from paldaca_sso import client as sso_client
@@ -100,10 +101,15 @@ def cuenta_local(datos: dict):
                 "modulos": [{"codigo": codigo, "nombre": modulo.nombre if modulo else codigo}],
             }
         )
-        usuario = upsert_mirror_user(identidad)
-        # Vacía: fuerza la sincronización completa en su primer ingreso real.
-        CuentaPortal.objects.filter(usuario=usuario).update(revision="")
-        logger.info("DIRECTORIO_CUENTA_ANTICIPADA | portal_user_id=%r usuario_id=%r", datos["id"], usuario.pk)
+        try:
+            usuario = upsert_mirror_user(identidad)
+        except IntegrityError:
+            # Otra petición la creó en paralelo: se usa esa.
+            usuario = CuentaPortal.objects.select_related("usuario").get(portal_user_id=datos["id"]).usuario
+        else:
+            # Vacía: fuerza la sincronización completa en su primer ingreso real.
+            CuentaPortal.objects.filter(usuario=usuario).update(revision="")
+            logger.info("DIRECTORIO_CUENTA_ANTICIPADA | portal_user_id=%r usuario_id=%r", datos["id"], usuario.pk)
 
     # El Portal acaba de confirmar el acceso: la fila local del módulo debe existir.
     modulo = Modulo.objects.filter(codigo=codigo, activo=True).first()

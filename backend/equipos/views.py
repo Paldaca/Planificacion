@@ -22,6 +22,7 @@ from integracion_portal.personas import buscar, nombre, persona, usuarios_del_mo
 from paldaca_sso.models import CuentaPortal
 from tableros import permisos
 from tableros.serializers import TableroResumenSerializer
+from tableros.views import _booleano
 
 from .models import EstadoInvitacion, Equipo, InvitacionEquipo, MiembroEquipo, RolEquipo
 from .serializers import (
@@ -109,7 +110,7 @@ class EquipoDetalleView(APIView):
 class EquipoArchivarView(APIView):
     def post(self, request, pk):
         equipo = obtener_equipo(request, pk, administrar=True)
-        equipo.archivado = bool(request.data.get("archivado", True))
+        equipo.archivado = _booleano(request, "archivado", True)
         equipo.save(update_fields=["archivado", "actualizado_en"])
         return Response(EquipoSerializer(equipo, context=_ctx(request)).data)
 

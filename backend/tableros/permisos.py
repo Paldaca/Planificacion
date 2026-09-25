@@ -28,15 +28,12 @@ def es_admin_modulo(usuario) -> bool:
 
 
 def membresia(usuario, equipo) -> MiembroEquipo | None:
+    # Sin caché a propósito: guardarla en el objeto usuario la dejaba vieja
+    # cuando ese objeto sobrevive entre peticiones (force_authenticate en
+    # tests) o cuando la misma petición cambia la membresía.
     if not (usuario and usuario.is_authenticated) or equipo is None:
         return None
-    cache = getattr(usuario, "_membresias_cache", None)
-    if cache is None:
-        cache = {}
-        usuario._membresias_cache = cache
-    if equipo.pk not in cache:
-        cache[equipo.pk] = MiembroEquipo.objects.filter(equipo=equipo, usuario=usuario).first()
-    return cache[equipo.pk]
+    return MiembroEquipo.objects.filter(equipo=equipo, usuario=usuario).first()
 
 
 def puede_ver_equipo(usuario, equipo) -> bool:

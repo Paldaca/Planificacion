@@ -200,3 +200,34 @@ class VencimientoTests(ApiTestCase):
         viernes = datetime.date(2026, 9, 25)
         self.assertEqual(dias_habiles_hasta(viernes, datetime.date(2026, 9, 28)), 1)  # lunes
         self.assertEqual(dias_habiles_hasta(viernes, viernes), 0)
+
+
+class RegresionesAuditoriaTests(ApiTestCase):
+    def setUp(self):
+        self.ana = crear_usuario("ana")
+        self.beto = crear_usuario("beto")
+        equipo = self.cliente(self.ana).post("/api/v1/equipos/", {"nombre": "Obra"}, format="json").json()
+        self.equipo_id = equipo["id"]
+        self.miembro = MiembroEquipo.objects.create(equipo_id=self.equipo_id, usuario=self.beto, rol=RolEquipo.MIEMBRO)
+        self.tablero = self.cliente(self.ana).post(
+            "/api/v1/tableros/", {"nombre": "Plan", "equipo": self.equipo_id}, format="json"
+        ).json()
+
+    def test_quitar_miembro_corta_el_acceso_en_la_misma_sesion(self):
+        """El permiso no puede quedar cacheado en el usuario entre peticiones."""
+        cliente_beto = self.cliente(self.beto)
+        url = f"/api/v1/tableros/{self.tablero['id']}/"
+        self.assertEqual(cliente_beto.get(url).status_code, 200)
+        self.cliente(self.ana).delete(f"/api/v1/equipos/{self.equipo_id}/miembros/{self.miembro.pk}/")
+        self.assertEqual(cliente_beto.get(url).status_code, 403)
+
+    def test_archivar_con_texto_false_restaura(self):
+        card = self.cliente(self.ana).post(
+            f"/api/v1/tableros/{self.tablero['id']}/cards/", {"titulo": "x"}, format="json"
+        ).json()
+        url = f"/api/v1/cards/{card['id']}/archivar/"
+        self.cliente(self.ana).post(url, {}, format="json")
+        r = self.cliente(self.ana).post(url, {"archivada": "false"}, format="json")
+        self.assertFalse(r.json()["archivada"])
+        r = self.cliente(self.ana).post(url, {"archivada": "quizas"}, format="json")
+        self.assertEqual(r.status_code, 400)
