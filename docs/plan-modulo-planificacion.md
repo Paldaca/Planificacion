@@ -1,6 +1,7 @@
 # Plan del módulo Planificación — diseño por fases
 
-> Estado: **propuesta de diseño** (sin implementar).
+> Estado: **fase 1 implementada** (tableros, cards, comentarios, equipos con invitación).
+> Fases 2–5: propuesta.
 > Stack: **Django + DRF** (`backend/`) y **React + Vite + TypeScript** (`frontend/`).
 > Integración: satélite **federado** del Portal Paldaca — ver
 > [`guia-integracion-programas-satelite.md`](guia-integracion-programas-satelite.md) y
@@ -41,7 +42,8 @@ campana de notificaciones del Portal.
 
 | Término | Significado |
 |---|---|
-| **Equipo** | Grupo de personas creado dentro del módulo. Tiene administradores y miembros. |
+| **Equipo** | Grupo de personas creado dentro del módulo. Tiene administradores, miembros y lectores. |
+| **Invitación** | Única forma de entrar a un equipo: un administrador invita y la persona **acepta o rechaza**. Genera un aviso en la campana del Portal. |
 | **Tablero personal** | Tablero privado de un usuario. Hay exactamente uno por usuario; se crea solo en su primer ingreso. |
 | **Tablero de equipo** | Tablero visible y editable por los miembros de un equipo. Un equipo puede tener varios. |
 | **Columna** | Etapa del flujo de trabajo. Predeterminadas: **Tareas**, **En curso**, **Hecho**. |
@@ -130,7 +132,13 @@ Reglas transversales:
 **Equipo** — `nombre`, `descripcion`, `color`, `creado_por`, `archivado`.
 
 **MiembroEquipo** — `equipo`, `usuario`, `rol` (`administrador` | `miembro` |
-`lector`), `agregado_por`, `agregado_en`. Único por (equipo, usuario).
+`lector`), `agregado_por`, `agregado_en`. Único por (equipo, usuario). Solo se
+crea al crear el equipo (quien lo crea) o al **aceptar una invitación**.
+
+**InvitacionEquipo** — `equipo`, `invitado`, `invitado_por`, `rol`, `mensaje`
+(opcional), `estado` (`pendiente` | `aceptada` | `rechazada` | `cancelada`),
+`creada_en`, `respondida_en`. Una sola invitación **pendiente** por persona y
+equipo; las respondidas quedan como historial y no impiden invitar de nuevo.
 
 **Tablero** — `nombre`, `descripcion`, `tipo` (`personal` | `equipo`),
 `propietario` (usuario, solo personal), `equipo` (solo de equipo),
@@ -194,6 +202,10 @@ módulo:
 
 - **Crear equipos:** cualquier usuario con acceso al módulo; quien lo crea
   queda como administrador. Un equipo nunca puede quedar sin administrador.
+- **Entrar a un equipo:** solo por invitación. Invitan los administradores
+  del equipo; responde únicamente la persona invitada (aceptar la hace
+  miembro con el rol de la invitación). El administrador puede cancelar una
+  invitación pendiente. Salir es libre, salvo para el último administrador.
 - **Administrador del módulo** (según el Portal): puede ver y administrar todos
   los equipos, para soporte y para recuperar equipos huérfanos.
 - **Superusuario local:** solo para el Django admin (break-glass), nunca por
@@ -228,7 +240,7 @@ Problema: el satélite solo conoce a una persona después de que esta entra al
 módulo una vez. Para agregar a un compañero que nunca entró hace falta
 preguntar al Portal.
 
-- **Fase 1 (sin cambios en el Portal):** el buscador de miembros ofrece solo
+- **Fase 1 (sin cambios en el Portal):** el buscador de invitados ofrece solo
   personas que ya entraron alguna vez a Planificación. La UI lo explica
   ("¿No aparece? Pídele que entre una vez a Planificación").
 - **Fase 2 (cambio acotado en el Portal):** un endpoint de **solo lectura**
@@ -249,15 +261,25 @@ integración): `POST {PALDACA_PORTAL_API_URL}/api/notificaciones/eventos/`
 con **firma de servicio** (`X-Paldaca-Client: planificacion`,
 `X-Paldaca-Timestamp`, `X-Paldaca-Signature`).
 
+La firma usa un **secreto propio del módulo**, nunca `DJANGO_SECRET_KEY`
+(la del satélite es propia y el Portal no la conoce, R-02):
+`PALDACA_NOTIF_SECRET` en Planificación = `PALDACA_NOTIF_SECRET_PLANIFICACION`
+en el Portal (≥ 32 caracteres). En local lo genera y sincroniza
+`iniciar.ps1` (`scripts/modulos.py`); en producción se configura a mano en
+los dos despliegues y conviene añadir `planificacion` a
+`PALDACA_NOTIF_ESTRICTO` del Portal. La cookie del operador no sirve aquí:
+el Portal solo la acepta de administradores del módulo, y en Planificación
+invita cualquier administrador de equipo.
+
 Catálogo propuesto (se crea con **una migración en el Portal**, nunca desde el
 satélite):
 
 | Código | Audiencia | Cuándo | Fase |
 |---|---|---|---|
+| `planificacion.invitacion_equipo` | `payload.usuario_ids` | Te invitan a un equipo (se resuelve al aceptar, rechazar o cancelar) | **1 (hecho)** |
 | `planificacion.card_asignada` | `payload.usuario_ids` | Alguien te agrega como responsable | 2 |
 | `planificacion.mencion` | `payload.usuario_ids` | Te mencionan con @ en un comentario | 2 |
 | `planificacion.comentario_nuevo` | `payload.usuario_ids` | Comentan en una card donde eres responsable | 2 |
-| `planificacion.agregado_a_equipo` | `payload.usuario_ids` | Te agregan a un equipo | 2 |
 | `planificacion.card_por_vencer` | `payload.usuario_ids` | Tu card vence en ≤ 2 días hábiles | 2 |
 | `planificacion.card_vencida` | `payload.usuario_ids` | Tu card venció y no está terminada | 2 |
 
@@ -284,6 +306,9 @@ Reglas:
 ### 6.4 Embed y navegación del Portal
 
 - Ruta del shell: `PALDACA_SHELL_PATH=/planificacion` (ya configurado).
+- Menú del módulo en el Portal (`navigationConfig.ts`): Mis tareas,
+  Tableros, Equipos e Invitaciones; accesos rápidos del Home en
+  `quick-actions.ts`.
 - Cada cambio de ruta de la SPA emite `navigate` por el protocolo
   `paldaca-embed`, de modo que la URL del Portal siempre es compartible.
 - En el Portal (`navigationConfig.ts`), a medida que existan las pantallas, se
@@ -336,14 +361,18 @@ registro del módulo en el Portal.
 - Base de datos: plan de migración a **MySQL propia** (nunca la instancia del
   Portal) antes de cargar datos reales.
 
-### Fase 1 — Tableros y cards (primera versión útil)
+### Fase 1 — Tableros y cards (primera versión útil) — ✅ implementada
 
 **Objetivo:** que un equipo pueda organizar su trabajo en un tablero y
 comentar las cards, dentro del Portal.
 
 Alcance:
-- **Equipos:** crear, editar, archivar; agregar miembros (entre quienes ya
-  entraron al módulo, §6.2); roles administrador / miembro / lector.
+- **Equipos:** crear, editar, archivar; roles administrador / miembro /
+  lector; salir del equipo.
+- **Invitaciones:** invitar (entre quienes ya entraron al módulo, §6.2) con
+  rol y mensaje; aviso `planificacion.invitacion_equipo` en la campana del
+  Portal; aceptar / rechazar desde *Invitaciones*; cancelar; el aviso se
+  resuelve al responder.
 - **Tablero personal** automático en el primer ingreso.
 - **Tableros de equipo:** varios por equipo; crear, renombrar, archivar.
 - **Columnas:** Tareas / En curso / Hecho al crear; agregar, renombrar,
@@ -358,7 +387,14 @@ Alcance:
 - **Filtros** del tablero: urgencia, responsable, vencidas, texto.
 - **Mis tareas:** cards donde soy responsable, de todos mis tableros,
   agrupadas en *Vencidas / Esta semana / Más adelante / Sin fecha*.
-- **Portal:** ítems de menú *Mis tareas* y *Tableros* en `navigationConfig.ts`.
+- **Portal:** ítems de menú del módulo, accesos rápidos, tipo de aviso de
+  invitación (migración `notificaciones/0016`) y secreto de avisos en el
+  arranque local.
+
+Implementación: apps `equipos`, `tableros` e `integracion_portal` (41 tests);
+SPA con Tailwind y los tokens visuales del Portal, dnd-kit para arrastrar,
+TanStack Query (optimista, PATCH en serie por tarjeta) y Motion para las
+animaciones.
 
 Criterios de aceptación:
 - Dos miembros del mismo equipo ven y editan el mismo tablero; un tercero
@@ -377,10 +413,10 @@ Fuera de alcance: notificaciones, Gantt, exportaciones, checklist, adjuntos.
 que hayan entrado antes.
 
 Alcance:
-- **Portal:** migración con los tipos `planificacion.*` (§6.3); endpoint de
-  directorio de solo lectura por módulo (§6.2).
-- **Satélite:** cliente de notificaciones firmado; emisión de asignación,
-  mención, comentario nuevo y alta en equipo; resolución de eventos.
+- **Portal:** migración con los tipos `planificacion.*` restantes (§6.3);
+  endpoint de directorio de solo lectura por módulo (§6.2).
+- **Satélite:** emisión de asignación, mención y comentario nuevo (el cliente
+  firmado ya existe desde la fase 1).
 - **Menciones** con `@` en comentarios (autocompletado entre miembros).
 - **Tarea programada diaria** de vencimientos (por vencer / vencida).
 - **Historial** de la card y del tablero (pestaña *Actividad* en la card
@@ -474,7 +510,11 @@ cabecera `X-CSRFToken`.
 | Recurso | Operaciones |
 |---|---|
 | `equipos/` | listar (los míos), crear, ver, editar, archivar |
-| `equipos/:id/miembros/` | listar, agregar, cambiar rol, quitar |
+| `equipos/:id/miembros/` | listar, cambiar rol, quitar |
+| `equipos/:id/invitaciones/` | listar pendientes, invitar (admin del equipo) |
+| `invitaciones/` | mis invitaciones pendientes |
+| `invitaciones/:id/aceptar/` · `rechazar/` · `cancelar/` | responder (invitado) o cancelar (admin) |
+| `equipos/:id/salir/` | salir del equipo |
 | `personas/?q=` | buscador de personas (§6.2) |
 | `tableros/` | listar (personal + de mis equipos), crear, ver, editar, archivar |
 | `tableros/:id/columnas/` | crear, editar, reordenar, archivar (con destino de cards) |
@@ -493,7 +533,8 @@ cabecera `X-CSRFToken`.
 | # | Decisión | Propuesta |
 |---|---|---|
 | D-01 | ¿Fechas con hora o solo día? | Solo día en fases 1–4 |
-| D-02 | ¿Quién crea equipos? | Cualquier usuario con acceso al módulo |
+| D-02 | ¿Quién crea equipos? | Cualquier usuario con acceso al módulo (**decidido**) |
+| D-08 | ¿Cómo se entra a un equipo? | Solo por invitación aceptada (**decidido**) |
 | D-03 | Umbral de "vence pronto" | 2 días hábiles, configurable más adelante |
 | D-04 | ¿Comentarios en el tablero personal? | Sí, como notas propias (nadie más los ve) |
 | D-05 | Librería de Gantt | Prueba técnica al inicio de la fase 3 |

@@ -1,111 +1,208 @@
-:root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+@import "tailwindcss";
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+/*
+ * Sistema visual de Planificación = el del Portal Paldaca
+ * (Portal-Paldaca/frontend/src/styles/base.css, home.css, paldaca-nav.css):
+ * Poppins para títulos, Geist Sans para texto, morado de marca #32407b,
+ * azul marino #141644, rojo #ed2546 reservado para lo urgente/destructivo,
+ * y la curva de animación cubic-bezier(0.22, 1, 0.36, 1) del Home.
+ */
+@theme {
+  --font-sans: "Geist Sans", "Poppins", system-ui, sans-serif;
+  --font-display: "Poppins", "Geist Sans", system-ui, sans-serif;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --color-morado: #32407b;
+  --color-marino: #141644;
+  --color-azul: #282c89;
+  --color-rojo: #ed2546;
+  --color-texto: #2a2f52;
+  --color-tenue: #5a6294;
+  --color-linea: #d8dcf0;
+  --color-fondo: #f5f6fb;
+  --color-columna: #eceef8;
 
-  @media (max-width: 1024px) {
-    font-size: 16px;
+  --ease-suave: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-rise: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-pop: pop 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-fade: fade 0.2s ease-out both;
+  --animate-shimmer: shimmer 1.4s ease-in-out infinite;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: scale(0.94) translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes shimmer {
+    0% {
+      background-position: -400px 0;
+    }
+    100% {
+      background-position: 400px 0;
+    }
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
+html,
+body {
+  margin: 0;
+  background: var(--color-fondo);
+  color: var(--color-texto);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
+/* Embebido en el Portal: el shell ya pinta el fondo del área de trabajo. */
+html[data-embebido="true"],
+html[data-embebido="true"] body {
+  background: #fff;
 }
 
 #root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
+  min-height: 100vh;
 }
 
-body {
-  margin: 0;
+::selection {
+  background: color-mix(in srgb, var(--color-morado) 22%, transparent);
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
+/* Entrada que NO retiene el estado final: la usan elementos que además
+   mueve dnd-kit con `transform` inline (una animación con fill-mode
+   `both` lo pisaría y la columna no se vería al arrastrarla). */
+.entrada {
+  animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
+/* Retardo escalonado para entradas en cascada: style={{"--retardo": "80ms"}} */
+.retardo {
+  animation-delay: var(--retardo, 0ms);
+}
+
+/* ── Esqueletos de carga ─────────────────────────────────────────────── */
+.esqueleto {
+  border-radius: 10px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-linea) 55%, #fff) 0%,
+    color-mix(in srgb, var(--color-linea) 25%, #fff) 50%,
+    color-mix(in srgb, var(--color-linea) 55%, #fff) 100%
+  );
+  background-size: 800px 100%;
+  animation: var(--animate-shimmer);
+}
+
+/* ── Diálogos (Radix): entrada y salida animadas por data-state ────────── */
+.dialogo-fondo[data-state="open"] {
+  animation: fade 0.22s ease-out both;
+}
+.dialogo-fondo[data-state="closed"] {
+  animation: fade 0.16s ease-in reverse both;
+}
+.dialogo-panel[data-state="open"] {
+  animation: dialogo-entra 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.dialogo-panel[data-state="closed"] {
+  animation: dialogo-sale 0.16s ease-in both;
+}
+@keyframes dialogo-entra {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
+@keyframes dialogo-sale {
+  to {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
   }
 }
-p {
-  margin: 0;
+
+/* Menús y popovers de Radix */
+.flotante[data-state="open"] {
+  animation: flotante-entra 0.18s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.flotante[data-state="closed"] {
+  animation: fade 0.12s ease-in reverse both;
+}
+@keyframes flotante-entra {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
+/* ── Tablero ─────────────────────────────────────────────────────────── */
+.kanban-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-morado) 30%, transparent) transparent;
 }
 
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+/* Tarjeta levantada mientras se arrastra (DragOverlay) */
+.tarjeta-arrastrada {
+  transform: rotate(2.5deg) scale(1.03);
+  box-shadow:
+    0 22px 40px -18px color-mix(in srgb, var(--color-morado) 60%, transparent),
+    0 4px 12px -4px rgba(15, 23, 42, 0.12);
+  cursor: grabbing;
+}
+
+/* Marca de "terminada" al caer en una columna final */
+@keyframes check-burst {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.check-burst {
+  animation: check-burst 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

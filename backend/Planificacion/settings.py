@@ -57,6 +57,9 @@ INSTALLED_APPS = [
     "corsheaders",
     "core",
     "paldaca_sso",
+    "integracion_portal",
+    "equipos",
+    "tableros",
 ]
 
 MIDDLEWARE = [
@@ -204,7 +207,11 @@ REST_FRAMEWORK = {
     # PaldacaSsoBootstrapMiddleware antes de llegar aquí — no hay login por
     # usuario/password en esta API.
     "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework.authentication.SessionAuthentication"],
-    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.AllowAny"],
+    # Cerrada por defecto: con PALDACA_SSO_ENABLED=false (deploy dark) el
+    # middleware no actúa y esta API quedaría abierta (guía de módulo
+    # federado, paso 6). Las vistas públicas (`me`, `logout`, `resync`,
+    # `health`) declaran AllowAny explícitamente.
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
 }
 
 
@@ -239,6 +246,17 @@ PALDACA_SSO_BREAKER_OPEN_SECONDS = int(os.getenv("PALDACA_SSO_BREAKER_OPEN_SECON
 # construir esa pantalla en el frontend.
 PALDACA_SSO_BREAKGLASS_ENABLED = _bool_env("PALDACA_SSO_BREAKGLASS_ENABLED", "false")
 PALDACA_SSO_ADOPT_LOCAL_USERS = _bool_env("PALDACA_SSO_ADOPT_LOCAL_USERS", "true")
+
+
+# --- Avisos en la campana del Portal (integracion_portal/notificaciones.py) ---
+# Firma con secreto PROPIO del módulo (>= 32 caracteres); debe coincidir con
+# PALDACA_NOTIF_SECRET_PLANIFICACION del Portal. Vacío = no se emiten avisos.
+
+PALDACA_NOTIFICACIONES_ACTIVAS = _bool_env("PALDACA_NOTIFICACIONES_ACTIVAS", "true")
+PALDACA_NOTIF_SECRET = os.getenv("PALDACA_NOTIF_SECRET", "")
+# En un hilo aparte tras el commit, para que un Portal lento no demore la
+# respuesta. Los tests lo apagan para poder afirmar sobre el envío.
+PALDACA_NOTIF_ASINCRONO = _bool_env("PALDACA_NOTIF_ASINCRONO", "true")
 
 
 # --- Contrato paldaca-embed v1 ----------------------------------------------

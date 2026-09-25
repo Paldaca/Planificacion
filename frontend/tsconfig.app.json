@@ -20,7 +20,10 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    /* Alias, igual que el Portal */
+    "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src"]
 }
