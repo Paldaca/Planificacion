@@ -35,12 +35,12 @@ class EquiposTests(ApiTestCase):
         equipo = self.crear_equipo()
         cliente = self.cliente(self.ana)
         cliente.post(f"/api/v1/equipos/{equipo['id']}/invitaciones/", {"usuario": self.beto.pk}, format="json")
-        encontrados = cliente.get("/api/v1/personas/", {"q": "a", "equipo": equipo["id"]}).json()
-        self.assertEqual(encontrados, [])  # q de 1 letra no busca
-        nombres = {
-            p["username"]
-            for p in cliente.get("/api/v1/personas/", {"q": "ar", "equipo": equipo["id"]}).json()
-        }
+        corta = cliente.get("/api/v1/personas/", {"q": "ar", "equipo": equipo["id"]}).json()
+        self.assertEqual(corta["resultados"], [])  # menos de 3 letras no busca
+        # Sin cookie del Portal: respaldo local (cuentas que ya entraron al módulo).
+        respuesta = cliente.get("/api/v1/personas/", {"q": "@cpaldaca", "equipo": equipo["id"]}).json()
+        self.assertEqual(respuesta["fuente"], "local")
+        nombres = {p["username"] for p in respuesta["resultados"]}
         self.assertEqual(nombres, {"carla"})  # ana (yo), beto (pendiente) y ajeno (sin módulo) fuera
 
     @override_settings(PALDACA_NOTIF_SECRET="s" * 40, PALDACA_PORTAL_API_URL="http://portal.test")

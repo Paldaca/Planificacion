@@ -13,6 +13,12 @@ export type Persona = {
   disciplina: string | null;
 };
 
+/** Resultado del buscador de invitados: `id` es la cuenta local (null si la
+ *  persona aún no entró al módulo); `portal_id` viene del Portal. */
+export type PersonaBuscada = Omit<Persona, "id"> & { id: number | null; portal_id?: number };
+
+export type BusquedaPersonas = { resultados: PersonaBuscada[]; fuente: "portal" | "local" };
+
 export type EquipoBreve = { id: number; nombre: string; color: string };
 
 export type Columna = {

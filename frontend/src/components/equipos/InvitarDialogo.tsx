@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { useInvitar, usePersonas } from "@/api/queries";
-import type { Equipo, Persona, RolEquipo } from "@/api/tipos";
+import type { Equipo, Persona, PersonaBuscada, RolEquipo } from "@/api/tipos";
 import { Avatar } from "@/components/ui/Avatar";
 import { Boton } from "@/components/ui/Boton";
 import { Campo, Entrada } from "@/components/ui/Campos";
@@ -18,6 +18,11 @@ const OPCIONES_ROL: { rol: RolEquipo; titulo: string; texto: string }[] = [
   { rol: "administrador", titulo: "Administrador", texto: "Además gestiona miembros, columnas y tableros." },
 ];
 
+/** Para pintar el avatar: el color sale del id local o, si aún no existe, del Portal. */
+function comoPersona(p: PersonaBuscada): Persona {
+  return { ...p, id: p.id ?? p.portal_id ?? 0 };
+}
+
 function useRetardado<T>(valor: T, ms = 250): T {
   const [v, setV] = useState(valor);
   useEffect(() => {
@@ -30,11 +35,12 @@ function useRetardado<T>(valor: T, ms = 250): T {
 /** Invitar: la persona recibe un aviso en la campana del Portal y decide. */
 export function InvitarDialogo({ equipo, abierto, onCerrar }: { equipo: Equipo; abierto: boolean; onCerrar: () => void }) {
   const [q, setQ] = useState("");
-  const [elegida, setElegida] = useState<Persona | null>(null);
+  const [elegida, setElegida] = useState<PersonaBuscada | null>(null);
   const [rol, setRol] = useState<RolEquipo>("miembro");
   const [mensaje, setMensaje] = useState("");
   const busqueda = useRetardado(q);
-  const { data: personas, isFetching } = usePersonas(busqueda, equipo.id);
+  const { data, isFetching } = usePersonas(busqueda, equipo.id);
+  const personas = data?.resultados;
   const invitar = useInvitar(equipo.id);
 
   useEffect(() => {
@@ -48,7 +54,8 @@ export function InvitarDialogo({ equipo, abierto, onCerrar }: { equipo: Equipo; 
 
   async function enviar() {
     if (!elegida) return;
-    await invitar.mutateAsync({ usuario: elegida.id, rol, mensaje });
+    const referencia = elegida.portal_id !== undefined ? { portal_id: elegida.portal_id } : { usuario: elegida.id ?? undefined };
+    await invitar.mutateAsync({ ...referencia, rol, mensaje });
     toast.success(`Invitación enviada a ${elegida.nombre}`, {
       description: "Le llegará un aviso en la campana del Portal.",
     });
@@ -86,7 +93,7 @@ export function InvitarDialogo({ equipo, abierto, onCerrar }: { equipo: Equipo; 
                 exit={{ opacity: 0 }}
                 className="flex items-center gap-3 rounded-2xl border border-morado/30 bg-morado/5 px-3.5 py-2.5"
               >
-                <Avatar persona={elegida} tamano="md" conTooltip={false} />
+                <Avatar persona={comoPersona(elegida)} tamano="md" conTooltip={false} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-texto">{elegida.nombre}</p>
                   <p className="truncate text-xs text-tenue">{elegida.disciplina ?? elegida.email}</p>
@@ -103,13 +110,21 @@ export function InvitarDialogo({ equipo, abierto, onCerrar }: { equipo: Equipo; 
                     autoFocus
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
-                    placeholder="Nombre, usuario o correo"
+                    placeholder="Nombre, apellido, usuario, correo o cédula"
                     className="pl-10"
                   />
                 </div>
                 <div className="mt-2 max-h-56 overflow-y-auto">
-                  {busqueda.trim().length < 2 ? (
-                    <p className="px-1 py-2 text-xs text-tenue">Escribe al menos 2 letras.</p>
+                  {data?.fuente === "local" && busqueda.trim().length >= 3 && (
+                    <p className="mb-2 flex gap-2 rounded-xl bg-[#fffbeb] px-3 py-2 text-xs text-[#b45309]">
+                      <Info className="mt-0.5 size-3.5 shrink-0" />
+                      El Portal no respondió: por ahora solo aparecen quienes ya entraron a Planificación.
+                    </p>
+                  )}
+                  {busqueda.trim().length < 3 ? (
+                    <p className="px-1 py-2 text-xs text-tenue">
+                      Escribe al menos 3 caracteres. Aparecen las personas del Portal con acceso a Planificación.
+                    </p>
                   ) : isFetching && !personas ? (
                     <div className="space-y-1.5">
                       <Esqueleto className="h-12" />
@@ -118,13 +133,13 @@ export function InvitarDialogo({ equipo, abierto, onCerrar }: { equipo: Equipo; 
                   ) : personas && personas.length ? (
                     <ul className="space-y-1">
                       {personas.map((p, i) => (
-                        <motion.li key={p.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
+                        <motion.li key={p.portal_id ?? p.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
                           <button
                             type="button"
                             onClick={() => setElegida(p)}
                             className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-morado/8"
                           >
-                            <Avatar persona={p} tamano="sm" conTooltip={false} />
+                            <Avatar persona={comoPersona(p)} tamano="sm" conTooltip={false} />
                             <span className="min-w-0 flex-1">
                               <span className="block truncate text-sm font-medium text-texto">{p.nombre}</span>
                               <span className="block truncate text-xs text-tenue">{p.disciplina ?? p.email}</span>
@@ -136,8 +151,9 @@ export function InvitarDialogo({ equipo, abierto, onCerrar }: { equipo: Equipo; 
                   ) : (
                     <p className="flex gap-2 rounded-xl bg-fondo px-3 py-3 text-xs leading-relaxed text-tenue">
                       <Info className="mt-0.5 size-4 shrink-0 text-morado" />
-                      Nadie coincide. Solo aparecen personas con acceso a Planificación que ya entraron al
-                      módulo al menos una vez, y que no están ya en el equipo ni invitadas.
+                      Nadie coincide. Solo aparecen personas con acceso a Planificación en el Portal que no
+                      están ya en el equipo ni invitadas. Si falta alguien, pide a un administrador del Portal
+                      que le habilite el módulo.
                     </p>
                   )}
                 </div>

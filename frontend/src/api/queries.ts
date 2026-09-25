@@ -26,6 +26,7 @@ import type {
   Invitacion,
   Miembro,
   MisTarea,
+  BusquedaPersonas,
   Persona,
   RolEquipo,
   TableroDetalle,
@@ -132,10 +133,10 @@ export const usePersonas = (q: string, equipo?: number) =>
   useQuery({
     queryKey: claves.personas(q, equipo),
     queryFn: () =>
-      api.get<Persona[]>(
+      api.get<BusquedaPersonas>(
         `${V1}/personas/?q=${encodeURIComponent(q)}${equipo ? `&equipo=${equipo}` : ""}`,
       ),
-    enabled: q.trim().length >= 2,
+    enabled: q.trim().length >= 3,
     staleTime: 30_000,
   });
 
@@ -554,7 +555,7 @@ export function useSalirEquipo(equipoId: number) {
 export function useInvitar(equipoId: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (datos: { usuario: number; rol: RolEquipo; mensaje?: string }) =>
+    mutationFn: (datos: { usuario?: number; portal_id?: number; rol: RolEquipo; mensaje?: string }) =>
       api.post<Invitacion>(`${V1}/equipos/${equipoId}/invitaciones/`, datos),
     onSuccess: (inv) => {
       qc.setQueryData<Invitacion[]>(claves.invitacionesEquipo(equipoId), (lista) => [inv, ...(lista ?? [])]);

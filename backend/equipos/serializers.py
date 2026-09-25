@@ -136,9 +136,17 @@ class InvitacionSerializer(serializers.ModelSerializer):
 
 
 class InvitarSerializer(serializers.Serializer):
-    usuario = serializers.IntegerField()
+    """`usuario` (id local) o `portal_id` (resultado del buscador del Portal)."""
+
+    usuario = serializers.IntegerField(required=False)
+    portal_id = serializers.IntegerField(required=False)
     rol = serializers.ChoiceField(choices=RolEquipo.choices, default=RolEquipo.MIEMBRO)
     mensaje = serializers.CharField(max_length=300, required=False, allow_blank=True)
+
+    def validate(self, datos):
+        if (datos.get("usuario") is None) == (datos.get("portal_id") is None):
+            raise serializers.ValidationError({"usuario": "Indica a quién invitar."})
+        return datos
 
 
 class CambiarRolSerializer(serializers.Serializer):
