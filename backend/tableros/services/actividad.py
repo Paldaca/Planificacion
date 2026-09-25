@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from integracion_portal.personas import nombre
+from integracion_portal.services.personas import nombre
 
-from .models import Actividad
+from tableros.models import Actividad
 
 # Campos cuyo antes/después se guarda tal cual. La descripción no: podría ser
 # larga y ya se ve completa en la tarjeta; basta con saber que cambió.

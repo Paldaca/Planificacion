@@ -4,10 +4,10 @@ import re
 
 from rest_framework import serializers
 
-from integracion_portal.personas import persona
-from tableros import permisos
+from integracion_portal.services.personas import persona
+from equipos import permisos
 
-from .models import Equipo, EstadoInvitacion, InvitacionEquipo, MiembroEquipo, RolEquipo
+from equipos.models import Equipo, EstadoInvitacion, InvitacionEquipo, MiembroEquipo, RolEquipo
 
 COLOR_HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
 

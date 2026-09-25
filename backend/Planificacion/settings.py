@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     "paldaca_sso",
     "integracion_portal",
     "equipos",
+    "calendario",
     "tableros",
 ]
 
@@ -212,6 +213,8 @@ REST_FRAMEWORK = {
     # federado, paso 6). Las vistas públicas (`me`, `logout`, `resync`,
     # `health`) declaran AllowAny explícitamente.
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+    # Traduce los errores de dominio de `services/` a HTTP (core/errores.py).
+    "EXCEPTION_HANDLER": "core.errores.manejador_excepciones",
 }
 
 

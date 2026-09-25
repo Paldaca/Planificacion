@@ -47,7 +47,7 @@ from django.utils import timezone
 
 from paldaca_sso import conf
 
-from .models import AvisoSaliente
+from integracion_portal.models import AvisoSaliente
 
 logger = logging.getLogger("planificacion.notificaciones")
 

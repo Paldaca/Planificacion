@@ -10,7 +10,7 @@ from equipos.models import InvitacionEquipo, MiembroEquipo
 from paldaca_sso import client as sso_client
 from paldaca_sso.models import CuentaPortal
 
-from .base import ApiTestCase, crear_usuario
+from core.testing import ApiTestCase, crear_usuario
 
 Usuario = get_user_model()
 

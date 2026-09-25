@@ -4,9 +4,9 @@ from unittest import mock
 from django.core.cache import cache
 from django.test import TestCase, override_settings
 
-from integracion_portal import notificaciones
+from integracion_portal.services import notificaciones
 
-from .base import ApiTestCase, crear_usuario
+from core.testing import ApiTestCase, crear_usuario
 
 SECRETO = "s" * 40
 
@@ -96,6 +96,6 @@ class ConfigTipoTests(TestCase):
         respuesta = mock.MagicMock()
         respuesta.__enter__.return_value.read.return_value = b'{"codigo": "x", "activo": true, "umbral_dias": 4}'
         with mock.patch.object(notificaciones.urllib.request, "urlopen", return_value=respuesta):
-            from tableros.avisos import umbral_por_vencer
+            from tableros.services.vencimientos import umbral_por_vencer
 
             self.assertEqual(umbral_por_vencer(), 4)

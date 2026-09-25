@@ -18,6 +18,20 @@ class RolEquipo(models.TextChoices):
     LECTOR = "lector", "Lector"
 
 
+class EquipoQuerySet(models.QuerySet):
+    def activos(self):
+        return self.filter(archivado=False)
+
+    def visibles_para(self, usuario):
+        """Activos donde es miembro; el administrador del módulo los ve todos."""
+        from core.roles import es_admin_modulo
+
+        qs = self.activos()
+        if es_admin_modulo(usuario):
+            return qs
+        return qs.filter(pk__in=MiembroEquipo.objects.filter(usuario=usuario).values("equipo_id"))
+
+
 class Equipo(models.Model):
     nombre = models.CharField(max_length=100)
     descripcion = models.TextField(blank=True, max_length=2000)
@@ -31,6 +45,8 @@ class Equipo(models.Model):
     archivado = models.BooleanField(default=False)
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)
+
+    objects = EquipoQuerySet.as_manager()
 
     class Meta:
         db_table = "planificacion_equipo"
@@ -77,6 +93,15 @@ class EstadoInvitacion(models.TextChoices):
     CANCELADA = "cancelada", "Cancelada"
 
 
+class InvitacionQuerySet(models.QuerySet):
+    def pendientes(self):
+        return self.filter(estado=EstadoInvitacion.PENDIENTE)
+
+    def pendientes_o_respondidas_desde(self, desde):
+        """Lo que ve quien administra el equipo: las vivas y el historial reciente."""
+        return self.filter(Q(estado=EstadoInvitacion.PENDIENTE) | Q(respondida_en__gte=desde))
+
+
 class InvitacionEquipo(models.Model):
     equipo = models.ForeignKey(Equipo, on_delete=models.CASCADE, related_name="invitaciones")
     invitado = models.ForeignKey(
@@ -97,6 +122,8 @@ class InvitacionEquipo(models.Model):
     )
     creada_en = models.DateTimeField(auto_now_add=True)
     respondida_en = models.DateTimeField(null=True, blank=True)
+
+    objects = InvitacionQuerySet.as_manager()
 
     class Meta:
         db_table = "planificacion_invitacion_equipo"

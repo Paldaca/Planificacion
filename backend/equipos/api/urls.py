@@ -6,7 +6,6 @@ urlpatterns = [
     path("equipos/", views.EquiposView.as_view(), name="equipos"),
     path("equipos/<int:pk>/", views.EquipoDetalleView.as_view(), name="equipo-detalle"),
     path("equipos/<int:pk>/archivar/", views.EquipoArchivarView.as_view(), name="equipo-archivar"),
-    path("equipos/<int:pk>/tableros/", views.EquipoTablerosView.as_view(), name="equipo-tableros"),
     path("equipos/<int:pk>/miembros/", views.MiembrosView.as_view(), name="equipo-miembros"),
     path(
         "equipos/<int:pk>/miembros/<int:miembro_pk>/",

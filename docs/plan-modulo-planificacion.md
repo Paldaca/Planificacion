@@ -77,15 +77,50 @@ Planificación
 
 ### 3.1 Backend (Django)
 
-Apps nuevas, además de `core` y `paldaca_sso` que ya existen:
+Una app por dominio; ninguna depende de otra "hacia arriba" (`tableros`
+depende de `equipos`, nunca al revés):
 
 | App | Responsabilidad |
 |---|---|
-| `equipos` | Equipos y membresías con roles |
-| `tableros` | Tableros, columnas, cards, responsables, comentarios, historial |
-| `vistas` | Cálculos para Gantt y Calendario (inclusión, agrupación, días hábiles) |
-| `exportacion` | Generación de Excel y XML de MS Project (e importación, fase 4) |
-| `integracion_portal` | Cliente de notificaciones firmado, directorio de personas, traducción usuario local ↔ `portal_user_id` |
+| `core` | Usuario espejo del Portal, roles (`roles.py`), errores de dominio (`errores.py`), utilidades de API (`api.py`) y base de pruebas (`testing.py`) |
+| `paldaca_sso` | SSO federado con el Portal (copiado del kit; no se toca) |
+| `integracion_portal` | ÚNICO punto que habla con el Portal: notificaciones firmadas con bandeja de salida, directorio de personas, traducción usuario local ↔ `portal_user_id` |
+| `equipos` | Equipos, membresías con roles, invitaciones y quién puede qué en un equipo |
+| `calendario` | Calendario laboral: feriados nacionales, puntuales y móviles (Carnaval, Semana Santa); días hábiles para duraciones, vencimientos y Gantt |
+| `tableros` | Tableros, columnas, cards, responsables, comentarios, checklist, historial, vencimientos |
+| `gantt` | Vista Gantt (fase 3): qué tarjetas entran, dependencias entre tarjetas y reprogramación de sucesoras en días hábiles. Las vistas Lista y Calendario no necesitan app propia: leen las tarjetas de `tableros` |
+| `exportacion` | Excel y XML de MS Project (e importación, fase 4) |
+| `plantillas` | Fase 5: tableros modelo (columnas + cards con duraciones relativas en días hábiles) para crear un tablero nuevo con un clic, y guardar un tablero existente como plantilla |
+
+Organización interna de cada app (guía de estilo de HackSoft adaptada a las
+recomendaciones de Django; ver la auditoría en §3.3):
+
+```
+<app>/
+  models.py      datos + reglas de UNA instancia (métodos) + consultas
+                 reutilizables en QuerySet propios (`Card.objects.activas()`,
+                 `Tablero.objects.visibles_para(u)`)
+  permisos.py    quién puede qué (funciones puras, sin HTTP)
+  services/      operaciones con efectos: una transacción que deja todo
+                 consistente (cambio + historial + avisos). Argumentos por
+                 nombre; lanzan `core.errores.*`
+  api/           serializers.py (formato de entrada/salida), views.py o
+                 views/<recurso>.py (delgadas: permiso → servicio →
+                 serializer), urls.py
+  tests/         base.py (escenario común) + test_<funcionalidad>.py
+```
+
+- Las **vistas no contienen reglas**: validan formato y permisos y llaman a un
+  servicio. Los **serializers no escriben**.
+- Las **lecturas** van en `QuerySet` encadenables, no en una capa aparte de
+  "selectors": el ORM de Django ya es esa capa.
+- Los **errores de dominio** (`ReglaDeNegocio`, `ConflictoDeVersion`,
+  `ServicioNoDisponible`) no saben de HTTP; `core.errores.manejador_excepciones`
+  (registrado en `REST_FRAMEWORK`) los traduce a 400 / 503 (el 409 lo arma la
+  vista con el estado actual), y también el `ValidationError` de Django.
+- **Señales solo donde un cambio puede llegar por varios caminos** (hoy:
+  invalidar la caché de feriados, que también se editan desde el admin). El
+  resto son llamadas explícitas.
 
 Reglas transversales:
 
@@ -122,6 +157,32 @@ Reglas transversales:
   (columnas deslizables, card abierta a pantalla completa).
 - El protocolo `paldaca-embed` (ya implementado en `src/embed/`) informa al
   Portal de cada navegación, así la URL del Portal refleja tablero y card.
+
+### 3.3 Auditoría de organización (septiembre 2026)
+
+Se revisó el backend contra la guía de estilo de HackSoft, la postura de
+James Bennett (lógica en modelos, managers y querysets; sin capas de
+servicio "enterprise") y la documentación de Django (aplicaciones, señales,
+transacciones y pruebas). Hallazgos corregidos:
+
+1. Orquestación (transacción, historial, avisos) dentro de las vistas → pasó a
+   `services/`.
+2. Consultas complejas repetidas en vistas → `QuerySet` propios.
+3. Utilidades compartidas en el paquete de configuración → `core/`.
+4. Dependencia circular `equipos` ↔ `tableros` (permisos y serializers) →
+   `equipos/permisos.py`; el listado de tableros de un equipo lo sirve la API
+   de `tableros`.
+5. Pruebas nombradas por fase → por funcionalidad, con escenarios en
+   `tests/base.py`.
+6. Nada garantizaba en la BD que `fecha_fin ≥ fecha_inicio` →
+   `CheckConstraint` y `Card.clean()` (el Gantt depende de ello).
+7. El manejador de errores ignoraba el `ValidationError` de Django → ahora
+   responde 400.
+
+Se mantuvo a propósito: un solo `settings.py` (el módulo es pequeño; el Portal
+sí los separa), el nombre del paquete `Planificacion` (renombrarlo toca los
+scripts de arranque y la guía de satélites) y una `APIView` por recurso en
+lugar de una por operación.
 
 ---
 
@@ -249,7 +310,7 @@ preguntar al Portal.
   directorio de administradores (`/api/auth/directorio/*`) no se usa: además
   de buscar permite crear usuarios en el Portal.
 - Planificación consulta ese endpoint con la cookie del Portal de quien opera
-  (`integracion_portal/directorio.py`). Si el Portal no responde, el buscador
+  (`integracion_portal/services/directorio.py`). Si el Portal no responde, el buscador
   cae a las cuentas que ya entraron al módulo y lo avisa.
 - Al invitar a alguien que nunca entró, se **confirma con el Portal** (`?id=`)
   y solo entonces se crea su cuenta espejo (contraseña inutilizable, nunca

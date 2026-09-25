@@ -8,8 +8,8 @@ Idempotente: correrlo de nuevo el mismo día no repite avisos.
 from django.core.management.base import BaseCommand
 from django.test.utils import override_settings
 
-from integracion_portal.notificaciones import procesar_pendientes
-from tableros.avisos import revisar_vencimientos
+from integracion_portal.services.notificaciones import procesar_pendientes
+from tableros.services.vencimientos import revisar
 
 
 class Command(BaseCommand):
@@ -18,7 +18,7 @@ class Command(BaseCommand):
     def handle(self, *args, **opciones):
         # Envío en el propio proceso: un hilo de fondo moriría al terminar el comando.
         with override_settings(PALDACA_NOTIF_ASINCRONO=False):
-            resumen = revisar_vencimientos()
+            resumen = revisar()
             envio = procesar_pendientes()
         self.stdout.write(
             f"Tarjetas revisadas: {resumen['revisadas']} | avisos nuevos: {resumen['avisadas']} | "

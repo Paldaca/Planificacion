@@ -8,12 +8,17 @@ Reglas que viven aquí (y no en el frontend):
 - Nada se borra en la operación normal: se archiva.
 - `version` en cards y columnas: concurrencia optimista (409 si está vieja).
 
+Lecturas reutilizables en los QuerySet (`Tablero.objects.visibles_para(u)`,
+`Card.objects.activas().con_detalle()`); reglas de UNA instancia en métodos
+del modelo; operaciones con efectos (historial, avisos) en `services/`.
+
 Ver docs/plan-modulo-planificacion.md §4.
 """
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import Q
+from django.db.models import Count, F, Q
 
 
 class TipoTablero(models.TextChoices):
@@ -51,6 +56,31 @@ COLUMNAS_PREDETERMINADAS = (
 )
 
 
+def _equipos_de(usuario):
+    from equipos.models import MiembroEquipo
+
+    return MiembroEquipo.objects.filter(usuario=usuario).values("equipo_id")
+
+
+def _q_visible(usuario, prefijo: str = "") -> Q:
+    """Tablero personal propio o de un equipo activo donde es miembro."""
+    return Q(**{f"{prefijo}tipo": TipoTablero.PERSONAL, f"{prefijo}propietario": usuario}) | Q(
+        **{
+            f"{prefijo}tipo": TipoTablero.EQUIPO,
+            f"{prefijo}equipo__archivado": False,
+            f"{prefijo}equipo_id__in": _equipos_de(usuario),
+        }
+    )
+
+
+class TableroQuerySet(models.QuerySet):
+    def activos(self):
+        return self.filter(archivado=False)
+
+    def visibles_para(self, usuario):
+        return self.activos().filter(_q_visible(usuario))
+
+
 class Tablero(models.Model):
     nombre = models.CharField(max_length=100)
     descripcion = models.TextField(blank=True, max_length=2000)
@@ -80,6 +110,8 @@ class Tablero(models.Model):
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)
 
+    objects = TableroQuerySet.as_manager()
+
     class Meta:
         db_table = "planificacion_tablero"
         ordering = ["nombre"]
@@ -105,6 +137,22 @@ class Tablero(models.Model):
     def es_personal(self) -> bool:
         return self.tipo == TipoTablero.PERSONAL
 
+    def personas_asignables(self) -> list:
+        """Quién puede ser responsable: el dueño (personal) o los miembros del equipo."""
+        if self.es_personal:
+            return [self.propietario]
+        return [
+            m.usuario
+            for m in self.equipo.miembros.select_related("usuario__disciplina").order_by(
+                "usuario__first_name", "usuario__last_name"
+            )
+        ]
+
+
+class ColumnaQuerySet(models.QuerySet):
+    def activas(self):
+        return self.filter(archivada=False).order_by("orden", "id")
+
 
 class Columna(models.Model):
     tablero = models.ForeignKey(Tablero, on_delete=models.CASCADE, related_name="columnas")
@@ -118,12 +166,42 @@ class Columna(models.Model):
     version = models.PositiveIntegerField(default=1)
     creado_en = models.DateTimeField(auto_now_add=True)
 
+    objects = ColumnaQuerySet.as_manager()
+
     class Meta:
         db_table = "planificacion_columna"
         ordering = ["orden", "id"]
 
     def __str__(self):
         return f"{self.tablero_id}/{self.nombre}"
+
+
+class CardQuerySet(models.QuerySet):
+    def activas(self):
+        """Visibles en el tablero: ni archivadas ni en columnas archivadas."""
+        return self.filter(archivada=False, columna__archivada=False)
+
+    def abiertas(self):
+        return self.filter(archivada=False, completada_en__isnull=True)
+
+    def visibles_para(self, usuario):
+        return self.filter(tablero__archivado=False).filter(_q_visible(usuario, "tablero__"))
+
+    def asignadas_a(self, usuario):
+        return self.filter(asignaciones__usuario=usuario)
+
+    def con_detalle(self):
+        """Todo lo que pinta una tarjeta, sin consultas por card."""
+        return self.select_related("columna", "creada_por", "tablero__equipo", "tablero__propietario").prefetch_related(
+            "asignaciones__usuario__disciplina"
+        ).annotate(
+            num_comentarios=Count("comentarios", filter=Q(comentarios__eliminado=False), distinct=True),
+            num_items=Count("checklist", distinct=True),
+            num_items_hechos=Count("checklist", filter=Q(checklist__hecho=True), distinct=True),
+        )
+
+    def por_fecha_fin(self):
+        return self.order_by(F("fecha_fin").asc(nulls_last=True), "id")
 
 
 class Card(models.Model):
@@ -160,15 +238,33 @@ class Card(models.Model):
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)
 
+    objects = CardQuerySet.as_manager()
+
     class Meta:
         db_table = "planificacion_card"
         ordering = ["orden", "id"]
         constraints = [
             models.UniqueConstraint(fields=["tablero", "numero"], name="numero_card_unico_por_tablero"),
+            models.CheckConstraint(
+                condition=Q(fecha_inicio__isnull=True) | Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=F("fecha_inicio")),
+                name="card_fin_no_antes_de_inicio",
+                violation_error_message="La fecha final no puede ser anterior a la de inicio.",
+            ),
         ]
 
     def __str__(self):
         return f"#{self.numero} {self.titulo}"
+
+    def clean(self):
+        if self.fecha_inicio and self.fecha_fin and self.fecha_fin < self.fecha_inicio:
+            raise ValidationError({"fecha_fin": "La fecha final no puede ser anterior a la de inicio."})
+
+    def alinear_con_columna(self, columna: Columna, ahora) -> None:
+        """En la columna final cuenta como terminada; fuera de ella, no."""
+        if columna.es_final:
+            self.completada_en = self.completada_en or ahora
+        else:
+            self.completada_en = None
 
 
 class ResponsableCard(models.Model):

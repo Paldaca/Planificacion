@@ -7,7 +7,7 @@ Programar cada pocos minutos (Scheduled Task de Coolify):
 from django.core.management.base import BaseCommand
 from django.test.utils import override_settings
 
-from integracion_portal.notificaciones import procesar_pendientes
+from integracion_portal.services.notificaciones import procesar_pendientes
 
 
 class Command(BaseCommand):

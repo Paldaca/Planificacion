@@ -3,29 +3,17 @@ from __future__ import annotations
 from django.utils import timezone
 from rest_framework import serializers
 
-from integracion_portal.personas import persona
+from integracion_portal.services.personas import persona
 
-from . import permisos
-from .models import Actividad, Card, Columna, Comentario, EnGantt, ItemChecklist, Tablero, Urgencia
-from .servicios import DIAS_HABILES_VENCE_PRONTO, vencimiento
+from tableros import permisos
+from tableros.models import Actividad, Card, Columna, Comentario, EnGantt, ItemChecklist, Tablero, Urgencia
+from tableros.services.vencimientos import DIAS_HABILES_VENCE_PRONTO, vencimiento
 
 
 def equipo_breve(equipo):
     if equipo is None:
         return None
     return {"id": equipo.pk, "nombre": equipo.nombre, "color": equipo.color}
-
-
-def personas_asignables(tablero) -> list:
-    """Quién puede ser responsable: el dueño (personal) o los miembros del equipo."""
-    if tablero.es_personal:
-        return [tablero.propietario]
-    return [
-        m.usuario
-        for m in tablero.equipo.miembros.select_related("usuario__disciplina").order_by(
-            "usuario__first_name", "usuario__last_name"
-        )
-    ]
 
 
 # --- Columnas -------------------------------------------------------------------
@@ -193,7 +181,7 @@ class CardEscrituraSerializer(serializers.Serializer):
             )
         if "responsables" in datos:
             tablero = self.context["tablero"]
-            permitidos = {u.pk: u for u in personas_asignables(tablero)}
+            permitidos = {u.pk: u for u in tablero.personas_asignables()}
             ids = list(dict.fromkeys(datos["responsables"]))
             ajenos = [i for i in ids if i not in permitidos]
             if ajenos:
@@ -201,6 +189,11 @@ class CardEscrituraSerializer(serializers.Serializer):
                     {"responsables": "Solo puedes asignar a personas de este tablero."}
                 )
             datos["responsables"] = [permitidos[i] for i in ids]
+        if "columna" in datos:
+            columna = self.context["tablero"].columnas.activas().filter(pk=datos["columna"]).first()
+            if columna is None:
+                raise serializers.ValidationError({"columna": "La columna no existe en este tablero."})
+            datos["columna"] = columna
         return datos
 
 
@@ -295,7 +288,7 @@ class TableroDetalleSerializer(TableroResumenSerializer):
         return CardResumenSerializer(tablero.cards_activas, many=True, context=self.context).data
 
     def get_personas(self, tablero):
-        return [persona(u) for u in personas_asignables(tablero)]
+        return [persona(u) for u in tablero.personas_asignables()]
 
     def get_mi_rol(self, tablero):
         if tablero.es_personal:
@@ -314,3 +307,17 @@ class TableroEscrituraSerializer(serializers.Serializer):
             raise serializers.ValidationError("El nombre no puede quedar vacío.")
         return valor.strip()
 
+
+
+# --- Mis tareas -------------------------------------------------------------------
+
+
+class MisTareaSerializer(CardResumenSerializer):
+    """Tarjeta de «Mis tareas»: lleva de qué tablero y columna viene."""
+
+    def to_representation(self, card):
+        datos = super().to_representation(card)
+        t = card.tablero
+        datos["tablero"] = {"id": t.pk, "nombre": t.nombre, "tipo": t.tipo, "equipo": equipo_breve(t.equipo)}
+        datos["columna_nombre"] = card.columna.nombre
+        return datos
