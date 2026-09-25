@@ -5,6 +5,7 @@ import {
   Check,
   CircleCheck,
   ArrowRightLeft,
+  ChartGantt,
   Flag,
   History,
   LayoutGrid,
@@ -23,13 +24,14 @@ import { ApiError } from "@/api/client";
 import {
   useArchivarCard,
   useCard,
+  useDependencias,
   usePatchCard,
   useTablero,
   useTableros,
   useTrasladarCard,
   type CambiosCard,
 } from "@/api/queries";
-import type { CardDetalle, Persona, TableroDetalle } from "@/api/tipos";
+import type { CardDetalle, EnGantt, Persona, TableroDetalle } from "@/api/tipos";
 import { nombreVisible, useIdentidad } from "@/auth/useIdentidad";
 import { Avatar } from "@/components/ui/Avatar";
 import { Boton } from "@/components/ui/Boton";
@@ -274,6 +276,10 @@ function Detalle({
             <Fechas card={card} puede={puede} onGuardar={guardar} />
           </Seccion>
 
+          <Seccion titulo="Gantt" icono={ChartGantt}>
+            <OpcionGantt card={card} tablero={tablero} puede={puede} onGuardar={(en_gantt) => guardar({ en_gantt })} />
+          </Seccion>
+
           <Seccion titulo="Responsables" icono={UsersRound}>
             <Responsables
               card={card}
@@ -311,6 +317,88 @@ function Detalle({
         </aside>
       </div>
     </>
+  );
+}
+
+const OPCIONES_GANTT: { id: EnGantt; etiqueta: string }[] = [
+  { id: "heredar", etiqueta: "Según columna" },
+  { id: "si", etiqueta: "Sí" },
+  { id: "no", etiqueta: "No" },
+];
+
+/** Si la tarjeta entra en el Gantt y de qué otras depende. */
+function OpcionGantt({
+  card,
+  tablero,
+  puede,
+  onGuardar,
+}: {
+  card: CardDetalle;
+  tablero: TableroDetalle;
+  puede: boolean;
+  onGuardar: (valor: EnGantt) => void;
+}) {
+  const { data: dependencias = [] } = useDependencias(tablero.id);
+  const columna = tablero.columnas.find((c) => c.id === card.columna);
+  const titulo = (id: number) => tablero.cards.find((c) => c.id === id)?.titulo ?? `#${id}`;
+  const antes = dependencias.filter((d) => d.sucesora === card.id);
+  const despues = dependencias.filter((d) => d.predecesora === card.id);
+  const sinFechas = !card.fecha_inicio || !card.fecha_fin;
+
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-3 gap-1 rounded-xl bg-fondo p-1">
+        {OPCIONES_GANTT.map((o) => {
+          const activa = card.en_gantt === o.id;
+          return (
+            <button
+              key={o.id}
+              type="button"
+              disabled={!puede}
+              onClick={() => !activa && onGuardar(o.id)}
+              className={cn(
+                "relative rounded-lg px-1.5 py-1.5 text-[0.72rem] font-semibold transition-colors",
+                activa ? "text-morado" : "text-tenue hover:text-morado disabled:hover:text-tenue",
+              )}
+            >
+              {activa && (
+                <motion.span
+                  layoutId={`gantt-${card.id}`}
+                  className="absolute inset-0 rounded-lg bg-white shadow-sm"
+                  transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                />
+              )}
+              <span className="relative">{o.etiqueta}</span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-xs text-tenue">
+        {card.en_gantt_efectivo
+          ? sinFechas
+            ? "Entra en el Gantt, pero le faltan fechas: aparece en la bandeja «Sin fechas»."
+            : "Aparece en el Gantt."
+          : card.en_gantt === "heredar"
+            ? `No aparece: la columna ${columna?.nombre ?? ""} está fuera del Gantt.`
+            : "No aparece en el Gantt."}
+      </p>
+      {(antes.length > 0 || despues.length > 0) && (
+        <ul className="space-y-1 text-xs">
+          {antes.map((d) => (
+            <li key={d.id} className={cn("flex gap-1.5", d.incumplida ? "text-[#b91c1c]" : "text-texto")}>
+              <span className="shrink-0 text-tenue">Después de</span>
+              <span className="truncate font-semibold">{titulo(d.predecesora)}</span>
+            </li>
+          ))}
+          {despues.map((d) => (
+            <li key={d.id} className="flex gap-1.5 text-texto">
+              <span className="shrink-0 text-tenue">Antes de</span>
+              <span className="truncate font-semibold">{titulo(d.sucesora)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

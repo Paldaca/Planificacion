@@ -149,10 +149,11 @@ Reglas transversales:
 - **Estado de servidor** con una librería de caché de peticiones (propuesta:
   TanStack Query) para actualizaciones optimistas y reintentos.
 - **Arrastrar y soltar** accesible con teclado (propuesta: dnd-kit).
-- **Gantt:** librería a decidir con una prueba de 2–3 días en la fase 3
-  (candidata principal: SVAR React Gantt, licencia MIT; alternativa: Gantt
-  propio en SVG). El cálculo de fechas y agrupaciones lo hace el backend, así
-  que la librería solo dibuja y es reemplazable.
+- **Gantt propio** (HTML + SVG, `components/gantt/`, sin librería externa):
+  así usa el mismo estilo, los mismos datos en caché que el Kanban y el
+  calendario laboral del backend. La geometría (rango, filas, rutas de
+  flechas) es pura en `lib/gantt.ts`; las reglas (inclusión, dependencias,
+  reprogramación en días hábiles) las decide el backend.
 - **Diseño adaptable** desde la fase 1: el tablero debe usarse en el celular
   (columnas deslizables, card abierta a pantalla completa).
 - El protocolo `paldaca-embed` (ya implementado en `src/embed/`) informa al
@@ -508,7 +509,7 @@ Criterios de aceptación:
   registrado.
 - El vector de prueba de la firma (anexo de la guía) da el valor esperado.
 
-### Fase 3 — Gantt y vistas
+### Fase 3 — Gantt y vistas — ✅ implementada
 
 **Objetivo:** ver el mismo tablero como línea de tiempo, calendario o lista.
 
@@ -530,7 +531,37 @@ Alcance:
 - **Calendario laboral** (días hábiles y feriados) para duraciones y
   vencimientos.
 - **Vista Lista** (tabla ordenable) y **vista Calendario** (mensual/semanal).
-- Prueba técnica de 2–3 días al inicio para elegir la librería del Gantt.
+- ~~Prueba técnica para elegir librería~~: se hizo un Gantt propio (ver §3.2).
+
+Cómo quedó:
+- `?vista=tablero|lista|calendario|gantt` en la URL (enlazable, el Portal la
+  refleja); si no viene, la última usada en ese tablero. La tarjeta abierta
+  conserva la vista al cerrarse. Los filtros aplican a las cuatro vistas.
+- **Lista:** tabla ordenable por cualquier columna (las fechas vacías siempre
+  al final).
+- **Calendario:** cuadrícula mensual lunes→domingo, tarjetas como barras que
+  cruzan semanas, feriados y fines de semana sombreados, «+N más» por día y
+  arrastrar para cambiar la fecha (conserva la duración).
+- **Gantt:** agrupar por columna, responsable o urgencia (plegables); zoom
+  día / semana / mes; línea de hoy; mover y estirar barras; bandeja «Sin
+  fechas»; flechas de dependencia (se crean arrastrando desde el punto al
+  final de una barra; clic en una flecha para cambiar tipo, desfase o
+  quitarla); las incumplidas en rojo punteado; interruptor «Mover
+  sucesoras».
+- **Dependencias** (`gantt.Dependencia`): fin→inicio, inicio→inicio y
+  fin→fin, desfase en días hábiles (negativo = solape); sin ciclos ni entre
+  tableros; al trasladar una tarjeta se pierden (señal `tarjeta_trasladada`,
+  así `tableros` no depende de `gantt`). Empezar en un día no hábil cuenta
+  como empezar el siguiente hábil.
+- **Reprogramar** (`cards/:id/programar/`): solo empuja hacia adelante,
+  conserva la duración hábil de cada sucesora, no toca tarjetas terminadas ni
+  sin fechas, y cada cambio pasa por la misma edición que una a mano
+  (historial, avisos, vencimientos).
+- **Calendario laboral** (`calendario`): feriados nacionales sembrados,
+  móviles calculados desde la Pascua (Carnaval, Jueves y Viernes Santo) y
+  puntuales o recurrentes que agrega el administrador del módulo.
+- Columna: «Incluir en el Gantt / Sacar del Gantt» en su menú. Tarjeta:
+  «Gantt: Según columna / Sí / No» y la lista de dependencias.
 
 Criterios de aceptación:
 - Un cambio hecho en el Gantt se ve de inmediato en el Tablero y viceversa.
@@ -599,7 +630,9 @@ cabecera `X-CSRFToken`.
 | `cards/:id/checklist/` · `checklist/:id/` | añadir · marcar, renombrar, eliminar |
 | `cards/:id/trasladar/` | llevar la card a un tablero de equipo |
 | `mis-tareas/` | cards donde soy responsable |
-| `tableros/:id/gantt/` | cards incluidas, grupos, dependencias, calendario (fase 3) |
+| `tableros/:id/dependencias/` · `dependencias/:id/` | listar (con `incumplida`), crear · cambiar tipo o desfase, quitar |
+| `cards/:id/programar/` | nuevas fechas y, con `mover_sucesoras`, empujar la cadena (devuelve las tarjetas cambiadas) |
+| `calendario/feriados/?desde&hasta` · `calendario/feriados/:id/` | feriados del rango (fijos, puntuales y móviles) · alta y baja (admin del módulo) |
 | `tableros/:id/exportar/?formato=xlsx|mspdi` | exportación (fase 4) |
 
 ---

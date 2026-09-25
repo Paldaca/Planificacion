@@ -50,6 +50,7 @@ class CardResumenSerializer(serializers.ModelSerializer):
     checklist = serializers.SerializerMethodField()
     tiene_descripcion = serializers.SerializerMethodField()
     vencimiento = serializers.SerializerMethodField()
+    en_gantt_efectivo = serializers.BooleanField(source="entra_en_gantt", read_only=True)
 
     class Meta:
         model = Card
@@ -64,6 +65,7 @@ class CardResumenSerializer(serializers.ModelSerializer):
             "columna",
             "orden",
             "en_gantt",
+            "en_gantt_efectivo",
             "responsables",
             "comentarios",
             "checklist",

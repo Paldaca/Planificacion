@@ -21,6 +21,7 @@ urlpatterns = [
     path("api/v1/", include("equipos.api.urls")),
     path("api/v1/", include("tableros.api.urls")),
     path("api/v1/", include("calendario.api.urls")),
+    path("api/v1/", include("gantt.api.urls")),
     # Catch-all: sirve el shell de la SPA para cualquier ruta que no sea
     # /admin/, /api/, /static/ o /assets/ — el ruteo real lo hace React
     # Router del lado del cliente. Debe ser el ÚLTIMO patrón.

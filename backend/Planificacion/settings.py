@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     "equipos",
     "calendario",
     "tableros",
+    "gantt",
 ]
 
 MIDDLEWARE = [

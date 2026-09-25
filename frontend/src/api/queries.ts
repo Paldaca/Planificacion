@@ -26,7 +26,10 @@ import type {
   CardResumen,
   Columna,
   Comentario,
+  Dependencia,
+  EnGantt,
   Equipo,
+  Feriado,
   Invitacion,
   Miembro,
   MisTarea,
@@ -35,6 +38,7 @@ import type {
   RolEquipo,
   TableroDetalle,
   TableroResumen,
+  TipoDependencia,
   Urgencia,
 } from "./tipos";
 
@@ -55,6 +59,8 @@ export const claves = {
   tablerosEquipo: (id: number) => ["equipo", id, "tableros"] as const,
   misInvitaciones: ["invitaciones"] as const,
   personas: (q: string, equipo?: number) => ["personas", q, equipo ?? null] as const,
+  dependencias: (tableroId: number) => ["tablero", tableroId, "dependencias"] as const,
+  feriados: (desde: string, hasta: string) => ["feriados", desde, hasta] as const,
 };
 
 function avisarError(error: unknown) {
@@ -162,10 +168,33 @@ export const usePersonas = (q: string, equipo?: number) =>
     staleTime: 30_000,
   });
 
+export const useDependencias = (tableroId: number, habilitado = true) =>
+  useQuery({
+    queryKey: claves.dependencias(tableroId),
+    queryFn: () => api.get<Dependencia[]>(`${V1}/tableros/${tableroId}/dependencias/`),
+    enabled: habilitado && Number.isFinite(tableroId),
+    refetchInterval: refrescoVivo(30_000),
+  });
+
+/** Feriados entre dos fechas "YYYY-MM-DD" (fijos, puntuales y móviles). */
+export const useFeriados = (desde: string, hasta: string) =>
+  useQuery({
+    queryKey: claves.feriados(desde, hasta),
+    queryFn: () => api.get<Feriado[]>(`${V1}/calendario/feriados/?desde=${desde}&hasta=${hasta}`),
+    staleTime: 10 * 60_000,
+    placeholderData: (previo) => previo,
+  });
+
 // --- Utilidades de caché del tablero ------------------------------------------------
 
 function editarTablero(qc: QueryClient, id: number, cambio: (t: TableroDetalle) => TableroDetalle) {
   qc.setQueryData<TableroDetalle>(claves.tablero(id), (t) => (t ? cambio(t) : t));
+}
+
+/** Espejo de `Card.entra_en_gantt` para las actualizaciones optimistas. */
+function entraEnGantt(enGantt: EnGantt, columna: Columna | undefined): boolean {
+  if (enGantt === "heredar") return columna?.incluir_en_gantt ?? true;
+  return enGantt === "si";
 }
 
 function reemplazarCard(qc: QueryClient, tableroId: number, card: CardResumen) {
@@ -275,15 +304,28 @@ export function useEditarColumna(tableroId: number) {
   const qc = useQueryClient();
   return useMutation({
     scope: { id: `columnas-${tableroId}` },
-    mutationFn: ({ id, cambios }: { id: number; cambios: Partial<Pick<Columna, "nombre" | "es_final">> }) => {
+    mutationFn: ({
+      id,
+      cambios,
+    }: {
+      id: number;
+      cambios: Partial<Pick<Columna, "nombre" | "es_final" | "incluir_en_gantt">>;
+    }) => {
       const version = qc.getQueryData<TableroDetalle>(claves.tablero(tableroId))?.columnas.find((c) => c.id === id)?.version;
       return api.patch<Columna>(`${V1}/columnas/${id}/`, { ...cambios, version });
     },
     onMutate: ({ id, cambios }) =>
-      editarTablero(qc, tableroId, (t) => ({
-        ...t,
-        columnas: t.columnas.map((c) => (c.id === id ? { ...c, ...cambios } : c)),
-      })),
+      editarTablero(qc, tableroId, (t) => {
+        const columnas = t.columnas.map((c) => (c.id === id ? { ...c, ...cambios } : c));
+        const columna = columnas.find((c) => c.id === id);
+        const cards =
+          "incluir_en_gantt" in cambios
+            ? t.cards.map((c) =>
+                c.columna === id ? { ...c, en_gantt_efectivo: entraEnGantt(c.en_gantt, columna) } : c,
+              )
+            : t.cards;
+        return { ...t, columnas, cards };
+      }),
     onSuccess: (col, { cambios }) => {
       editarTablero(qc, tableroId, (t) => ({ ...t, columnas: t.columnas.map((c) => (c.id === col.id ? col : c)) }));
       if ("es_final" in cambios) {
@@ -334,6 +376,7 @@ export type CambiosCard = {
   urgencia?: Urgencia;
   responsables?: number[];
   columna?: number;
+  en_gantt?: EnGantt;
 };
 
 export function useCrearCard(tableroId: number) {
@@ -388,9 +431,12 @@ export function usePatchCard(tableroId: number) {
           .map((id) => tablero.personas.find((p) => p.id === id))
           .filter((p): p is Persona => Boolean(p));
       }
+      const actual = tablero?.cards.find((c) => c.id === card.id);
       if ("fecha_fin" in cambios) {
-        const actual = tablero?.cards.find((c) => c.id === card.id);
         extra.vencimiento = calcularVencimiento(cambios.fecha_fin ?? null, Boolean(actual?.completada_en));
+      }
+      if (cambios.en_gantt && actual) {
+        extra.en_gantt_efectivo = entraEnGantt(cambios.en_gantt, tablero?.columnas.find((c) => c.id === actual.columna));
       }
       qc.setQueryData<CardDetalle>(claves.card(tableroId, card.numero), (c) => (c ? { ...c, ...extra } : c));
       editarTablero(qc, tableroId, (t) => {
@@ -399,11 +445,14 @@ export function usePatchCard(tableroId: number) {
         return nuevo;
       });
     },
-    onSuccess: (card) => {
+    onSuccess: (card, { cambios }) => {
       qc.setQueryData(claves.card(tableroId, card.numero), card);
       reemplazarCard(qc, tableroId, card);
       qc.invalidateQueries({ queryKey: claves.misTareas });
       qc.invalidateQueries({ queryKey: claves.actividad(card.id) });
+      if ("fecha_inicio" in cambios || "fecha_fin" in cambios) {
+        qc.invalidateQueries({ queryKey: claves.dependencias(tableroId) });
+      }
     },
     onError: (error, { card }) => {
       if (error instanceof ApiError && error.status === 409) {
@@ -706,6 +755,148 @@ export function useTrasladarCard(tableroOrigenId: number) {
       qc.invalidateQueries({ queryKey: claves.tableros });
       qc.invalidateQueries({ queryKey: claves.misTareas });
     },
+    onError: avisarError,
+  });
+}
+
+// --- Gantt: reprogramar y dependencias ----------------------------------------------------
+
+/**
+ * Nuevas fechas para una tarjeta desde el Gantt o el Calendario. Con
+ * `moverSucesoras` el servidor empuja la cadena (en días hábiles) y devuelve
+ * TODAS las tarjetas que cambió; se aplican a la caché del tablero, así el
+ * Kanban, la Lista y el Calendario lo ven al instante.
+ */
+export function useProgramarCard(tableroId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    scope: { id: `cards-${tableroId}` },
+    mutationFn: ({
+      card,
+      inicio,
+      fin,
+      moverSucesoras,
+    }: {
+      card: RefCard;
+      inicio: string | null;
+      fin: string | null;
+      moverSucesoras: boolean;
+    }) => {
+      const version = qc.getQueryData<TableroDetalle>(claves.tablero(tableroId))?.cards.find((c) => c.id === card.id)?.version;
+      return api.post<{ cards: CardResumen[] }>(`${V1}/cards/${card.id}/programar/`, {
+        fecha_inicio: inicio,
+        fecha_fin: fin,
+        version,
+        mover_sucesoras: moverSucesoras,
+      });
+    },
+    onMutate: ({ card, inicio, fin }) =>
+      editarTablero(qc, tableroId, (t) => ({
+        ...t,
+        cards: t.cards.map((c) =>
+          c.id === card.id
+            ? { ...c, fecha_inicio: inicio, fecha_fin: fin, vencimiento: calcularVencimiento(fin, Boolean(c.completada_en)) }
+            : c,
+        ),
+      })),
+    onSuccess: ({ cards }, { card }) => {
+      const porId = new Map(cards.map((c) => [c.id, c]));
+      editarTablero(qc, tableroId, (t) => ({
+        ...t,
+        cards: t.cards.map((c) => (porId.has(c.id) ? { ...c, ...porId.get(c.id) } : c)),
+      }));
+      qc.setQueriesData<CardDetalle>({ queryKey: ["card", tableroId] }, (c) =>
+        c && porId.has(c.id) ? { ...c, ...porId.get(c.id) } : c,
+      );
+      qc.invalidateQueries({ queryKey: claves.dependencias(tableroId) });
+      qc.invalidateQueries({ queryKey: claves.actividad(card.id) });
+      qc.invalidateQueries({ queryKey: claves.misTareas });
+      const empujadas = cards.length - 1;
+      if (empujadas > 0) {
+        toast(empujadas === 1 ? "Se reprogramó 1 tarjeta sucesora" : `Se reprogramaron ${empujadas} tarjetas sucesoras`, {
+          description: "Para que ninguna dependencia quede incumplida.",
+        });
+      }
+    },
+    onError: (error) => {
+      if (error instanceof ApiError && error.status === 409) toast.warning(mensajeError(error));
+      else avisarError(error);
+      qc.invalidateQueries({ queryKey: claves.tablero(tableroId) });
+    },
+  });
+}
+
+export function useCrearDependencia(tableroId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (datos: { predecesora: number; sucesora: number; tipo?: TipoDependencia; desfase_dias?: number }) =>
+      api.post<Dependencia>(`${V1}/tableros/${tableroId}/dependencias/`, datos),
+    onSuccess: (dep) => {
+      qc.setQueryData<Dependencia[]>(claves.dependencias(tableroId), (lista) => [...(lista ?? []), dep]);
+      qc.invalidateQueries({ queryKey: claves.actividad(dep.sucesora) });
+    },
+    onError: avisarError,
+  });
+}
+
+export function useEditarDependencia(tableroId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, cambios }: { id: number; cambios: { tipo?: TipoDependencia; desfase_dias?: number } }) =>
+      api.patch<Dependencia>(`${V1}/dependencias/${id}/`, cambios),
+    onMutate: ({ id, cambios }) =>
+      qc.setQueryData<Dependencia[]>(claves.dependencias(tableroId), (lista) =>
+        (lista ?? []).map((d) => (d.id === id ? { ...d, ...cambios } : d)),
+      ),
+    onSuccess: (dep) =>
+      qc.setQueryData<Dependencia[]>(claves.dependencias(tableroId), (lista) =>
+        (lista ?? []).map((d) => (d.id === dep.id ? dep : d)),
+      ),
+    onError: (error) => {
+      avisarError(error);
+      qc.invalidateQueries({ queryKey: claves.dependencias(tableroId) });
+    },
+  });
+}
+
+export function useEliminarDependencia(tableroId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dep: Dependencia) => api.del(`${V1}/dependencias/${dep.id}/`),
+    onMutate: (dep) =>
+      qc.setQueryData<Dependencia[]>(claves.dependencias(tableroId), (lista) => (lista ?? []).filter((d) => d.id !== dep.id)),
+    onSuccess: (_r, dep) => qc.invalidateQueries({ queryKey: claves.actividad(dep.sucesora) }),
+    onError: (error) => {
+      avisarError(error);
+      qc.invalidateQueries({ queryKey: claves.dependencias(tableroId) });
+    },
+  });
+}
+
+// --- Calendario laboral (administrador del módulo) ------------------------------------------
+
+function trasCambioDeFeriados(qc: QueryClient) {
+  qc.invalidateQueries({ queryKey: ["feriados"] });
+  // Los días hábiles cambian el «vence pronto» y las dependencias.
+  qc.invalidateQueries({ queryKey: ["tablero"] });
+  qc.invalidateQueries({ queryKey: claves.misTareas });
+}
+
+export function useCrearFeriado() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (datos: { fecha: string; nombre: string; recurrente: boolean }) =>
+      api.post(`${V1}/calendario/feriados/`, datos),
+    onSuccess: () => trasCambioDeFeriados(qc),
+    onError: avisarError,
+  });
+}
+
+export function useEliminarFeriado() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.del(`${V1}/calendario/feriados/${id}/`),
+    onSuccess: () => trasCambioDeFeriados(qc),
     onError: avisarError,
   });
 }

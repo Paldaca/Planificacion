@@ -9,6 +9,7 @@ import {
   Pencil,
   UserMinus,
   UserPlus,
+  Waypoints,
   type LucideIcon,
 } from "lucide-react";
 import { motion } from "motion/react";
@@ -31,6 +32,7 @@ const ICONOS: Record<Actividad["accion"], LucideIcon> = {
   archivo: Archive,
   restauro: ArchiveRestore,
   traslado: ArrowRightLeft,
+  dependencia: Waypoints,
 };
 
 const texto = (v: unknown) => (typeof v === "string" ? v : "");
@@ -55,6 +57,10 @@ function frase(a: Actividad): string {
       return "restauró la tarjeta";
     case "traslado":
       return `la trasladó de ${texto(d.desde)} a ${texto(d.hacia)}`;
+    case "dependencia":
+      return texto(d.cambio) === "quito"
+        ? `quitó la dependencia de «${texto(d.despues_de)}»`
+        : `hizo que vaya después de «${texto(d.despues_de)}»`;
     case "checklist": {
       const item = `«${texto(d.texto)}»`;
       return {
@@ -77,6 +83,8 @@ function frase(a: Actividad): string {
           return despues ? `puso la fecha de inicio el ${diaCorto(despues)}` : "quitó la fecha de inicio";
         case "fecha_fin":
           return despues ? `puso la fecha final el ${diaCorto(despues)}` : "quitó la fecha final";
+        case "en_gantt":
+          return "cambió si aparece en el Gantt";
         default:
           return "editó la tarjeta";
       }

@@ -17,6 +17,7 @@ from django.utils import timezone
 
 from core.errores import ConflictoDeVersion, ReglaDeNegocio
 from tableros.models import Actividad, Card, Columna, ResponsableCard, Tablero
+from tableros.signals import tarjeta_trasladada
 
 from . import actividad, avisos, vencimientos
 
@@ -182,7 +183,7 @@ def trasladar_card(card: Card, *, destino: Tablero, actor) -> Card:
     if not activas:
         raise ReglaDeNegocio("El tablero destino no tiene columnas.")
     columna = next((c for c in activas if c.nombre.lower() == card.columna.nombre.lower()), activas[0])
-    origen, origen_columna = card.tablero.nombre, card.columna_id
+    origen, origen_columna = card.tablero, card.columna_id
     card.numero = _tomar_numero(destino)
     card.tablero = destino
     card.columna = columna
@@ -193,6 +194,7 @@ def trasladar_card(card: Card, *, destino: Tablero, actor) -> Card:
     permitidos = {p.pk for p in destino.personas_asignables()}
     card.asignaciones.exclude(usuario_id__in=permitidos).delete()
     _compactar(origen_columna)
-    actividad.registrar(card, actor, Actividad.Accion.TRASLADO, desde=origen, hacia=destino.nombre)
+    actividad.registrar(card, actor, Actividad.Accion.TRASLADO, desde=origen.nombre, hacia=destino.nombre)
     vencimientos.sincronizar(card)
+    tarjeta_trasladada.send(sender=Card, card=card, origen=origen)
     return card

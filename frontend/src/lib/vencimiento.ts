@@ -14,7 +14,7 @@ function diasHabilesHasta(desde: Date, hasta: Date): number {
 }
 
 /**
- * Espejo de `tableros.servicios.vencimiento` para las actualizaciones
+ * Espejo (sin feriados) de `tableros.services.vencimientos.vencimiento` para las actualizaciones
  * optimistas (mover una card, cambiar su fecha): el servidor sigue siendo la
  * fuente de verdad y su respuesta reemplaza este cálculo en cuanto llega.
  */

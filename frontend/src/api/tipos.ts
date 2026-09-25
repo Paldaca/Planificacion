@@ -1,8 +1,10 @@
-/** Formas de la API `/api/v1/` (backend/tableros y backend/equipos). */
+/** Formas de la API `/api/v1/` (apps tableros, equipos, calendario y gantt). */
 
 export type Urgencia = "baja" | "media" | "alta" | "critica";
 export type Vencimiento = "vencida" | "vence_pronto" | "al_dia" | "terminada" | "sin_fecha";
 export type RolEquipo = "administrador" | "miembro" | "lector";
+export type EnGantt = "heredar" | "si" | "no";
+export type Vista = "tablero" | "lista" | "calendario" | "gantt";
 
 export type Persona = {
   id: number;
@@ -40,7 +42,9 @@ export type CardResumen = {
   urgencia: Urgencia;
   columna: number;
   orden: number;
-  en_gantt: "heredar" | "si" | "no";
+  en_gantt: EnGantt;
+  /** Regla de inclusión ya resuelta por el backend (card o, si hereda, columna). */
+  en_gantt_efectivo: boolean;
   responsables: Persona[];
   comentarios: number;
   checklist: { hechos: number; total: number };
@@ -71,7 +75,8 @@ export type Actividad = {
     | "checklist"
     | "archivo"
     | "restauro"
-    | "traslado";
+    | "traslado"
+    | "dependencia";
   detalle: Record<string, unknown>;
   creado_en: string;
 };
@@ -160,4 +165,27 @@ export type Invitacion = {
   estado: "pendiente" | "aceptada" | "rechazada" | "cancelada";
   creada_en: string;
   respondida_en: string | null;
+};
+
+// --- Calendario laboral y Gantt --------------------------------------------------------
+
+export type Feriado = {
+  fecha: string;
+  nombre: string;
+  tipo: "fijo" | "puntual" | "movil";
+  id: number | null;
+  /** Móviles (Carnaval, Semana Santa) se calculan: no se editan. */
+  editable: boolean;
+};
+
+export type TipoDependencia = "fin_inicio" | "inicio_inicio" | "fin_fin";
+
+export type Dependencia = {
+  id: number;
+  predecesora: number;
+  sucesora: number;
+  tipo: TipoDependencia;
+  desfase_dias: number;
+  /** La sucesora empieza (o termina) antes de lo que la dependencia permite. */
+  incumplida: boolean;
 };

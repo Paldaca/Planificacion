@@ -1,6 +1,6 @@
 import { Archive, ArchiveRestore, ArrowLeft, Ellipsis, Lock, Pencil, UsersRound } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
-import { Link, Outlet, useNavigate, useParams } from "react-router-dom";
+import { lazy, Suspense, useCallback, useMemo, useState } from "react";
+import { Link, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { ApiError } from "@/api/client";
@@ -21,12 +21,20 @@ import { Esqueleto, Pildora, Vacio } from "@/components/ui/Estados";
 import { ItemMenu, Menu, SeparadorMenu } from "@/components/ui/Menu";
 import { useAlAbrir } from "@/hooks/useAlAbrir";
 import { useTitulo } from "@/hooks/useTitulo";
+import { useVista } from "@/hooks/useVista";
+import { VistaLista } from "@/components/vistas/VistaLista";
 import { ROLES } from "@/lib/estilos";
+
+// Calendario y Gantt se cargan al elegirlos: el Kanban abre sin su peso.
+const VistaCalendario = lazy(() => import("@/components/vistas/VistaCalendario").then((m) => ({ default: m.VistaCalendario })));
+const VistaGantt = lazy(() => import("@/components/gantt/VistaGantt").then((m) => ({ default: m.VistaGantt })));
 
 export default function TableroPage() {
   const { tableroId } = useParams();
   const id = Number(tableroId);
   const navigate = useNavigate();
+  const { search } = useLocation();
+  const [vista, setVista] = useVista(id);
   const { data: tablero, error, isLoading } = useTablero(id);
   const [filtros, setFiltros] = useState<EstadoFiltros>(FILTROS_VACIOS);
   const [verArchivadas, setVerArchivadas] = useState(false);
@@ -37,7 +45,8 @@ export default function TableroPage() {
   useTitulo(tablero?.nombre);
 
   const visibles = useMemo(() => (tablero ? filtrar(tablero.cards, filtros) : []), [tablero, filtros]);
-  const abrir = useCallback((card: CardResumen) => navigate(`cards/${card.numero}`), [navigate]);
+  // La vista viaja en la URL de la tarjeta abierta: al cerrarla se vuelve a la misma vista.
+  const abrir = useCallback((card: CardResumen) => navigate(`cards/${card.numero}${search}`), [navigate, search]);
 
   if (error) {
     const prohibido = error instanceof ApiError && error.status === 403;
@@ -105,7 +114,7 @@ export default function TableroPage() {
         }
         acciones={
           <>
-            <SelectorVista />
+            <SelectorVista vista={vista} onCambio={setVista} />
             <Boton variante="secundario" tamano="sm" onClick={() => setVerArchivadas(true)}>
               <Archive />
               Archivadas
@@ -153,7 +162,12 @@ export default function TableroPage() {
         visibles={visibles.length}
       />
 
-      <Kanban tablero={tablero} visibles={visibles} filtrando={hayFiltros(filtros)} onAbrir={abrir} />
+      {vista === "tablero" && <Kanban tablero={tablero} visibles={visibles} filtrando={hayFiltros(filtros)} onAbrir={abrir} />}
+      {vista === "lista" && <VistaLista tablero={tablero} visibles={visibles} onAbrir={abrir} />}
+      <Suspense fallback={<Esqueleto className="h-[60vh] rounded-2xl" />}>
+        {vista === "calendario" && <VistaCalendario tablero={tablero} visibles={visibles} onAbrir={abrir} />}
+        {vista === "gantt" && <VistaGantt tablero={tablero} visibles={visibles} onAbrir={abrir} />}
+      </Suspense>
 
       <PanelArchivadas tableroId={id} abierto={verArchivadas} onCerrar={() => setVerArchivadas(false)} puedeRestaurar={permisos.editar} />
 
@@ -207,12 +221,13 @@ export default function TableroPage() {
 export function TarjetaAbierta() {
   const { tableroId, numero } = useParams();
   const navigate = useNavigate();
+  const { search } = useLocation();
   return (
     <CardDialogo
       key={`${tableroId}-${numero}`}
       tableroId={Number(tableroId)}
       numero={Number(numero)}
-      onCerrar={() => navigate(`/tableros/${tableroId}`)}
+      onCerrar={() => navigate(`/tableros/${tableroId}${search}`)}
       onTrasladada={(card) => navigate(`/tableros/${card.tablero.id}/cards/${card.numero}`, { replace: true })}
     />
   );

@@ -1,37 +1,36 @@
 import { CalendarDays, ChartGantt, List, SquareKanban } from "lucide-react";
 import { motion } from "motion/react";
-import { Tooltip } from "radix-ui";
 
+import type { Vista } from "@/api/tipos";
 import { cn } from "@/lib/cn";
 
 const VISTAS = [
-  { id: "tablero", etiqueta: "Tablero", icono: SquareKanban, lista: true },
-  { id: "lista", etiqueta: "Lista", icono: List, lista: false },
-  { id: "calendario", etiqueta: "Calendario", icono: CalendarDays, lista: false },
-  { id: "gantt", etiqueta: "Gantt", icono: ChartGantt, lista: false },
+  { id: "tablero", etiqueta: "Tablero", icono: SquareKanban },
+  { id: "lista", etiqueta: "Lista", icono: List },
+  { id: "calendario", etiqueta: "Calendario", icono: CalendarDays },
+  { id: "gantt", etiqueta: "Gantt", icono: ChartGantt },
 ] as const;
 
-/** Vistas del mismo tablero. Lista, Calendario y Gantt llegan en la fase 3
- *  (docs/plan-modulo-planificacion.md §7): se muestran para anticiparlas. */
-export function SelectorVista() {
-  const activa = "tablero";
+/** Las cuatro formas de ver el MISMO tablero (mismos datos, mismos permisos). */
+export function SelectorVista({ vista, onCambio }: { vista: Vista; onCambio: (vista: Vista) => void }) {
   return (
-    <div className="flex items-center gap-1 rounded-xl border border-linea bg-white p-1" role="tablist">
-      {VISTAS.map(({ id, etiqueta, icono: Icono, lista }) => {
-        const boton = (
+    <div className="flex items-center gap-1 rounded-xl border border-linea bg-white p-1" role="tablist" aria-label="Vista del tablero">
+      {VISTAS.map(({ id, etiqueta, icono: Icono }) => {
+        const activa = id === vista;
+        return (
           <button
             key={id}
             type="button"
             role="tab"
-            aria-selected={id === activa}
-            disabled={!lista}
+            aria-selected={activa}
+            title={etiqueta}
+            onClick={() => !activa && onCambio(id)}
             className={cn(
               "relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
-              id === activa ? "text-white" : "text-tenue",
-              !lista && "cursor-not-allowed opacity-55",
+              activa ? "text-white" : "text-tenue hover:text-morado",
             )}
           >
-            {id === activa && (
+            {activa && (
               <motion.span
                 layoutId="vista-activa"
                 className="absolute inset-0 rounded-lg bg-morado shadow-[0_6px_14px_-8px_rgba(50,64,123,0.8)]"
@@ -41,23 +40,6 @@ export function SelectorVista() {
             <Icono className="relative size-3.5" />
             <span className="relative hidden sm:inline">{etiqueta}</span>
           </button>
-        );
-        if (lista) return boton;
-        return (
-          <Tooltip.Root key={id} delayDuration={150}>
-            <Tooltip.Trigger asChild>
-              <span>{boton}</span>
-            </Tooltip.Trigger>
-            <Tooltip.Portal>
-              <Tooltip.Content
-                sideOffset={6}
-                className="flotante z-[60] rounded-lg bg-marino px-2.5 py-1.5 text-xs font-medium text-white shadow-lg"
-              >
-                {etiqueta}: próximamente (fase 3)
-                <Tooltip.Arrow className="fill-marino" />
-              </Tooltip.Content>
-            </Tooltip.Portal>
-          </Tooltip.Root>
         );
       })}
     </div>

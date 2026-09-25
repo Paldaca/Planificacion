@@ -283,6 +283,9 @@ export function Kanban({
                   creando={crearCard.isPending}
                   onRenombrar={(col, nombre) => editarColumna.mutate({ id: col.id, cambios: { nombre } })}
                   onAlternarFinal={(col) => editarColumna.mutate({ id: col.id, cambios: { es_final: !col.es_final } })}
+                  onAlternarGantt={(col) =>
+                    editarColumna.mutate({ id: col.id, cambios: { incluir_en_gantt: !col.incluir_en_gantt } })
+                  }
                   onArchivar={setArchivando}
                 />
               );

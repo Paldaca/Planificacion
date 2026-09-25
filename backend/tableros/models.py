@@ -34,7 +34,7 @@ class Urgencia(models.TextChoices):
 
 
 class EnGantt(models.TextChoices):
-    """Regla por card para la vista Gantt (fase 3); se guarda desde ya."""
+    """Regla por card para la vista Gantt: sí, no o lo que diga su columna."""
 
     HEREDAR = "heredar", "Según la columna"
     SI = "si", "Sí"
@@ -259,6 +259,13 @@ class Card(models.Model):
         if self.fecha_inicio and self.fecha_fin and self.fecha_fin < self.fecha_inicio:
             raise ValidationError({"fecha_fin": "La fecha final no puede ser anterior a la de inicio."})
 
+    @property
+    def entra_en_gantt(self) -> bool:
+        """Regla de inclusión (§7 fase 3): la card manda; si hereda, su columna."""
+        if self.en_gantt == EnGantt.HEREDAR:
+            return self.columna.incluir_en_gantt
+        return self.en_gantt == EnGantt.SI
+
     def alinear_con_columna(self, columna: Columna, ahora) -> None:
         """En la columna final cuenta como terminada; fuera de ella, no."""
         if columna.es_final:
@@ -340,6 +347,7 @@ class Actividad(models.Model):
         ARCHIVO = "archivo", "Archivó la tarjeta"
         RESTAURO = "restauro", "Restauró la tarjeta"
         TRASLADO = "traslado", "Trasladó la tarjeta de tablero"
+        DEPENDENCIA = "dependencia", "Cambió una dependencia"
 
     card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="actividad")
     actor = models.ForeignKey(

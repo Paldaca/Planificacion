@@ -1,7 +1,7 @@
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Archive, CircleCheck, CircleDot, Ellipsis, GripVertical, Pencil } from "lucide-react";
+import { Archive, ChartGantt, CircleCheck, CircleDot, Ellipsis, EyeOff, GripVertical, Pencil } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 import type { CardResumen, Columna } from "@/api/tipos";
@@ -24,6 +24,7 @@ type Props = {
   creando: boolean;
   onRenombrar: (columna: Columna, nombre: string) => void;
   onAlternarFinal: (columna: Columna) => void;
+  onAlternarGantt: (columna: Columna) => void;
   onArchivar: (columna: Columna) => void;
   indice: number;
 };
@@ -40,6 +41,7 @@ export function ColumnaKanban({
   creando,
   onRenombrar,
   onAlternarFinal,
+  onAlternarGantt,
   onArchivar,
   indice,
 }: Props) {
@@ -132,6 +134,11 @@ export function ColumnaKanban({
             {columna.nombre}
           </h2>
         )}
+        {!columna.incluir_en_gantt && (
+          <EyeOff className="size-3.5 shrink-0 text-tenue/60" aria-label="Fuera del Gantt">
+            <title>Sus tarjetas no aparecen en el Gantt</title>
+          </EyeOff>
+        )}
         <span className="rounded-full bg-white px-2 py-0.5 text-[0.72rem] font-bold text-tenue tabular-nums">
           {cards.length}
         </span>
@@ -148,6 +155,9 @@ export function ColumnaKanban({
             </ItemMenu>
             <ItemMenu icono={CircleCheck} onSelect={() => onAlternarFinal(columna)}>
               {columna.es_final ? "Quitar como columna final" : "Marcar como columna final"}
+            </ItemMenu>
+            <ItemMenu icono={columna.incluir_en_gantt ? EyeOff : ChartGantt} onSelect={() => onAlternarGantt(columna)}>
+              {columna.incluir_en_gantt ? "Sacar del Gantt" : "Incluir en el Gantt"}
             </ItemMenu>
             <SeparadorMenu />
             <ItemMenu icono={Archive} peligro onSelect={() => onArchivar(columna)}>
