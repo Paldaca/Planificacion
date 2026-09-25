@@ -210,7 +210,7 @@ export default function EquipoPage() {
 
       <InvitarDialogo equipo={equipo} abierto={invitando} onCerrar={() => setInvitando(false)} />
       <EquipoDialogo abierto={editando} onCerrar={() => setEditando(false)} equipo={equipo} />
-      <TableroDialogo abierto={nuevoTablero} onCerrar={() => setNuevoTablero(false)} equipos={[equipo]} equipoFijo={equipo.id} />
+      <TableroDialogo abierto={nuevoTablero} onCerrar={() => setNuevoTablero(false)} equipos={[equipo]} equipoInicial={equipo.id} />
 
       <Dialogo
         abierto={confirmar !== null}

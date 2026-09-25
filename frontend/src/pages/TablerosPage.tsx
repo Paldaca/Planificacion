@@ -1,8 +1,10 @@
-import { LayoutGrid, Plus, UsersRound } from "lucide-react";
+import { Archive, ArchiveRestore, ChevronDown, LayoutGrid, Plus, UsersRound } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
-import { useEquipos, useTableros } from "@/api/queries";
+import { useEquipos, usePersonalesArchivados, useRestaurarTablero, useTableros } from "@/api/queries";
 import type { TableroResumen } from "@/api/tipos";
 import { EquipoDialogo, TableroDialogo } from "@/components/equipos/Dialogos";
 import { MosaicoTablero } from "@/components/equipos/MosaicoTablero";
@@ -12,16 +14,20 @@ import { Boton } from "@/components/ui/Boton";
 import { Esqueleto, Vacio } from "@/components/ui/Estados";
 import { useTitulo } from "@/hooks/useTitulo";
 
+/** `undefined` = cerrado; `null` = personal; número = ese equipo. */
+type NuevoTablero = number | null | undefined;
+
 export default function TablerosPage() {
   useTitulo("Tableros");
   const { data: tableros, isLoading } = useTableros();
   const { data: equipos } = useEquipos();
-  const [nuevoTablero, setNuevoTablero] = useState<number | null | undefined>(undefined);
+  const [nuevoTablero, setNuevoTablero] = useState<NuevoTablero>(undefined);
   const [nuevoEquipo, setNuevoEquipo] = useState(false);
 
   const administrables = useMemo(() => (equipos ?? []).filter((e) => e.permisos.administrar && e.mi_rol), [equipos]);
 
-  const personal = tableros?.find((t) => t.tipo === "personal");
+  // Ya vienen ordenados: «Mi tablero» (el más antiguo) primero.
+  const personales = useMemo(() => (tableros ?? []).filter((t) => t.tipo === "personal"), [tableros]);
   const porEquipo = useMemo(() => {
     const grupos = new Map<number, { nombre: string; color: string; tableros: TableroResumen[] }>();
     for (const t of tableros ?? []) {
@@ -42,19 +48,20 @@ export default function TablerosPage() {
       <Encabezado
         antetitulo="Planificación"
         titulo="Tableros"
-        subtitulo="Tu tablero personal y los de cada equipo al que perteneces."
+        subtitulo="Tus tableros personales y los de cada equipo al que perteneces."
         acciones={
-          administrables.length > 0 ? (
+          <>
+            {porEquipo.length === 0 && (
+              <Boton variante="secundario" onClick={() => setNuevoEquipo(true)}>
+                <UsersRound />
+                Crear un equipo
+              </Boton>
+            )}
             <Boton onClick={() => setNuevoTablero(null)}>
               <Plus />
               Nuevo tablero
             </Boton>
-          ) : (
-            <Boton variante="secundario" onClick={() => setNuevoEquipo(true)}>
-              <UsersRound />
-              Crear un equipo
-            </Boton>
-          )
+          </>
         }
       />
 
@@ -68,14 +75,22 @@ export default function TablerosPage() {
         </div>
       ) : (
         <div className="space-y-10">
-          {personal && (
-            <section>
-              <Etiqueta>Personal</Etiqueta>
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-5">
-                <MosaicoTablero tablero={personal} destacado />
-              </div>
-            </section>
-          )}
+          <section>
+            <div className="mb-3 flex items-center gap-3">
+              <Etiqueta>Personales</Etiqueta>
+              <span className="h-px flex-1 bg-linea/70" />
+              <Boton variante="fantasma" tamano="sm" onClick={() => setNuevoTablero(null)}>
+                <Plus />
+                Tablero
+              </Boton>
+            </div>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-5">
+              {personales.map((t, j) => (
+                <MosaicoTablero key={t.id} tablero={t} destacado={j === 0} indice={j} />
+              ))}
+            </div>
+            <PersonalesArchivados />
+          </section>
 
           {porEquipo.map(([equipoId, grupo], i) => {
             const puedeCrear = administrables.some((e) => e.id === equipoId);
@@ -117,9 +132,9 @@ export default function TablerosPage() {
             <Vacio
               icono={LayoutGrid}
               titulo="Todavía no estás en ningún equipo"
-              texto="Crea un equipo e invita a tus compañeros, o espera la invitación de alguien: te llegará un aviso en la campana del Portal."
+              texto="Puedes organizarte con tableros personales, crear un equipo e invitar a tus compañeros, o esperar la invitación de alguien: te llegará un aviso en la campana del Portal."
               accion={
-                <Boton onClick={() => setNuevoEquipo(true)}>
+                <Boton variante="secundario" onClick={() => setNuevoEquipo(true)}>
                   <UsersRound />
                   Crear un equipo
                 </Boton>
@@ -129,21 +144,80 @@ export default function TablerosPage() {
         </div>
       )}
 
-      <>
-        <TableroDialogo
-          abierto={nuevoTablero !== undefined}
-          onCerrar={() => setNuevoTablero(undefined)}
-          equipos={administrables}
-          equipoFijo={nuevoTablero ?? undefined}
-        />
-        <EquipoDialogo abierto={nuevoEquipo} onCerrar={() => setNuevoEquipo(false)} />
-      </>
+      <TableroDialogo
+        abierto={nuevoTablero !== undefined}
+        onCerrar={() => setNuevoTablero(undefined)}
+        equipos={administrables}
+        equipoInicial={nuevoTablero ?? null}
+      />
+      <EquipoDialogo abierto={nuevoEquipo} onCerrar={() => setNuevoEquipo(false)} />
+    </div>
+  );
+}
+
+/** Personales archivados: plegados, se cargan al desplegarlos. */
+function PersonalesArchivados() {
+  const [abierto, setAbierto] = useState(false);
+  const { data, isLoading } = usePersonalesArchivados(abierto);
+  const restaurar = useRestaurarTablero();
+
+  return (
+    <div className="mt-3">
+      <button
+        type="button"
+        onClick={() => setAbierto((v) => !v)}
+        aria-expanded={abierto}
+        className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-tenue transition-colors hover:bg-morado/8 hover:text-morado"
+      >
+        <Archive className="size-3.5" />
+        Archivados
+        <ChevronDown className={`size-3.5 transition-transform ${abierto ? "rotate-180" : ""}`} />
+      </button>
+      <AnimatePresence initial={false}>
+        {abierto && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="pt-2">
+              {isLoading ? (
+                <Esqueleto className="h-12 max-w-md" />
+              ) : data?.length ? (
+                <ul className="max-w-md divide-y divide-linea/70 rounded-xl border border-linea bg-white">
+                  {data.map((t) => (
+                    <li key={t.id} className="flex items-center gap-3 px-3 py-2">
+                      <Link to={`/tableros/${t.id}`} className="min-w-0 flex-1 truncate text-sm font-medium text-texto hover:text-morado">
+                        {t.nombre}
+                      </Link>
+                      <Boton
+                        variante="suave"
+                        tamano="sm"
+                        cargando={restaurar.isPending && restaurar.variables === t.id}
+                        onClick={() =>
+                          restaurar.mutate(t.id, {
+                            onSuccess: () => toast.success("Tablero restaurado", { description: t.nombre }),
+                          })
+                        }
+                      >
+                        <ArchiveRestore />
+                        Restaurar
+                      </Boton>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="px-2 text-xs text-tenue">No tienes tableros personales archivados.</p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
 function Etiqueta({ children }: { children: string }) {
-  return (
-    <p className="mb-3 animate-rise text-[0.78rem] font-semibold tracking-[0.08em] text-tenue uppercase">{children}</p>
-  );
+  return <p className="animate-rise text-[0.78rem] font-semibold tracking-[0.08em] text-tenue uppercase">{children}</p>;
 }

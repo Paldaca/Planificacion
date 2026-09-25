@@ -179,6 +179,9 @@ def trasladar_card(card: Card, *, destino: Tablero, actor) -> Card:
         raise ReglaDeNegocio("La tarjeta ya está en ese tablero.")
     if destino.archivado:
         raise ReglaDeNegocio("Ese tablero está archivado.")
+    if destino.es_personal and not card.tablero.es_personal:
+        # Una tarjeta del equipo no puede quedar escondida en un tablero privado.
+        raise ReglaDeNegocio("Una tarjeta de equipo solo se traslada a otro tablero de equipo.")
     activas = list(destino.columnas.activas())
     if not activas:
         raise ReglaDeNegocio("El tablero destino no tiene columnas.")

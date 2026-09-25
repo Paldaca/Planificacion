@@ -46,6 +46,7 @@ const V1 = "/api/v1";
 
 export const claves = {
   tableros: ["tableros"] as const,
+  personalesArchivados: ["tableros", "archivados"] as const,
   tablero: (id: number) => ["tablero", id] as const,
   archivadas: (id: number) => ["tablero", id, "archivadas"] as const,
   card: (tableroId: number, numero: number) => ["card", tableroId, numero] as const,
@@ -78,6 +79,14 @@ export const useTablero = (id: number) =>
     queryFn: () => api.get<TableroDetalle>(`${V1}/tableros/${id}/`),
     enabled: Number.isFinite(id),
     refetchInterval: refrescoVivo(20_000),
+  });
+
+/** Tableros personales archivados (los de equipo se ven en la página del equipo). */
+export const usePersonalesArchivados = (habilitado: boolean) =>
+  useQuery({
+    queryKey: claves.personalesArchivados,
+    queryFn: () => api.get<TableroResumen[]>(`${V1}/tableros/?archivados=personales`),
+    enabled: habilitado,
   });
 
 export const useArchivadas = (id: number, habilitado: boolean) =>
@@ -251,7 +260,8 @@ export function reordenarEnCache(qc: QueryClient, tableroId: number, orden: numb
 export function useCrearTablero() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (datos: { nombre: string; descripcion?: string; equipo: number }) =>
+    /** Sin `equipo` (o `null`), el tablero es personal. */
+    mutationFn: (datos: { nombre: string; descripcion?: string; equipo?: number | null }) =>
       api.post<TableroDetalle>(`${V1}/tableros/`, datos),
     onSuccess: (t) => {
       qc.setQueryData(claves.tablero(t.id), t);
@@ -286,6 +296,19 @@ export function useArchivarTablero(id: number) {
       qc.invalidateQueries({ queryKey: claves.tableros });
       qc.invalidateQueries({ queryKey: claves.tablero(id) });
       if (t.equipo) qc.invalidateQueries({ queryKey: ["equipo", t.equipo.id] });
+    },
+    onError: avisarError,
+  });
+}
+
+/** Restaurar un tablero archivado desde un listado (id variable). */
+export function useRestaurarTablero() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.post<TableroResumen>(`${V1}/tableros/${id}/archivar/`, { archivado: false }),
+    onSuccess: (t) => {
+      qc.invalidateQueries({ queryKey: claves.tableros });
+      qc.invalidateQueries({ queryKey: claves.tablero(t.id) });
     },
     onError: avisarError,
   });
@@ -483,6 +506,13 @@ export function useArchivarCard(tableroId: number) {
     },
     onSuccess: (card) => {
       qc.setQueryData(claves.card(tableroId, card.numero), card);
+      // La lista de archivadas se actualiza YA: si el panel se abrió antes,
+      // su caché vacía no debe mostrarse mientras llega la nueva.
+      qc.setQueryData<CardDetalle[]>(claves.archivadas(tableroId), (lista) => {
+        if (!lista) return lista;
+        const sin = lista.filter((c) => c.id !== card.id);
+        return card.archivada ? [card, ...sin] : sin;
+      });
       qc.invalidateQueries({ queryKey: claves.tablero(tableroId) });
       qc.invalidateQueries({ queryKey: claves.misTareas });
     },

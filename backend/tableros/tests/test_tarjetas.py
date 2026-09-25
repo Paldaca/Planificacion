@@ -123,3 +123,13 @@ class TrasladoTests(EscenarioTablero):
         card = self.crear_card()
         r = self.cliente(self.ana).post(f"/api/v1/cards/{card['id']}/trasladar/", {"tablero": ajeno["id"]}, format="json")
         self.assertEqual(r.status_code, 403)
+
+    def test_entre_personales_si_de_equipo_a_personal_no(self):
+        mio = next(t for t in self.cliente(self.ana).get("/api/v1/tableros/").json() if t["nombre"] == "Mi tablero")
+        ideas = self.cliente(self.ana).post("/api/v1/tableros/", {"nombre": "Ideas"}, format="json").json()
+        suelta = self.cliente(self.ana).post(f"/api/v1/tableros/{mio['id']}/cards/", {"titulo": "Idea"}, format="json").json()
+        r = self.cliente(self.ana).post(f"/api/v1/cards/{suelta['id']}/trasladar/", {"tablero": ideas["id"]}, format="json")
+        self.assertEqual((r.status_code, r.json()["tablero"]["id"]), (200, ideas["id"]))
+        del_equipo = self.crear_card()
+        r = self.cliente(self.ana).post(f"/api/v1/cards/{del_equipo['id']}/trasladar/", {"tablero": ideas["id"]}, format="json")
+        self.assertEqual(r.status_code, 400)

@@ -302,7 +302,7 @@ class TableroDetalleSerializer(TableroResumenSerializer):
 class TableroEscrituraSerializer(serializers.Serializer):
     nombre = serializers.CharField(max_length=100, required=False)
     descripcion = serializers.CharField(max_length=2000, required=False, allow_blank=True)
-    equipo = serializers.IntegerField(required=False)
+    equipo = serializers.IntegerField(required=False, allow_null=True)
 
     def validate_nombre(self, valor):
         if not valor.strip():

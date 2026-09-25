@@ -60,5 +60,16 @@ def permisos_tablero(usuario, tablero) -> dict:
     return {
         "editar": puede_editar_tablero(usuario, tablero),
         "gestionar": puede_gestionar_tablero(usuario, tablero) and not tablero.archivado,
-        "archivar": (not tablero.es_personal) and puede_gestionar_tablero(usuario, tablero),
+        "archivar": _puede_archivar(usuario, tablero),
     }
+
+
+def _puede_archivar(usuario, tablero) -> bool:
+    """Archivar o restaurar. Un personal activo, solo si a su dueño le queda otro."""
+    if not puede_gestionar_tablero(usuario, tablero):
+        return False
+    if not tablero.es_personal or tablero.archivado:
+        return True
+    from tableros.services.tableros import puede_archivar_personal
+
+    return puede_archivar_personal(tablero)

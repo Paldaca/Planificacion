@@ -42,3 +42,43 @@ class TablerosTests(EscenarioTablero):
         self.assertEqual(cliente_beto.get(url).status_code, 200)
         self.cliente(self.ana).delete(f"/api/v1/equipos/{self.equipo_id}/miembros/{self.miembro_beto.pk}/")
         self.assertEqual(cliente_beto.get(url).status_code, 403)
+
+
+class TablerosPersonalesTests(EscenarioTablero):
+    """Sin equipo, el tablero es personal; se pueden tener varios."""
+
+    def crear(self, usuario, **datos):
+        return self.cliente(usuario).post("/api/v1/tableros/", {"nombre": "Ideas", **datos}, format="json")
+
+    def test_sin_equipo_es_personal_y_privado(self):
+        self.cliente(self.beto).get("/api/v1/tableros/")  # primer ingreso: «Mi tablero»
+        r = self.crear(self.beto)  # beto no administra ningún equipo: igual puede
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(r.json()["tipo"], "personal")
+        self.assertIsNone(r.json()["equipo"])
+        self.assertEqual(self.cliente(self.ana).get(f"/api/v1/tableros/{r.json()['id']}/").status_code, 403)
+        r = self.crear(self.beto, equipo=None)
+        self.assertEqual(r.json()["tipo"], "personal")
+        personales = [t for t in self.cliente(self.beto).get("/api/v1/tableros/").json() if t["tipo"] == "personal"]
+        self.assertEqual([t["nombre"] for t in personales], ["Mi tablero", "Ideas", "Ideas"])  # «Mi tablero» primero
+
+    def test_con_equipo_exige_administrarlo(self):
+        self.assertEqual(self.crear(self.beto, equipo=self.equipo_id).status_code, 403)
+        r = self.crear(self.ana, equipo=self.equipo_id)
+        self.assertEqual((r.status_code, r.json()["tipo"]), (201, "equipo"))
+
+    def test_nunca_se_queda_sin_personal_activo(self):
+        mio = next(t for t in self.cliente(self.beto).get("/api/v1/tableros/").json() if t["tipo"] == "personal")
+        self.assertFalse(mio["permisos"]["archivar"])
+        r = self.cliente(self.beto).post(f"/api/v1/tableros/{mio['id']}/archivar/", {}, format="json")
+        self.assertEqual(r.status_code, 400)
+        otro = self.crear(self.beto).json()
+        self.assertTrue(otro["permisos"]["archivar"])
+        r = self.cliente(self.beto).post(f"/api/v1/tableros/{mio['id']}/archivar/", {}, format="json")
+        self.assertEqual(r.status_code, 200)
+        archivados = self.cliente(self.beto).get("/api/v1/tableros/?archivados=personales").json()
+        self.assertEqual([t["id"] for t in archivados], [mio["id"]])
+        # No se le crea otro «Mi tablero» por tenerlo archivado.
+        self.assertEqual(Tablero.objects.filter(tipo="personal", propietario=self.beto).count(), 2)
+        r = self.cliente(self.beto).post(f"/api/v1/tableros/{mio['id']}/archivar/", {"archivado": False}, format="json")
+        self.assertFalse(r.json()["archivado"])

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from django.db import IntegrityError, transaction
+from django.contrib.auth import get_user_model
+from django.db import transaction
 
 from core.errores import ReglaDeNegocio
 from tableros.models import COLUMNAS_PREDETERMINADAS, Columna, Tablero, TipoTablero
@@ -29,20 +30,34 @@ def crear_tablero(*, nombre: str, creado_por, tipo: str, propietario=None, equip
     return tablero
 
 
+def personales_de(usuario):
+    return Tablero.objects.filter(tipo=TipoTablero.PERSONAL, propietario=usuario)
+
+
 def asegurar_tablero_personal(usuario) -> Tablero:
-    existente = Tablero.objects.filter(tipo=TipoTablero.PERSONAL, propietario=usuario).first()
+    """«Mi tablero» en el primer ingreso. Solo si nunca tuvo ninguno (aunque
+    los haya archivado todos, no se le crea otro a sus espaldas)."""
+    existente = personales_de(usuario).order_by("id").first()
     if existente:
         return existente
-    try:
+    with transaction.atomic():
+        # Dos pestañas a la vez: el bloqueo del usuario hace que la segunda
+        # espere y encuentre el tablero que creó la primera.
+        get_user_model().objects.select_for_update().filter(pk=usuario.pk).first()
+        existente = personales_de(usuario).order_by("id").first()
+        if existente:
+            return existente
         return crear_tablero(
             nombre=NOMBRE_TABLERO_PERSONAL,
             creado_por=usuario,
             tipo=TipoTablero.PERSONAL,
             propietario=usuario,
         )
-    except IntegrityError:
-        # Dos pestañas a la vez: la otra ganó la restricción única.
-        return Tablero.objects.get(tipo=TipoTablero.PERSONAL, propietario=usuario)
+
+
+def puede_archivar_personal(tablero: Tablero) -> bool:
+    """Un tablero personal se archiva si a su dueño le queda otro activo."""
+    return personales_de(tablero.propietario_id).filter(archivado=False).exclude(pk=tablero.pk).exists()
 
 
 def editar_tablero(tablero: Tablero, **cambios) -> Tablero:
@@ -55,8 +70,8 @@ def editar_tablero(tablero: Tablero, **cambios) -> Tablero:
 
 
 def archivar_tablero(tablero: Tablero, *, archivado: bool) -> Tablero:
-    if tablero.es_personal:
-        raise ReglaDeNegocio("El tablero personal no se puede archivar.")
+    if archivado and tablero.es_personal and not puede_archivar_personal(tablero):
+        raise ReglaDeNegocio("Es tu único tablero personal activo: crea otro antes de archivarlo.")
     tablero.archivado = archivado
     tablero.save(update_fields=["archivado", "actualizado_en"])
     return tablero

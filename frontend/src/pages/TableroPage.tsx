@@ -140,7 +140,7 @@ export default function TableroPage() {
                 )}
               </Menu>
             )}
-            {tablero.archivado && tablero.tipo === "equipo" && (
+            {tablero.archivado && permisos.archivar && (
               <Boton
                 variante="suave"
                 tamano="sm"
@@ -183,7 +183,11 @@ export default function TableroPage() {
         abierto={confirmarArchivo}
         onCambio={setConfirmarArchivo}
         titulo="¿Archivar este tablero?"
-        descripcion="Deja de aparecer para el equipo. Los administradores pueden restaurarlo desde la página del equipo."
+        descripcion={
+          tablero.equipo
+            ? "Deja de aparecer para el equipo. Los administradores pueden restaurarlo desde la página del equipo."
+            : "Deja de aparecer en tus tableros. Puedes restaurarlo desde Tableros → Personales → Archivados."
+        }
         icono={Archive}
         color="#dc2626"
         ancho="sm"
@@ -263,7 +267,9 @@ function PanelArchivadas({
   onCerrar: () => void;
   puedeRestaurar: boolean;
 }) {
-  const { data, isLoading } = useArchivadas(tableroId, abierto);
+  const { data, isLoading, isFetching } = useArchivadas(tableroId, abierto);
+  // Sin tarjetas en caché y buscando: se muestra «cargando», no «vacío».
+  const cargando = isLoading || (isFetching && !data?.length);
   const restaurar = useArchivarCard(tableroId);
   return (
     <Dialogo
@@ -274,7 +280,7 @@ function PanelArchivadas({
       icono={Archive}
       ancho="lg"
     >
-      {isLoading ? (
+      {cargando ? (
         <div className="space-y-2">
           <Esqueleto className="h-16" />
           <Esqueleto className="h-16" />

@@ -81,14 +81,12 @@ class CardArchivarView(APIView):
 
 
 class CardTrasladarView(APIView):
-    """Lleva la tarjeta a un tablero de EQUIPO donde también puedes editar
-    (p. ej. de tu tablero personal al de tu equipo)."""
+    """Lleva la tarjeta a otro tablero donde también puedes editar: de uno
+    personal a otro personal tuyo o a uno de equipo; de equipo, solo a equipo."""
 
     def post(self, request, pk):
         card = obtener_card(request, pk, editar=True)
         destino = get_object_or_404(Tablero.objects.select_related("equipo"), pk=request.data.get("tablero"))
-        if destino.es_personal:
-            raise ValidationError({"tablero": "Solo se puede trasladar a un tablero de equipo."})
         if not permisos.puede_editar_tablero(request.user, destino):
             raise PermissionDenied("No puedes crear tarjetas en ese tablero.")
         servicio.trasladar_card(card, destino=destino, actor=request.user)

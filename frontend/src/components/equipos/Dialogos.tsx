@@ -1,4 +1,4 @@
-import { Check, LayoutGrid, UsersRound } from "lucide-react";
+import { Check, LayoutGrid, Lock, UsersRound } from "lucide-react";
 import { useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -125,38 +125,48 @@ export function EquipoDialogo({
   );
 }
 
-/** Nuevo tablero de equipo (con columnas Tareas / En curso / Hecho). */
+/**
+ * Nuevo tablero (con columnas Tareas / En curso / Hecho). El equipo es
+ * opcional: sin equipo, el tablero es personal y solo lo ve quien lo crea.
+ * Solo se ofrecen los equipos que la persona administra.
+ */
 export function TableroDialogo({
   abierto,
   onCerrar,
   equipos,
-  equipoFijo,
+  equipoInicial = null,
 }: {
   abierto: boolean;
   onCerrar: () => void;
   equipos: Equipo[];
-  equipoFijo?: number;
+  /** Equipo preseleccionado (desde la sección de un equipo); `null` = personal. */
+  equipoInicial?: number | null;
 }) {
   const navigate = useNavigate();
   const crear = useCrearTablero();
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
-  const [equipo, setEquipo] = useState<number | undefined>(equipoFijo);
+  const [equipo, setEquipo] = useState<number | null>(equipoInicial);
 
   useAlAbrir(abierto, () => {
     setNombre("");
     setDescripcion("");
-    setEquipo(equipoFijo ?? equipos[0]?.id);
+    setEquipo(equipoInicial);
   });
 
   const elegido = equipos.find((e) => e.id === equipo);
 
   async function guardar() {
-    if (!equipo) return;
     const t = await crear.mutateAsync({ nombre: nombre.trim(), descripcion, equipo });
     onCerrar();
     navigate(`/tableros/${t.id}`);
   }
+
+  const opcion = (activa: boolean) =>
+    cn(
+      "flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-all duration-200",
+      activa ? "text-white shadow-sm" : "border-linea text-texto hover:border-morado/30",
+    );
 
   return (
     <Dialogo
@@ -171,34 +181,49 @@ export function TableroDialogo({
           <Boton variante="secundario" onClick={onCerrar}>
             Cancelar
           </Boton>
-          <Boton onClick={() => void guardar()} cargando={crear.isPending} disabled={!nombre.trim() || !equipo}>
+          <Boton onClick={() => void guardar()} cargando={crear.isPending} disabled={!nombre.trim()}>
             Crear tablero
           </Boton>
         </>
       }
     >
       <div className="space-y-5">
-        {!equipoFijo && (
-          <Campo etiqueta="Equipo">
-            <div className="flex flex-wrap gap-2">
-              {equipos.map((e) => (
-                <button
-                  key={e.id}
-                  type="button"
-                  onClick={() => setEquipo(e.id)}
-                  className={cn(
-                    "flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-all duration-200",
-                    equipo === e.id ? "text-white shadow-sm" : "border-linea text-texto hover:border-morado/30",
-                  )}
-                  style={equipo === e.id ? { background: e.color, borderColor: e.color } : undefined}
-                >
-                  <span className="size-2.5 rounded-full" style={{ background: equipo === e.id ? "#fff" : e.color }} />
-                  {e.nombre}
-                </button>
-              ))}
-            </div>
-          </Campo>
-        )}
+        <Campo
+          etiqueta="Equipo"
+          ayuda={
+            elegido
+              ? `Lo verán los miembros de ${elegido.nombre}.`
+              : "Opcional. Sin equipo, el tablero es personal: solo tú lo ves."
+          }
+        >
+          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Equipo del tablero">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={equipo === null}
+              onClick={() => setEquipo(null)}
+              className={opcion(equipo === null)}
+              style={equipo === null ? { background: "#32407b", borderColor: "#32407b" } : undefined}
+            >
+              <Lock className="size-3.5" />
+              Personal
+            </button>
+            {equipos.map((e) => (
+              <button
+                key={e.id}
+                type="button"
+                role="radio"
+                aria-checked={equipo === e.id}
+                onClick={() => setEquipo(e.id)}
+                className={opcion(equipo === e.id)}
+                style={equipo === e.id ? { background: e.color, borderColor: e.color } : undefined}
+              >
+                <span className="size-2.5 rounded-full" style={{ background: equipo === e.id ? "#fff" : e.color }} />
+                {e.nombre}
+              </button>
+            ))}
+          </div>
+        </Campo>
         <Campo etiqueta="Nombre">
           <Entrada
             autoFocus

@@ -44,7 +44,7 @@ campana de notificaciones del Portal.
 |---|---|
 | **Equipo** | Grupo de personas creado dentro del módulo. Tiene administradores, miembros y lectores. |
 | **Invitación** | Única forma de entrar a un equipo: un administrador invita y la persona **acepta o rechaza**. Genera un aviso en la campana del Portal. |
-| **Tablero personal** | Tablero privado de un usuario. Hay exactamente uno por usuario; se crea solo en su primer ingreso. |
+| **Tablero personal** | Tablero privado de un usuario. Puede tener varios: el primero («Mi tablero») se crea solo en su primer ingreso y los demás al crear un tablero **sin elegir equipo**. |
 | **Tablero de equipo** | Tablero visible y editable por los miembros de un equipo. Un equipo puede tener varios. |
 | **Columna** | Etapa del flujo de trabajo. Predeterminadas: **Tareas**, **En curso**, **Hecho**. |
 | **Card** | Actividad: título, descripción, inicio, fin, urgencia, responsables, comentarios. |
@@ -205,7 +205,11 @@ equipo; las respondidas quedan como historial y no impiden invitar de nuevo.
 **Tablero** — `nombre`, `descripcion`, `tipo` (`personal` | `equipo`),
 `propietario` (usuario, solo personal), `equipo` (solo de equipo),
 `archivado`, `siguiente_numero_card`.
-Restricción: un único tablero `personal` activo por usuario.
+Reglas: sin equipo, el tablero es personal (cualquier usuario puede crearlo);
+con equipo, solo lo crea un administrador de ese equipo. Un personal se
+archiva si a su dueño le queda otro activo (nunca se queda sin ninguno). Una
+tarjeta de un personal puede ir a otro personal propio o a uno de equipo; una
+de equipo solo a otro de equipo (no se esconde en un tablero privado).
 
 **Columna** — `tablero`, `nombre`, `orden`, `es_final` (sus cards cuentan como
 terminadas), `incluir_en_gantt` (regla por defecto de sus cards),

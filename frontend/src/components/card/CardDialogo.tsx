@@ -742,7 +742,8 @@ function Conversacion({
   );
 }
 
-/** Llevar la tarjeta a un tablero de equipo (p. ej. desde el tablero personal). */
+/** Llevar la tarjeta a otro tablero: desde uno personal, a otro personal o a uno
+ *  de equipo; desde uno de equipo, solo a otro de equipo (lo exige el backend). */
 function MoverATablero({
   card,
   tablero,
@@ -755,7 +756,9 @@ function MoverATablero({
   const { data: tableros } = useTableros();
   const trasladar = useTrasladarCard(tablero.id);
   const [abierto, setAbierto] = useState(false);
-  const destinos = (tableros ?? []).filter((t) => t.tipo === "equipo" && t.permisos.editar && t.id !== tablero.id);
+  const destinos = (tableros ?? []).filter(
+    (t) => t.id !== tablero.id && t.permisos.editar && (t.tipo === "equipo" || tablero.tipo === "personal"),
+  );
   if (!destinos.length) return null;
 
   return (
@@ -763,7 +766,7 @@ function MoverATablero({
       <Popover.Trigger asChild>
         <Boton variante="secundario" tamano="sm" className="w-full">
           <ArrowRightLeft />
-          {tablero.tipo === "personal" ? "Pasar a un tablero de equipo" : "Mover a otro tablero"}
+          Mover a otro tablero
         </Boton>
       </Popover.Trigger>
       <Popover.Portal>
@@ -775,7 +778,7 @@ function MoverATablero({
         >
           <p className="px-2.5 pt-1.5 pb-2 text-[0.7rem] leading-snug text-tenue">
             La tarjeta se lleva sus comentarios, checklist e historial. Quedarán como responsables solo quienes
-            estén en ese equipo.
+            tengan acceso al tablero destino.
           </p>
           <div className="max-h-64 overflow-y-auto">
             {destinos.map((t) => (
@@ -797,10 +800,10 @@ function MoverATablero({
                 }
                 className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors hover:bg-morado/8 disabled:opacity-50"
               >
-                <span className="size-2.5 shrink-0 rounded-full" style={{ background: t.equipo?.color }} />
+                <span className="size-2.5 shrink-0 rounded-full" style={{ background: t.equipo?.color ?? "#32407b" }} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium text-texto">{t.nombre}</span>
-                  <span className="block truncate text-[0.72rem] text-tenue">{t.equipo?.nombre}</span>
+                  <span className="block truncate text-[0.72rem] text-tenue">{t.equipo?.nombre ?? "Personal"}</span>
                 </span>
               </button>
             ))}

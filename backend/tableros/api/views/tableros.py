@@ -20,12 +20,18 @@ from .comunes import contexto, detalle_tablero, obtener_tablero
 
 class TablerosView(APIView):
     def get(self, request):
+        """Los visibles. Con `?archivados=personales`, los personales archivados
+        (los de equipo archivados se ven en la página del equipo)."""
         servicio.asegurar_tablero_personal(request.user)
-        qs = (
-            Tablero.objects.visibles_para(request.user)
-            .select_related("equipo")
-            .order_by("tipo", "equipo__nombre", "nombre")
-        )
+        if request.query_params.get("archivados") == "personales":
+            qs = servicio.personales_de(request.user).filter(archivado=True).order_by("nombre")
+        else:
+            # Personales primero y, entre ellos, «Mi tablero» (el más antiguo).
+            qs = (
+                Tablero.objects.visibles_para(request.user)
+                .select_related("equipo")
+                .order_by("tipo", "equipo__nombre", "creado_en", "nombre")
+            )
         return Response(TableroResumenSerializer(qs, many=True, context=contexto(request)).data)
 
     def post(self, request):
@@ -34,7 +40,17 @@ class TablerosView(APIView):
         datos = datos.validated_data
         if not datos.get("nombre"):
             raise ValidationError({"nombre": "Ponle un nombre al tablero."})
-        equipo = get_object_or_404(Equipo, pk=datos.get("equipo"), archivado=False)
+        # Sin equipo, el tablero es personal (privado de quien lo crea).
+        if datos.get("equipo") is None:
+            tablero = servicio.crear_tablero(
+                nombre=datos["nombre"],
+                descripcion=datos.get("descripcion", ""),
+                tipo=TipoTablero.PERSONAL,
+                propietario=request.user,
+                creado_por=request.user,
+            )
+            return Response(detalle_tablero(request, tablero), status=status.HTTP_201_CREATED)
+        equipo = get_object_or_404(Equipo, pk=datos["equipo"], archivado=False)
         if not puede_administrar_equipo(request.user, equipo):
             raise PermissionDenied("Solo los administradores del equipo pueden crear tableros.")
         tablero = servicio.crear_tablero(

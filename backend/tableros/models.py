@@ -2,7 +2,8 @@
 Tableros, columnas, cards y comentarios.
 
 Reglas que viven aquí (y no en el frontend):
-- Un tablero es `personal` (uno por usuario, privado) o de `equipo`.
+- Un tablero es `personal` (privado; cada persona puede tener varios y el
+  primero, «Mi tablero», se crea solo) o de `equipo`.
 - Columnas predeterminadas al crear: Tareas / En curso / Hecho; "Hecho" es la
   columna final: sus cards cuentan como terminadas (`completada_en`).
 - Nada se borra en la operación normal: se archiva.
@@ -122,11 +123,6 @@ class Tablero(models.Model):
                     | Q(tipo="equipo", equipo__isnull=False, propietario__isnull=True)
                 ),
                 name="tablero_personal_o_de_equipo",
-            ),
-            models.UniqueConstraint(
-                fields=["propietario"],
-                condition=Q(tipo="personal"),
-                name="un_tablero_personal_por_usuario",
             ),
         ]
 
