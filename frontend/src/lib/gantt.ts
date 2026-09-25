@@ -21,8 +21,12 @@ export const ALTO_BARRA = 24;
 
 export type Rango = { desde: Date; hasta: Date; dias: number };
 
-/** Del lunes anterior a la primera tarjeta (o a hoy) hasta unas semanas después de la última. */
-export function calcularRango(cards: CardResumen[], zoom: Zoom, hoy: Date): Rango {
+/**
+ * Del lunes anterior a la primera tarjeta (o a hoy) hasta unas semanas después
+ * de la última. `diasVisibles`: los que caben en el ancho disponible; el rango
+ * se alarga hasta cubrirlos para que la línea de tiempo nunca quede corta.
+ */
+export function calcularRango(cards: CardResumen[], zoom: Zoom, hoy: Date, diasVisibles = 0): Rango {
   let min = hoy;
   let max = hoy;
   for (const c of cards) {
@@ -31,7 +35,8 @@ export function calcularRango(cards: CardResumen[], zoom: Zoom, hoy: Date): Rang
   }
   const desde = inicioSemana(sumarDias(min, -7));
   let hasta = sumarDias(max, 21);
-  if (diferencia(desde, hasta) < DIAS_MINIMOS[zoom]) hasta = sumarDias(desde, DIAS_MINIMOS[zoom]);
+  const minimo = Math.max(DIAS_MINIMOS[zoom], diasVisibles - 1);
+  if (diferencia(desde, hasta) < minimo) hasta = sumarDias(desde, minimo);
   return { desde, hasta, dias: diferencia(desde, hasta) + 1 };
 }
 

@@ -16,6 +16,11 @@ from django.core.cache import cache
 from calendario.models import Feriado
 
 _CLAVE_VERSION = "calendario:version"
+
+#: Vida de la lista de feriados en caché. La invalidación por señal es
+#: inmediata en el proceso que hace el cambio; con la caché local por proceso
+#: (sin Redis) los demás workers tardan como mucho esto en enterarse.
+SEGUNDOS_CACHE = 5 * 60
 UN_DIA = datetime.timedelta(days=1)
 
 
@@ -80,7 +85,7 @@ def feriados_del_anio(anio: int) -> list[dict]:
             if fecha not in ocupadas
         )
     lista.sort(key=lambda x: x["fecha"])
-    cache.set(clave, lista, 60 * 60 * 24)
+    cache.set(clave, lista, SEGUNDOS_CACHE)
     return lista
 
 

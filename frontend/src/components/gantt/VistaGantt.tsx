@@ -58,6 +58,49 @@ const AGRUPACIONES: { id: Agrupacion; etiqueta: string }[] = [
 ];
 
 const ALTO_ESCALA = 52;
+/** Nunca más bajo que esto, aunque la ventana sea pequeña. */
+const ALTO_MINIMO = 320;
+/** Aire que se deja bajo el Gantt (leyenda y margen): crece, pero no llena todo. */
+const MARGEN_INFERIOR = 88;
+/** Como mucho se descuenta esta fracción de la ventana por lo que hay encima. */
+const MAX_CABECERA = 0.45;
+
+type Espacio = { ancho: number; alto: number };
+
+/**
+ * Espacio disponible para el Gantt: el alto que queda en la ventana bajo la
+ * cabecera del tablero (menos un margen) y el ancho de la línea de tiempo. Se
+ * vuelve a medir al cambiar el tamaño de la ventana o del contenedor.
+ */
+function useEspacioDisponible(
+  contenedor: React.RefObject<HTMLDivElement | null>,
+  etiquetas: React.RefObject<HTMLDivElement | null>,
+  activo: boolean,
+): Espacio {
+  const [espacio, setEspacio] = useState<Espacio>({ ancho: 0, alto: 0 });
+  useLayoutEffect(() => {
+    const el = contenedor.current;
+    if (!activo || !el) return;
+    const medir = () => {
+      const arriba = el.getBoundingClientRect().top + window.scrollY;
+      const alto = Math.max(
+        ALTO_MINIMO,
+        Math.round(window.innerHeight - Math.min(arriba, window.innerHeight * MAX_CABECERA) - MARGEN_INFERIOR),
+      );
+      const ancho = Math.max(0, el.clientWidth - (etiquetas.current?.offsetWidth ?? 0));
+      setEspacio((previo) => (previo.alto === alto && previo.ancho === ancho ? previo : { alto, ancho }));
+    };
+    medir();
+    const observador = new ResizeObserver(medir);
+    observador.observe(el);
+    window.addEventListener("resize", medir);
+    return () => {
+      observador.disconnect();
+      window.removeEventListener("resize", medir);
+    };
+  }, [contenedor, etiquetas, activo]);
+  return espacio;
+}
 const MAX_DIAS_FERIADOS = 790;
 
 type Modo = "mover" | "inicio" | "fin";
@@ -106,6 +149,7 @@ export function VistaGantt({
   const [resaltada, setResaltada] = useState<number | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const etiquetasRef = useRef<HTMLDivElement>(null);
   const areaRef = useRef<HTMLDivElement>(null);
 
   const puede = tablero.permisos.editar;
@@ -120,7 +164,12 @@ export function VistaGantt({
   const sinFechas = useMemo(() => incluidas.filter((c) => !(c.fecha_inicio && c.fecha_fin)), [incluidas]);
   const excluidas = visibles.length - incluidas.length;
 
-  const rango = useMemo(() => calcularRango(conFechas, zoom, parsearDia(hoyISO)), [conFechas, zoom, hoyISO]);
+  const espacio = useEspacioDisponible(scrollRef, etiquetasRef, incluidas.length > 0);
+  const diasVisibles = Math.ceil(espacio.ancho / px);
+  const rango = useMemo(
+    () => calcularRango(conFechas, zoom, parsearDia(hoyISO), diasVisibles),
+    [conFechas, zoom, hoyISO, diasVisibles],
+  );
   const r = arrastre?.rango ?? rango;
   const ancho = r.dias * px;
 
@@ -143,10 +192,11 @@ export function VistaGantt({
   const altoCuerpo = Math.max(alto, ALTO_FILA * 3);
 
   // Al entrar (y al cambiar el zoom), la línea de hoy queda a la vista.
+  const hayBarras = conFechas.length > 0;
   const centrarHoy = useEffectEvent(() => irAHoy("auto"));
   useLayoutEffect(() => {
     centrarHoy();
-  }, [zoom]);
+  }, [zoom, hayBarras]);
 
   function irAHoy(comportamiento: ScrollBehavior = "smooth") {
     const el = scrollRef.current;
@@ -265,6 +315,8 @@ export function VistaGantt({
   }, [colocando, r, px]);
 
   const cardsPorId = useMemo(() => new Map(conFechas.map((c) => [c.id, c])), [conFechas]);
+  // La versión vigente (tras editarla o si otra persona la quitó).
+  const seleccionVigente = seleccion ? dependencias.find((d) => d.id === seleccion.dep.id) : undefined;
 
   if (!incluidas.length) {
     return (
@@ -353,10 +405,14 @@ export function VistaGantt({
         </div>
 
         {/* Cuerpo desplazable: etiquetas fijas a la izquierda, escala fija arriba */}
-        <div ref={scrollRef} className="relative max-h-[68vh] overflow-auto overscroll-contain">
+        <div
+          ref={scrollRef}
+          className={cn("relative overflow-auto overscroll-contain", !espacio.alto && "max-h-[68vh]")}
+          style={espacio.alto ? { maxHeight: espacio.alto } : undefined}
+        >
           <div className="flex min-w-max">
             {/* Columna de etiquetas */}
-            <div className="sticky left-0 z-30 w-40 shrink-0 border-r border-linea bg-white sm:w-60">
+            <div ref={etiquetasRef} className="sticky left-0 z-30 w-40 shrink-0 border-r border-linea bg-white sm:w-60 2xl:w-72">
               <div
                 className="sticky top-0 z-10 flex items-end border-b border-linea bg-fondo px-3 pb-2 text-[0.7rem] font-bold tracking-[0.08em] text-tenue uppercase"
                 style={{ height: ALTO_ESCALA }}
@@ -439,13 +495,15 @@ export function VistaGantt({
                   ) : null,
                 )}
 
-                {seleccion && (
+                {seleccionVigente && seleccion && (
                   <PanelDependencia
-                    key={seleccion.dep.id}
+                    key={seleccionVigente.id}
                     tableroId={tablero.id}
-                    seleccion={seleccion}
-                    predecesora={cardsPorId.get(seleccion.dep.predecesora)}
-                    sucesora={cardsPorId.get(seleccion.dep.sucesora)}
+                    dep={seleccionVigente}
+                    x={seleccion.x}
+                    y={seleccion.y}
+                    predecesora={cardsPorId.get(seleccionVigente.predecesora)}
+                    sucesora={cardsPorId.get(seleccionVigente.sucesora)}
                     puede={puede}
                     onCerrar={() => setSeleccion(null)}
                   />
@@ -523,7 +581,7 @@ function Escala({
             className="absolute top-0 flex h-full items-center overflow-clip border-l border-linea/80 px-2 text-[0.7rem] font-bold text-marino capitalize"
             style={{ left: mes.x, width: mes.ancho }}
           >
-            <span className="sticky left-[168px] truncate sm:left-[248px]">{mes.etiqueta}</span>
+            <span className="sticky left-[168px] truncate sm:left-[248px] 2xl:left-[296px]">{mes.etiqueta}</span>
           </div>
         ))}
       </div>
@@ -864,14 +922,18 @@ function Flechas({
 
 function PanelDependencia({
   tableroId,
-  seleccion,
+  dep,
+  x,
+  y,
   predecesora,
   sucesora,
   puede,
   onCerrar,
 }: {
   tableroId: number;
-  seleccion: Seleccion;
+  dep: Dependencia;
+  x: number;
+  y: number;
   predecesora?: CardResumen;
   sucesora?: CardResumen;
   puede: boolean;
@@ -879,7 +941,6 @@ function PanelDependencia({
 }) {
   const editar = useEditarDependencia(tableroId);
   const eliminar = useEliminarDependencia(tableroId);
-  const { dep } = seleccion;
   const [desfase, setDesfase] = useState(dep.desfase_dias);
 
   function guardarDesfase(valor: number) {
@@ -891,7 +952,7 @@ function PanelDependencia({
   return (
     <Popover.Root open onOpenChange={(v) => !v && onCerrar()}>
       <Popover.Anchor asChild>
-        <span className="absolute size-px" style={{ left: seleccion.x, top: seleccion.y }} />
+        <span className="absolute size-px" style={{ left: x, top: y }} />
       </Popover.Anchor>
       <Popover.Portal>
         <Popover.Content

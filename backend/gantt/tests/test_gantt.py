@@ -152,5 +152,11 @@ class ProgramarTests(EscenarioTablero):
         )
         self.assertEqual(r.status_code, 403)
 
+    def test_archivada_no_se_reprograma(self):
+        self.cliente(self.ana).post(f"/api/v1/cards/{self.a['id']}/archivar/", {}, format="json")
+        r = self.programar(self.a, "2026-04-01", "2026-04-01")
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("Restaura", r.json()["detail"])
+
     def test_fechas_invertidas_400(self):
         self.assertEqual(self.programar(self.a, "2026-04-10", "2026-04-01").status_code, 400)

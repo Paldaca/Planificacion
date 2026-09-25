@@ -17,6 +17,7 @@ from collections import deque
 from django.db import transaction
 
 from calendario.services.dias_habiles import duracion_habil, fin_desde_inicio, siguiente_habil, sumar_habiles
+from core.errores import ReglaDeNegocio
 from gantt.models import Dependencia
 from tableros.models import Card
 from tableros.services import tarjetas
@@ -48,6 +49,8 @@ def programar(
 ) -> list[Card]:
     """Devuelve las tarjetas cambiadas (la primera es `card`). Puede lanzar
     ConflictoDeVersion (la versión de `card` está vieja) o ValidationError."""
+    if card.archivada:
+        raise ReglaDeNegocio("Restaura la tarjeta antes de cambiar sus fechas.")
     card = tarjetas.editar_card(card, actor=actor, version=version, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin)
     cambiadas = {card.pk: card}
     if not mover_sucesoras:

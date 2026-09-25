@@ -1,4 +1,4 @@
-import { CalendarRange, ClipboardList, LayoutGrid, Mail, Menu as MenuIcono, UsersRound, X } from "lucide-react";
+import { ChartGantt, ClipboardList, LayoutGrid, Mail, Menu as MenuIcono, UsersRound, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
@@ -7,6 +7,7 @@ import { useMisInvitaciones } from "@/api/queries";
 import { nombreVisible, useIdentidad } from "@/auth/useIdentidad";
 import { Avatar } from "@/components/ui/Avatar";
 import { isEmbedded } from "@/embed/protocol";
+import { usePaldacaNav } from "@/embed/usePaldacaNav";
 import { cn } from "@/lib/cn";
 
 const NAVEGACION = [
@@ -17,13 +18,15 @@ const NAVEGACION = [
 ] as const;
 
 /**
- * Marco de la app.
+ * Marco de la app. El menú es SIEMPRE el de la Suite (navigationConfig.ts del
+ * Portal):
  *
- * Embebida en el Portal (`cpaldaca.com/planificacion`), el shell ya muestra su
- * propio menú lateral con los ítems de este módulo (navigationConfig.ts del
- * Portal), así que aquí no se repite: el contenido ocupa todo el iframe.
- * Abierta suelta (su subdominio), se pinta un menú con el mismo lenguaje
- * visual que el del Portal.
+ * - Embebida en el Portal (`cpaldaca.com/planificacion`): lo pinta el shell
+ *   del Portal; aquí el contenido ocupa todo el iframe.
+ * - Abierta suelta (su subdominio): se monta `paldaca-nav`, el mismo sidebar y
+ *   barra superior (campana, perfil, cambio de app) que usan los demás
+ *   satélites. Si el Portal no responde, un menú propio de respaldo con el
+ *   mismo lenguaje visual.
  */
 export function Shell({ children }: { children: ReactNode }) {
   const embebido = isEmbedded();
@@ -39,6 +42,23 @@ export function Shell({ children }: { children: ReactNode }) {
 }
 
 function ShellSuelto({ children }: { children: ReactNode }) {
+  const estado = usePaldacaNav(true);
+  if (estado === "fallo") return <ShellRespaldo>{children}</ShellRespaldo>;
+  return (
+    <>
+      <div id="paldaca-nav-root" />
+      {/* `app-content-wrap`: la clase que paldaca-nav.css desplaza junto al
+          sidebar y bajo la barra superior (también al plegarlo). Mientras
+          carga se reserva el ancho del sidebar para que nada salte. */}
+      <main className={cn("app-content-wrap min-h-screen", estado === "cargando" && "lg:ml-[280px]")}>
+        <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-8">{children}</div>
+      </main>
+    </>
+  );
+}
+
+/** Menú propio, solo si `paldaca-nav` no se pudo cargar desde el Portal. */
+function ShellRespaldo({ children }: { children: ReactNode }) {
   const [abierto, setAbierto] = useState(false);
 
 
@@ -99,7 +119,7 @@ function Marca({ compacta }: { compacta?: boolean }) {
           compacta ? "size-8" : "size-10",
         )}
       >
-        <CalendarRange className={compacta ? "size-4" : "size-5"} />
+        <ChartGantt className={compacta ? "size-4" : "size-5"} />
       </span>
       <span className="leading-tight">
         <span className={cn("block font-display font-semibold", compacta ? "text-marino" : "text-white")}>

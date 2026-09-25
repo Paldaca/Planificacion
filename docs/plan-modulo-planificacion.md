@@ -387,9 +387,19 @@ Reglas:
   `quick-actions.ts`.
 - Cada cambio de ruta de la SPA emite `navigate` por el protocolo
   `paldaca-embed`, de modo que la URL del Portal siempre es compartible.
-- En el Portal (`navigationConfig.ts`), a medida que existan las pantallas, se
-  agregan ítems de menú **que existan de verdad** en el satélite: *Mis
-  tareas*, *Tableros*, *Equipos*. Y accesos rápidos en `quick-actions.ts`.
+- Las vistas Lista, Calendario y Gantt viajan en `?vista=` y el Portal la
+  conserva en su URL y en los enlaces profundos al iframe.
+- **Icono del módulo:** `chartGantt` (barras de Gantt) en el Portal, el menú
+  de la Suite, el favicon y la marca del satélite.
+- **Abierta suelta** (su subdominio) monta `paldaca-nav`, la misma barra de la
+  Suite (sidebar, campana de avisos, perfil y cambio de app) que usan los
+  demás satélites (`frontend/src/embed/usePaldacaNav.ts`). Sus enlaces a rutas
+  de la SPA navegan sin recargar y el widget marca el ítem activo con el
+  evento `paldaca-nav:ubicacion`. Si el Portal no responde en 8 s, se pinta un
+  menú propio de respaldo. Variables: `VITE_PALDACA_NAV_URL` (dónde publica el
+  Portal `paldaca-nav.js`) y `VITE_PALDACA_PORTAL_API_URL`.
+- Los menús se editan **solo** en el Portal (`navigationConfig.ts`): el
+  satélite no repite ítems.
 - En producción, `planificacion` entra en `VITE_EMBEDDED_MODULES` solo tras
   desplegar `planificacion.cpaldaca.com` con `PALDACA_SSO_ENABLED=true` y
   `PALDACA_FRAME_ANCESTORS` configurado.
