@@ -7,18 +7,22 @@
  *   nunca chocan entre sí con un 409 falso.
  * - Un 409 real (otra persona editó) reemplaza la tarjeta por la versión del
  *   servidor y lo avisa.
- * - Sin sondeo periódico: los datos se refrescan al volver a la pestaña
- *   (acción real del usuario). Ver R-07 en docs/plan-modulo-planificacion.md §6.5.
+ * - Refresco automático solo con la pestaña visible y el usuario activo
+ *   (`refrescoVivo`, R-07 en docs/plan-modulo-planificacion.md §6.5), además
+ *   de al volver a la pestaña.
  */
 
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { refrescoVivo } from "@/lib/actividadUsuario";
 import { calcularVencimiento } from "@/lib/vencimiento";
 
 import { ApiError, api, mensajeError } from "./client";
 import type {
+  Actividad,
   CardDetalle,
+  ItemChecklist,
   CardResumen,
   Columna,
   Comentario,
@@ -42,6 +46,7 @@ export const claves = {
   archivadas: (id: number) => ["tablero", id, "archivadas"] as const,
   card: (tableroId: number, numero: number) => ["card", tableroId, numero] as const,
   comentarios: (cardId: number) => ["comentarios", cardId] as const,
+  actividad: (cardId: number) => ["actividad", cardId] as const,
   misTareas: ["mis-tareas"] as const,
   equipos: ["equipos"] as const,
   equipo: (id: number) => ["equipo", id] as const,
@@ -66,6 +71,7 @@ export const useTablero = (id: number) =>
     queryKey: claves.tablero(id),
     queryFn: () => api.get<TableroDetalle>(`${V1}/tableros/${id}/`),
     enabled: Number.isFinite(id),
+    refetchInterval: refrescoVivo(20_000),
   });
 
 export const useArchivadas = (id: number, habilitado: boolean) =>
@@ -80,6 +86,7 @@ export const useCard = (tableroId: number, numero: number) =>
     queryKey: claves.card(tableroId, numero),
     queryFn: () => api.get<CardDetalle>(`${V1}/tableros/${tableroId}/cards/${numero}/`),
     enabled: Number.isFinite(tableroId) && Number.isFinite(numero),
+    refetchInterval: refrescoVivo(20_000),
   });
 
 export const useComentarios = (cardId: number | undefined) =>
@@ -87,10 +94,23 @@ export const useComentarios = (cardId: number | undefined) =>
     queryKey: claves.comentarios(cardId ?? -1),
     queryFn: () => api.get<Comentario[]>(`${V1}/cards/${cardId}/comentarios/`),
     enabled: cardId !== undefined,
+    refetchInterval: refrescoVivo(15_000),
+  });
+
+export const useActividad = (cardId: number | undefined, habilitado: boolean) =>
+  useQuery({
+    queryKey: claves.actividad(cardId ?? -1),
+    queryFn: () => api.get<Actividad[]>(`${V1}/cards/${cardId}/actividad/`),
+    enabled: habilitado && cardId !== undefined,
+    refetchInterval: refrescoVivo(30_000),
   });
 
 export const useMisTareas = () =>
-  useQuery({ queryKey: claves.misTareas, queryFn: () => api.get<MisTarea[]>(`${V1}/mis-tareas/`) });
+  useQuery({
+    queryKey: claves.misTareas,
+    queryFn: () => api.get<MisTarea[]>(`${V1}/mis-tareas/`),
+    refetchInterval: refrescoVivo(30_000),
+  });
 
 export const useEquipos = () =>
   useQuery({ queryKey: claves.equipos, queryFn: () => api.get<Equipo[]>(`${V1}/equipos/`) });
@@ -114,6 +134,7 @@ export const useInvitacionesEquipo = (id: number, habilitado: boolean) =>
     queryKey: claves.invitacionesEquipo(id),
     queryFn: () => api.get<Invitacion[]>(`${V1}/equipos/${id}/invitaciones/`),
     enabled: habilitado,
+    refetchInterval: refrescoVivo(60_000),
   });
 
 export const useTablerosEquipo = (id: number) =>
@@ -127,6 +148,7 @@ export const useMisInvitaciones = () =>
   useQuery({
     queryKey: claves.misInvitaciones,
     queryFn: () => api.get<Invitacion[]>(`${V1}/invitaciones/`),
+    refetchInterval: refrescoVivo(60_000),
   });
 
 export const usePersonas = (q: string, equipo?: number) =>
@@ -381,6 +403,7 @@ export function usePatchCard(tableroId: number) {
       qc.setQueryData(claves.card(tableroId, card.numero), card);
       reemplazarCard(qc, tableroId, card);
       qc.invalidateQueries({ queryKey: claves.misTareas });
+      qc.invalidateQueries({ queryKey: claves.actividad(card.id) });
     },
     onError: (error, { card }) => {
       if (error instanceof ApiError && error.status === 409) {
@@ -424,10 +447,11 @@ export function useArchivarCard(tableroId: number) {
 // --- Comentarios ------------------------------------------------------------------------
 
 function contarComentarios(qc: QueryClient, tableroId: number, cardId: number, delta: number) {
-  editarTablero(qc, tableroId, (t) => ({
-    ...t,
-    cards: t.cards.map((c) => (c.id === cardId ? { ...c, comentarios: Math.max(0, c.comentarios + delta) } : c)),
-  }));
+  const sumar = <T extends CardResumen>(c: T): T =>
+    c.id === cardId ? { ...c, comentarios: Math.max(0, c.comentarios + delta) } : c;
+  editarTablero(qc, tableroId, (t) => ({ ...t, cards: t.cards.map(sumar) }));
+  // También la tarjeta abierta (su caché va por número, aquí solo se conoce el id).
+  qc.setQueriesData<CardDetalle>({ queryKey: ["card", tableroId] }, (c) => (c ? sumar(c) : c));
 }
 
 export function useCrearComentario(tableroId: number, cardId: number) {
@@ -437,6 +461,7 @@ export function useCrearComentario(tableroId: number, cardId: number) {
     onSuccess: (comentario) => {
       qc.setQueryData<Comentario[]>(claves.comentarios(cardId), (lista) => [...(lista ?? []), comentario]);
       contarComentarios(qc, tableroId, cardId, 1);
+      qc.invalidateQueries({ queryKey: claves.actividad(cardId) });
     },
     onError: avisarError,
   });
@@ -571,8 +596,9 @@ export function useCancelarInvitacion(equipoId: number) {
   return useMutation({
     mutationFn: (id: number) => api.post<Invitacion>(`${V1}/invitaciones/${id}/cancelar/`),
     onSuccess: (inv) => {
+      // Pasa al historial del equipo como «cancelada».
       qc.setQueryData<Invitacion[]>(claves.invitacionesEquipo(equipoId), (lista) =>
-        (lista ?? []).filter((i) => i.id !== inv.id),
+        (lista ?? []).map((i) => (i.id === inv.id ? inv : i)),
       );
       qc.invalidateQueries({ queryKey: claves.equipo(equipoId) });
     },
@@ -598,5 +624,88 @@ export function useResponderInvitacion() {
       avisarError(error);
       qc.invalidateQueries({ queryKey: claves.misInvitaciones });
     },
+  });
+}
+
+// --- Checklist ----------------------------------------------------------------------
+
+type RefCard = { id: number; numero: number };
+
+function cambiarItems(qc: QueryClient, tableroId: number, card: RefCard, cambio: (items: ItemChecklist[]) => ItemChecklist[]) {
+  let items: ItemChecklist[] | null = null;
+  qc.setQueryData<CardDetalle>(claves.card(tableroId, card.numero), (c) => {
+    if (!c) return c;
+    items = cambio(c.items);
+    return { ...c, items, checklist: { hechos: items.filter((i) => i.hecho).length, total: items.length } };
+  });
+  const finales = items as ItemChecklist[] | null;
+  if (!finales) return;
+  editarTablero(qc, tableroId, (t) => ({
+    ...t,
+    cards: t.cards.map((c) =>
+      c.id === card.id ? { ...c, checklist: { hechos: finales.filter((i) => i.hecho).length, total: finales.length } } : c,
+    ),
+  }));
+}
+
+export function useCrearItem(tableroId: number, card: RefCard) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (texto: string) => api.post<ItemChecklist>(`${V1}/cards/${card.id}/checklist/`, { texto }),
+    onSuccess: (item) => {
+      cambiarItems(qc, tableroId, card, (items) => [...items, item]);
+      qc.invalidateQueries({ queryKey: claves.actividad(card.id) });
+    },
+    onError: avisarError,
+  });
+}
+
+export function useEditarItem(tableroId: number, card: RefCard) {
+  const qc = useQueryClient();
+  return useMutation({
+    scope: { id: `checklist-${card.id}` },
+    mutationFn: ({ id, cambios }: { id: number; cambios: Partial<Pick<ItemChecklist, "texto" | "hecho">> }) =>
+      api.patch<ItemChecklist>(`${V1}/checklist/${id}/`, cambios),
+    onMutate: ({ id, cambios }) =>
+      cambiarItems(qc, tableroId, card, (items) => items.map((i) => (i.id === id ? { ...i, ...cambios } : i))),
+    onSuccess: (item) => {
+      cambiarItems(qc, tableroId, card, (items) => items.map((i) => (i.id === item.id ? item : i)));
+      qc.invalidateQueries({ queryKey: claves.actividad(card.id) });
+    },
+    onError: (error) => {
+      avisarError(error);
+      qc.invalidateQueries({ queryKey: claves.card(tableroId, card.numero) });
+    },
+  });
+}
+
+export function useBorrarItem(tableroId: number, card: RefCard) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.del(`${V1}/checklist/${id}/`),
+    onMutate: (id) => cambiarItems(qc, tableroId, card, (items) => items.filter((i) => i.id !== id)),
+    onSuccess: () => qc.invalidateQueries({ queryKey: claves.actividad(card.id) }),
+    onError: (error) => {
+      avisarError(error);
+      qc.invalidateQueries({ queryKey: claves.card(tableroId, card.numero) });
+    },
+  });
+}
+
+// --- Traslado a un tablero de equipo -----------------------------------------------------
+
+export function useTrasladarCard(tableroOrigenId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ cardId, tablero }: { cardId: number; tablero: number }) =>
+      api.post<CardDetalle>(`${V1}/cards/${cardId}/trasladar/`, { tablero }),
+    onSuccess: (card) => {
+      editarTablero(qc, tableroOrigenId, (t) => ({ ...t, cards: t.cards.filter((c) => c.id !== card.id) }));
+      qc.setQueryData(claves.card(card.tablero.id, card.numero), card);
+      qc.invalidateQueries({ queryKey: claves.tablero(card.tablero.id) });
+      qc.invalidateQueries({ queryKey: claves.tableros });
+      qc.invalidateQueries({ queryKey: claves.misTareas });
+    },
+    onError: avisarError,
   });
 }

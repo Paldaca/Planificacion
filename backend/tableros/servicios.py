@@ -9,6 +9,7 @@ según la columna final) pasa por aquí, dentro de una transacción.
 from __future__ import annotations
 
 import datetime
+import re
 
 from django.db import IntegrityError, transaction
 from django.db.models import Max
@@ -154,18 +155,68 @@ def crear_card(*, tablero: Tablero, columna: Columna, titulo: str, creada_por, *
     return card
 
 
-def asignar_responsables(card: Card, usuarios, *, por) -> list:
-    """Deja exactamente `usuarios` como responsables. Devuelve los NUEVOS."""
+def asignar_responsables(card: Card, usuarios, *, por) -> tuple[list, list]:
+    """Deja exactamente `usuarios` como responsables. Devuelve (nuevos, quitados)."""
     from .models import ResponsableCard
 
     deseados = {u.pk: u for u in usuarios}
-    actuales = set(card.asignaciones.values_list("usuario_id", flat=True))
+    actuales = {a.usuario_id: a.usuario for a in card.asignaciones.select_related("usuario")}
+    quitados = [u for pk, u in actuales.items() if pk not in deseados]
     card.asignaciones.exclude(usuario_id__in=deseados).delete()
     nuevos = [u for pk, u in deseados.items() if pk not in actuales]
     ResponsableCard.objects.bulk_create(
         [ResponsableCard(card=card, usuario=u, asignado_por=por) for u in nuevos]
     )
-    return nuevos
+    return nuevos, quitados
+
+
+_MENCION = re.compile(r"(?<![\w@.])@([\w.\-]+)")
+
+
+def extraer_menciones(texto: str, personas) -> list:
+    """Personas del tablero mencionadas como `@usuario` (sin repetir)."""
+    por_usuario = {p.username.lower(): p for p in personas}
+    vistos: dict[int, object] = {}
+    for coincidencia in _MENCION.finditer(texto or ""):
+        persona = por_usuario.get(coincidencia.group(1).rstrip(".").lower())
+        if persona is not None:
+            vistos.setdefault(persona.pk, persona)
+    return list(vistos.values())
+
+
+@transaction.atomic
+def trasladar_card(card: Card, destino: Tablero, personas_destino) -> Card:
+    """Lleva la card (con comentarios, checklist e historial) a otro tablero.
+
+    Toma un número nuevo en el destino, cae en la columna del mismo nombre o
+    en la primera, y conserva solo los responsables que existen allí."""
+    if destino.pk == card.tablero_id:
+        raise ReglaDeNegocio("La tarjeta ya está en ese tablero.")
+    if destino.archivado:
+        raise ReglaDeNegocio("Ese tablero está archivado.")
+    activas = list(columnas_activas(destino))
+    if not activas:
+        raise ReglaDeNegocio("El tablero destino no tiene columnas.")
+    columna = next((c for c in activas if c.nombre.lower() == card.columna.nombre.lower()), activas[0])
+    bloqueado = Tablero.objects.select_for_update().get(pk=destino.pk)
+    card.numero = bloqueado.siguiente_numero_card
+    bloqueado.siguiente_numero_card += 1
+    bloqueado.save(update_fields=["siguiente_numero_card"])
+    ultimo = columna.cards.filter(archivada=False).aggregate(m=Max("orden"))["m"]
+    origen_columna = card.columna_id
+    card.tablero = destino
+    card.columna = columna
+    card.orden = (ultimo if ultimo is not None else -1) + 1
+    card.version += 1
+    _ajustar_completada(card, columna, timezone.now())
+    card.save()
+    permitidos = {p.pk for p in personas_destino}
+    card.asignaciones.exclude(usuario_id__in=permitidos).delete()
+    restantes = list(Card.objects.filter(columna_id=origen_columna, archivada=False).order_by("orden", "id"))
+    for i, c in enumerate(restantes):
+        c.orden = i
+    Card.objects.bulk_update(restantes, ["orden"])
+    return card
 
 
 @transaction.atomic
@@ -235,8 +286,11 @@ def dias_habiles_hasta(hoy: datetime.date, fin: datetime.date) -> int:
     return dias
 
 
-def vencimiento(card: Card, hoy: datetime.date | None = None) -> str:
-    """terminada | sin_fecha | vencida | vence_pronto | al_dia. Nunca se guarda."""
+def vencimiento(card: Card, hoy: datetime.date | None = None, umbral: int = DIAS_HABILES_VENCE_PRONTO) -> str:
+    """terminada | sin_fecha | vencida | vence_pronto | al_dia. Nunca se guarda.
+
+    `umbral`: días hábiles de «vence pronto»; las vistas pasan el mismo que usan
+    los avisos (configurable en el Portal) para que tarjeta y aviso coincidan."""
     if card.completada_en is not None or card.columna.es_final:
         return "terminada"
     if card.fecha_fin is None:
@@ -244,6 +298,6 @@ def vencimiento(card: Card, hoy: datetime.date | None = None) -> str:
     hoy = hoy or timezone.localdate()
     if card.fecha_fin < hoy:
         return "vencida"
-    if dias_habiles_hasta(hoy, card.fecha_fin) <= DIAS_HABILES_VENCE_PRONTO:
+    if dias_habiles_hasta(hoy, card.fecha_fin) <= umbral:
         return "vence_pronto"
     return "al_dia"

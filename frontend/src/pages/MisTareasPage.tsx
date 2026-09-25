@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 
 import { useMisTareas } from "@/api/queries";
 import type { MisTarea } from "@/api/tipos";
-import { nombreVisible, useIdentidad } from "@/auth/identidad";
+import { nombreVisible, useIdentidad } from "@/auth/useIdentidad";
 import { CardDialogo } from "@/components/card/CardDialogo";
 import { AvisoInvitaciones } from "@/components/invitaciones/AvisoInvitaciones";
 import { Encabezado } from "@/components/layout/Encabezado";
@@ -143,6 +143,7 @@ export default function MisTareasPage() {
           tableroId={abierta.tableroId}
           numero={abierta.numero}
           onCerrar={() => setAbierta(null)}
+          onTrasladada={(card) => setAbierta({ tableroId: card.tablero.id, numero: card.numero })}
           enlaceTablero={
             <Link
               to={`/tableros/${abierta.tableroId}/cards/${abierta.numero}`}

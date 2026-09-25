@@ -4,8 +4,11 @@ import {
   CalendarDays,
   Check,
   CircleCheck,
+  ArrowRightLeft,
   Flag,
+  History,
   LayoutGrid,
+  MessageSquare,
   Plus,
   TextAlignStart,
   UsersRound,
@@ -17,9 +20,17 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { ApiError } from "@/api/client";
-import { useArchivarCard, useCard, usePatchCard, useTablero, type CambiosCard } from "@/api/queries";
+import {
+  useArchivarCard,
+  useCard,
+  usePatchCard,
+  useTablero,
+  useTableros,
+  useTrasladarCard,
+  type CambiosCard,
+} from "@/api/queries";
 import type { CardDetalle, Persona, TableroDetalle } from "@/api/tipos";
-import { nombreVisible, useIdentidad } from "@/auth/identidad";
+import { nombreVisible, useIdentidad } from "@/auth/useIdentidad";
 import { Avatar } from "@/components/ui/Avatar";
 import { Boton } from "@/components/ui/Boton";
 import { Esqueleto, Pildora } from "@/components/ui/Estados";
@@ -27,11 +38,20 @@ import { cn } from "@/lib/cn";
 import { LISTA_URGENCIAS, URGENCIAS, VENCIMIENTOS } from "@/lib/estilos";
 import { haceCuanto, relativoFin } from "@/lib/fechas";
 
+import { Checklist } from "./Checklist";
 import { Comentarios } from "./Comentarios";
+import { Historial } from "./Historial";
 
-type Props = { tableroId: number; numero: number; onCerrar: () => void; enlaceTablero?: ReactNode };
+type Props = {
+  tableroId: number;
+  numero: number;
+  onCerrar: () => void;
+  enlaceTablero?: ReactNode;
+  /** La tarjeta cambió de tablero (su URL ya no es la misma). */
+  onTrasladada?: (card: CardDetalle) => void;
+};
 
-export function CardDialogo({ tableroId, numero, onCerrar, enlaceTablero }: Props) {
+export function CardDialogo({ tableroId, numero, onCerrar, enlaceTablero, onTrasladada }: Props) {
   const [abierto, setAbierto] = useState(true);
   const cerrar = () => setAbierto(false);
 
@@ -41,20 +61,26 @@ export function CardDialogo({ tableroId, numero, onCerrar, enlaceTablero }: Prop
         <Dialog.Overlay className="dialogo-fondo fixed inset-0 z-50 bg-marino/45 backdrop-blur-[3px]" />
         <Dialog.Content
           onAnimationEnd={(e) => e.target === e.currentTarget && !abierto && onCerrar()}
+          // Sin esto Radix enfoca el primer campo (el título) y la tarjeta se
+          // abre como si estuviera en edición: el foco va al propio panel.
+          onOpenAutoFocus={(e) => {
+            e.preventDefault();
+            (e.currentTarget as HTMLElement).focus();
+          }}
           className={cn(
             "dialogo-panel fixed inset-0 z-50 flex flex-col overflow-hidden bg-white focus:outline-none",
             "sm:inset-auto sm:top-[4vh] sm:left-1/2 sm:max-h-[92vh] sm:w-[min(980px,calc(100vw-2rem))] sm:-translate-x-1/2",
             "sm:rounded-[24px] sm:border sm:border-linea sm:shadow-[0_40px_80px_-30px_rgba(20,22,68,0.55)]",
           )}
         >
-          <Contenido tableroId={tableroId} numero={numero} enlaceTablero={enlaceTablero} />
+          <Contenido tableroId={tableroId} numero={numero} enlaceTablero={enlaceTablero} onTrasladada={onTrasladada} />
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
   );
 }
 
-function Contenido({ tableroId, numero, enlaceTablero }: Omit<Props, "onCerrar">) {
+function Contenido({ tableroId, numero, enlaceTablero, onTrasladada }: Omit<Props, "onCerrar">) {
   const { data: card, error, isLoading } = useCard(tableroId, numero);
   const { data: tablero } = useTablero(tableroId);
 
@@ -90,17 +116,19 @@ function Contenido({ tableroId, numero, enlaceTablero }: Omit<Props, "onCerrar">
     );
   }
 
-  return <Detalle card={card} tablero={tablero} enlaceTablero={enlaceTablero} />;
+  return <Detalle card={card} tablero={tablero} enlaceTablero={enlaceTablero} onTrasladada={onTrasladada} />;
 }
 
 function Detalle({
   card,
   tablero,
   enlaceTablero,
+  onTrasladada,
 }: {
   card: CardDetalle;
   tablero: TableroDetalle;
   enlaceTablero?: ReactNode;
+  onTrasladada?: (card: CardDetalle) => void;
 }) {
   const identidad = useIdentidad();
   const patch = usePatchCard(tablero.id);
@@ -164,7 +192,7 @@ function Detalle({
             {card.archivada && <Pildora color="#b45309">Archivada</Pildora>}
             {enlaceTablero}
           </div>
-          <Titulo card={card} puede={puede} onGuardar={(titulo) => guardar({ titulo })} />
+          <Titulo key={card.titulo} card={card} puede={puede} onGuardar={(titulo) => guardar({ titulo })} />
         </div>
         <Dialog.Close
           className="mt-0.5 rounded-xl p-2 text-tenue transition-colors hover:bg-morado/8 hover:text-morado"
@@ -177,7 +205,8 @@ function Detalle({
       <div className="grid flex-1 gap-8 overflow-y-auto px-6 pt-4 pb-8 sm:px-8 md:grid-cols-[minmax(0,1fr)_270px]">
         <div className="min-w-0 space-y-8">
           <Descripcion card={card} puede={puede} onGuardar={(descripcion) => guardar({ descripcion })} />
-          <Comentarios tableroId={tablero.id} cardId={card.id} yo={yo} puedeComentar={puede} />
+          <Checklist card={card} tableroId={tablero.id} puede={puede} />
+          <Conversacion card={card} tablero={tablero} yo={yo} puede={puede} />
         </div>
 
         <aside className="space-y-6 md:sticky md:top-0 md:self-start">
@@ -262,6 +291,7 @@ function Detalle({
               </p>
             )}
             <p>Actualizada {haceCuanto(card.actualizado_en)}</p>
+            {puede && <MoverATablero card={card} tablero={tablero} onTrasladada={onTrasladada} />}
             {card.permisos.editar && (
               <Boton
                 variante={card.archivada ? "suave" : "peligro"}
@@ -305,7 +335,6 @@ function Titulo({ card, puede, onGuardar }: { card: CardDetalle; puede: boolean;
   const [valor, setValor] = useState(card.titulo);
   const ref = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => setValor(card.titulo), [card.titulo]);
   useEffect(() => {
     const el = ref.current;
     if (el) {
@@ -353,10 +382,6 @@ function Descripcion({ card, puede, onGuardar }: { card: CardDetalle; puede: boo
   const [editando, setEditando] = useState(false);
   const [valor, setValor] = useState(card.descripcion);
 
-  useEffect(() => {
-    if (!editando) setValor(card.descripcion);
-  }, [card.descripcion, editando]);
-
   return (
     <section>
       <h3 className="mb-2.5 flex items-center gap-2 font-display text-[0.95rem] font-semibold text-marino">
@@ -400,7 +425,10 @@ function Descripcion({ card, puede, onGuardar }: { card: CardDetalle; puede: boo
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             disabled={!puede}
-            onClick={() => setEditando(true)}
+            onClick={() => {
+              setValor(card.descripcion);
+              setEditando(true);
+            }}
             className={cn(
               "w-full rounded-2xl px-4 py-3 text-left text-sm leading-relaxed whitespace-pre-wrap transition-colors",
               card.descripcion ? "text-texto" : "text-tenue/70",
@@ -558,5 +586,139 @@ function Responsables({
         </Popover.Root>
       )}
     </div>
+  );
+}
+
+function Conversacion({
+  card,
+  tablero,
+  yo,
+  puede,
+}: {
+  card: CardDetalle;
+  tablero: TableroDetalle;
+  yo: Persona;
+  puede: boolean;
+}) {
+  const [pestana, setPestana] = useState<"comentarios" | "actividad">("comentarios");
+  const pestanas = [
+    { id: "comentarios" as const, etiqueta: "Comentarios", icono: MessageSquare, contador: card.comentarios },
+    { id: "actividad" as const, etiqueta: "Actividad", icono: History, contador: 0 },
+  ];
+  return (
+    <section>
+      <div className="mb-4 flex gap-1 border-b border-linea" role="tablist">
+        {pestanas.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            role="tab"
+            aria-selected={pestana === p.id}
+            onClick={() => setPestana(p.id)}
+            className={cn(
+              "relative flex items-center gap-2 px-3 pb-2.5 font-display text-[0.92rem] font-semibold transition-colors",
+              pestana === p.id ? "text-marino" : "text-tenue hover:text-morado",
+            )}
+          >
+            <p.icono className="size-4" />
+            {p.etiqueta}
+            {p.contador > 0 && (
+              <span className="rounded-full bg-columna px-1.5 py-0.5 text-[0.68rem] text-tenue">{p.contador}</span>
+            )}
+            {pestana === p.id && (
+              <motion.span
+                layoutId={`conversacion-${card.id}`}
+                className="absolute inset-x-1 -bottom-px h-[3px] rounded-full bg-morado"
+                transition={{ type: "spring", stiffness: 420, damping: 34 }}
+              />
+            )}
+          </button>
+        ))}
+      </div>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={pestana}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.18 }}
+        >
+          {pestana === "comentarios" ? (
+            <Comentarios tableroId={tablero.id} cardId={card.id} yo={yo} puedeComentar={puede} personas={tablero.personas} />
+          ) : (
+            <Historial cardId={card.id} />
+          )}
+        </motion.div>
+      </AnimatePresence>
+    </section>
+  );
+}
+
+/** Llevar la tarjeta a un tablero de equipo (p. ej. desde el tablero personal). */
+function MoverATablero({
+  card,
+  tablero,
+  onTrasladada,
+}: {
+  card: CardDetalle;
+  tablero: TableroDetalle;
+  onTrasladada?: (card: CardDetalle) => void;
+}) {
+  const { data: tableros } = useTableros();
+  const trasladar = useTrasladarCard(tablero.id);
+  const [abierto, setAbierto] = useState(false);
+  const destinos = (tableros ?? []).filter((t) => t.tipo === "equipo" && t.permisos.editar && t.id !== tablero.id);
+  if (!destinos.length) return null;
+
+  return (
+    <Popover.Root open={abierto} onOpenChange={setAbierto}>
+      <Popover.Trigger asChild>
+        <Boton variante="secundario" tamano="sm" className="w-full">
+          <ArrowRightLeft />
+          {tablero.tipo === "personal" ? "Pasar a un tablero de equipo" : "Mover a otro tablero"}
+        </Boton>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          align="start"
+          side="top"
+          sideOffset={6}
+          className="flotante z-[60] w-72 rounded-xl border border-linea bg-white p-1.5 shadow-[0_18px_38px_-18px_rgba(20,22,68,0.4)]"
+        >
+          <p className="px-2.5 pt-1.5 pb-2 text-[0.7rem] leading-snug text-tenue">
+            La tarjeta se lleva sus comentarios, checklist e historial. Quedarán como responsables solo quienes
+            estén en ese equipo.
+          </p>
+          <div className="max-h-64 overflow-y-auto">
+            {destinos.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                disabled={trasladar.isPending}
+                onClick={() =>
+                  trasladar.mutate(
+                    { cardId: card.id, tablero: t.id },
+                    {
+                      onSuccess: (movida) => {
+                        setAbierto(false);
+                        toast.success("Tarjeta trasladada", { description: `Ahora está en ${t.nombre}.` });
+                        onTrasladada?.(movida);
+                      },
+                    },
+                  )
+                }
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors hover:bg-morado/8 disabled:opacity-50"
+              >
+                <span className="size-2.5 shrink-0 rounded-full" style={{ background: t.equipo?.color }} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium text-texto">{t.nombre}</span>
+                  <span className="block truncate text-[0.72rem] text-tenue">{t.equipo?.nombre}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }

@@ -1,5 +1,5 @@
 import { Archive, ArchiveRestore, ArrowLeft, Ellipsis, Lock, Pencil, UsersRound } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link, Outlet, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -8,7 +8,8 @@ import { useArchivadas, useArchivarCard, useArchivarTablero, useEditarTablero, u
 import type { CardResumen } from "@/api/tipos";
 import { CardDialogo } from "@/components/card/CardDialogo";
 import { Encabezado } from "@/components/layout/Encabezado";
-import { BarraFiltros, FILTROS_VACIOS, filtrar, hayFiltros, type EstadoFiltros } from "@/components/tablero/Filtros";
+import { BarraFiltros } from "@/components/tablero/Filtros";
+import { FILTROS_VACIOS, filtrar, hayFiltros, type EstadoFiltros } from "@/lib/filtros";
 import { Kanban } from "@/components/tablero/Kanban";
 import { SelectorVista } from "@/components/tablero/SelectorVista";
 import { CuerpoTarjeta } from "@/components/tablero/Tarjeta";
@@ -18,6 +19,7 @@ import { Dialogo } from "@/components/ui/Dialogo";
 import { Entrada, Campo, AreaTexto } from "@/components/ui/Campos";
 import { Esqueleto, Pildora, Vacio } from "@/components/ui/Estados";
 import { ItemMenu, Menu, SeparadorMenu } from "@/components/ui/Menu";
+import { useAlAbrir } from "@/hooks/useAlAbrir";
 import { useTitulo } from "@/hooks/useTitulo";
 import { ROLES } from "@/lib/estilos";
 
@@ -211,6 +213,7 @@ export function TarjetaAbierta() {
       tableroId={Number(tableroId)}
       numero={Number(numero)}
       onCerrar={() => navigate(`/tableros/${tableroId}`)}
+      onTrasladada={(card) => navigate(`/tableros/${card.tablero.id}/cards/${card.numero}`, { replace: true })}
     />
   );
 }
@@ -310,9 +313,7 @@ function EditarTableroDialogo({
   const editar = useEditarTablero(id);
   const [valores, setValores] = useState({ nombre, descripcion });
 
-  useEffect(() => {
-    if (abierto) setValores({ nombre, descripcion });
-  }, [abierto, nombre, descripcion]);
+  useAlAbrir(abierto, () => setValores({ nombre, descripcion }));
 
   return (
     <Dialogo

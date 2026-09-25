@@ -45,16 +45,23 @@ export function ColumnaKanban({
 }: Props) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
     useSortable({ id: `k:${columna.id}`, data: { tipo: "columna", columna }, disabled: !puedeGestionar });
-  const zona = useDroppable({ id: `z:${columna.id}`, data: { tipo: "zona", columnaId: columna.id } });
+  const { setNodeRef: setZonaRef, isOver: zonaActiva } = useDroppable({
+    id: `z:${columna.id}`,
+    data: { tipo: "zona", columnaId: columna.id },
+  });
 
   const [editando, setEditando] = useState(false);
   const [nombre, setNombre] = useState(columna.nombre);
   const entrada = useRef<HTMLInputElement>(null);
 
-  useEffect(() => setNombre(columna.nombre), [columna.nombre]);
   useEffect(() => {
     if (editando) entrada.current?.select();
   }, [editando]);
+
+  function empezarEdicion() {
+    setNombre(columna.nombre);
+    setEditando(true);
+  }
 
   function guardarNombre() {
     setEditando(false);
@@ -76,7 +83,7 @@ export function ColumnaKanban({
       className={cn(
         "entrada flex max-h-full w-[min(85vw,300px)] shrink-0 snap-start flex-col rounded-[18px] bg-columna/80",
         "border border-transparent transition-[border-color,background-color] duration-200",
-        zona.isOver && "border-morado/25 bg-[#e6e9f7]",
+        zonaActiva && "border-morado/25 bg-[#e6e9f7]",
         isDragging && "opacity-40",
       )}
       aria-label={`Columna ${columna.nombre}`}
@@ -120,7 +127,7 @@ export function ColumnaKanban({
               "min-w-0 flex-1 truncate font-display text-[0.95rem] font-semibold text-marino",
               puedeGestionar && "cursor-text",
             )}
-            onDoubleClick={() => puedeGestionar && setEditando(true)}
+            onDoubleClick={() => puedeGestionar && empezarEdicion()}
           >
             {columna.nombre}
           </h2>
@@ -136,7 +143,7 @@ export function ColumnaKanban({
               </Boton>
             }
           >
-            <ItemMenu icono={Pencil} onSelect={() => setEditando(true)}>
+            <ItemMenu icono={Pencil} onSelect={empezarEdicion}>
               Renombrar
             </ItemMenu>
             <ItemMenu icono={CircleCheck} onSelect={() => onAlternarFinal(columna)}>
@@ -150,7 +157,7 @@ export function ColumnaKanban({
         )}
       </header>
 
-      <div ref={zona.setNodeRef} className="kanban-scroll flex min-h-16 flex-1 flex-col gap-2 overflow-y-auto px-2.5 pb-1">
+      <div ref={setZonaRef} className="kanban-scroll flex min-h-16 flex-1 flex-col gap-2 overflow-y-auto px-2.5 pb-1">
         <SortableContext items={cards.map((c) => `c:${c.id}`)} strategy={verticalListSortingStrategy}>
           {cards.map((card) => (
             <Tarjeta

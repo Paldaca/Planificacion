@@ -1,4 +1,4 @@
-import { Ellipsis, MessageSquare, Pencil, Send, Trash } from "lucide-react";
+import { Ellipsis, Pencil, Send, Trash } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 
@@ -10,57 +10,52 @@ import { Esqueleto } from "@/components/ui/Estados";
 import { ItemMenu, Menu } from "@/components/ui/Menu";
 import { haceCuanto } from "@/lib/fechas";
 
+import { EditorMenciones, TextoConMenciones } from "./EditorMenciones";
+
+const ESTILO_EDITOR =
+  "block w-full resize-none rounded-2xl bg-transparent px-3.5 pt-3 text-sm text-texto outline-none placeholder:text-tenue/60";
+
 export function Comentarios({
   tableroId,
   cardId,
   yo,
   puedeComentar,
+  personas,
 }: {
   tableroId: number;
   cardId: number;
   yo: Persona;
   puedeComentar: boolean;
+  personas: Persona[];
 }) {
   const { data: comentarios, isLoading } = useComentarios(cardId);
   const crear = useCrearComentario(tableroId, cardId);
   const [texto, setTexto] = useState("");
+  const mencionables = personas.filter((p) => p.id !== yo.id);
 
   async function enviar() {
     const limpio = texto.trim();
-    if (!limpio) return;
+    if (!limpio || crear.isPending) return;
     await crear.mutateAsync(limpio);
     setTexto("");
   }
 
   return (
-    <section>
-      <h3 className="mb-3 flex items-center gap-2 font-display text-[0.95rem] font-semibold text-marino">
-        <MessageSquare className="size-4 text-morado" />
-        Comentarios
-        {comentarios && comentarios.length > 0 && (
-          <span className="rounded-full bg-columna px-2 py-0.5 text-[0.7rem] text-tenue">
-            {comentarios.filter((c) => !c.eliminado).length}
-          </span>
-        )}
-      </h3>
-
+    <div>
       {puedeComentar && (
         <div className="mb-5 flex gap-3">
           <Avatar persona={yo} tamano="md" conTooltip={false} />
           <div className="flex-1 rounded-2xl border border-linea bg-white transition-shadow focus-within:border-morado/50 focus-within:shadow-[0_0_0_4px_rgba(50,64,123,0.08)]">
-            <textarea
-              value={texto}
-              onChange={(e) => setTexto(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) void enviar();
-              }}
-              rows={2}
-              maxLength={5000}
-              placeholder="Escribe un comentario para ti o tu equipo…"
-              className="block w-full resize-none rounded-2xl bg-transparent px-3.5 pt-3 text-sm text-texto outline-none placeholder:text-tenue/60"
+            <EditorMenciones
+              valor={texto}
+              onCambio={setTexto}
+              onEnviar={() => void enviar()}
+              personas={mencionables}
+              marcador="Escribe un comentario… usa @ para mencionar a alguien"
+              className={ESTILO_EDITOR}
             />
             <div className="flex items-center justify-between px-3 pb-2.5">
-              <span className="text-[0.7rem] text-tenue/70">Ctrl + Enter para enviar</span>
+              <span className="text-[0.7rem] text-tenue/70">@ menciona · Ctrl + Enter envía</span>
               <Boton tamano="sm" onClick={() => void enviar()} cargando={crear.isPending} disabled={!texto.trim()}>
                 <Send />
                 Comentar
@@ -87,21 +82,29 @@ export function Comentarios({
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
               >
-                <ItemComentario comentario={c} tableroId={tableroId} cardId={cardId} />
+                <ItemComentario comentario={c} tableroId={tableroId} cardId={cardId} personas={mencionables} />
               </motion.li>
             ))}
           </AnimatePresence>
         </ol>
       ) : (
-        <p className="rounded-xl bg-fondo px-4 py-5 text-center text-sm text-tenue">
-          Todavía no hay comentarios.
-        </p>
+        <p className="rounded-xl bg-fondo px-4 py-5 text-center text-sm text-tenue">Todavía no hay comentarios.</p>
       )}
-    </section>
+    </div>
   );
 }
 
-function ItemComentario({ comentario, tableroId, cardId }: { comentario: Comentario; tableroId: number; cardId: number }) {
+function ItemComentario({
+  comentario,
+  tableroId,
+  cardId,
+  personas,
+}: {
+  comentario: Comentario;
+  tableroId: number;
+  cardId: number;
+  personas: Persona[];
+}) {
   const editar = useEditarComentario(cardId);
   const borrar = useBorrarComentario(tableroId, cardId);
   const [editando, setEditando] = useState(false);
@@ -110,6 +113,13 @@ function ItemComentario({ comentario, tableroId, cardId }: { comentario: Comenta
 
   if (comentario.eliminado) {
     return <p className="pl-12 text-xs text-tenue/70 italic">Comentario eliminado</p>;
+  }
+
+  async function guardar() {
+    const limpio = texto.trim();
+    if (!limpio) return;
+    await editar.mutateAsync({ id: comentario.id, texto: limpio });
+    setEditando(false);
   }
 
   return (
@@ -131,7 +141,13 @@ function ItemComentario({ comentario, tableroId, cardId }: { comentario: Comenta
                   </Boton>
                 }
               >
-                <ItemMenu icono={Pencil} onSelect={() => setEditando(true)}>
+                <ItemMenu
+                  icono={Pencil}
+                  onSelect={() => {
+                    setTexto(comentario.texto);
+                    setEditando(true);
+                  }}
+                >
                   Editar
                 </ItemMenu>
                 <ItemMenu icono={Trash} peligro onSelect={() => borrar.mutate(comentario.id)}>
@@ -143,22 +159,19 @@ function ItemComentario({ comentario, tableroId, cardId }: { comentario: Comenta
         </div>
         {editando ? (
           <div className="mt-1.5 space-y-2">
-            <textarea
-              autoFocus
-              value={texto}
-              onChange={(e) => setTexto(e.target.value)}
-              rows={3}
-              className="w-full resize-y rounded-xl border border-morado/40 bg-white px-3 py-2 text-sm outline-none"
-            />
+            <div className="rounded-xl border border-morado/40 bg-white">
+              <EditorMenciones
+                valor={texto}
+                onCambio={setTexto}
+                onEnviar={() => void guardar()}
+                personas={personas}
+                filas={3}
+                autoFocus
+                className="block w-full resize-y rounded-xl bg-transparent px-3 py-2 text-sm outline-none"
+              />
+            </div>
             <div className="flex gap-2">
-              <Boton
-                tamano="sm"
-                cargando={editar.isPending}
-                onClick={async () => {
-                  await editar.mutateAsync({ id: comentario.id, texto });
-                  setEditando(false);
-                }}
-              >
+              <Boton tamano="sm" cargando={editar.isPending} onClick={() => void guardar()}>
                 Guardar
               </Boton>
               <Boton tamano="sm" variante="fantasma" onClick={() => setEditando(false)}>
@@ -168,7 +181,7 @@ function ItemComentario({ comentario, tableroId, cardId }: { comentario: Comenta
           </div>
         ) : (
           <p className="mt-1 rounded-2xl rounded-tl-md bg-fondo px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap text-texto">
-            {comentario.texto}
+            <TextoConMenciones texto={comentario.texto} menciones={comentario.menciones} />
           </p>
         )}
       </div>

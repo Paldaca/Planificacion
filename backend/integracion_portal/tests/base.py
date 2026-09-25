@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest import mock
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
@@ -36,6 +38,13 @@ def crear_usuario(username, *, nombre="", apellido="", portal_id=None, modulo=Tr
     PALDACA_NOTIFICACIONES_ACTIVAS=True,
 )
 class ApiTestCase(TestCase):
+    def setUp(self):
+        super().setUp()
+        # La configuración de tipos vendría del Portal: en tests, valores por defecto.
+        parche = mock.patch("integracion_portal.notificaciones.config_tipo", return_value=None)
+        parche.start()
+        self.addCleanup(parche.stop)
+
     def cliente(self, usuario) -> APIClient:
         cliente = APIClient()
         cliente.force_authenticate(user=usuario)

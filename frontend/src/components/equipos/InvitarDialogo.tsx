@@ -10,6 +10,7 @@ import { Boton } from "@/components/ui/Boton";
 import { Campo, Entrada } from "@/components/ui/Campos";
 import { Dialogo } from "@/components/ui/Dialogo";
 import { Esqueleto } from "@/components/ui/Estados";
+import { useAlAbrir } from "@/hooks/useAlAbrir";
 import { cn } from "@/lib/cn";
 
 const OPCIONES_ROL: { rol: RolEquipo; titulo: string; texto: string }[] = [
@@ -43,14 +44,12 @@ export function InvitarDialogo({ equipo, abierto, onCerrar }: { equipo: Equipo; 
   const personas = data?.resultados;
   const invitar = useInvitar(equipo.id);
 
-  useEffect(() => {
-    if (abierto) {
-      setQ("");
-      setElegida(null);
-      setRol("miembro");
-      setMensaje("");
-    }
-  }, [abierto]);
+  useAlAbrir(abierto, () => {
+    setQ("");
+    setElegida(null);
+    setRol("miembro");
+    setMensaje("");
+  });
 
   async function enviar() {
     if (!elegida) return;

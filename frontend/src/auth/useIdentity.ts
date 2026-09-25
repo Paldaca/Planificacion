@@ -36,36 +36,41 @@ export type IdentityState =
 export function useIdentity() {
   const [state, setState] = useState<IdentityState>({ status: "loading" });
 
+  /** Reintento manual (o tras un 401 a mitad de uso): vuelve a "cargando". */
   const refresh = useCallback(async () => {
     setState({ status: "loading" });
-    try {
-      const identity = await apiFetch<Identity>("/api/auth/me/");
-      setState({ status: "ok", identity });
-    } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.status === 401) {
-          const loginUrl =
-            typeof err.body === "object" && err.body !== null && "login_url" in err.body
-              ? ((err.body as { login_url?: string | null }).login_url ?? null)
-              : null;
-          setState({ status: "unauthorized", loginUrl });
-          return;
-        }
-        if (err.status === 403) {
-          setState({ status: "forbidden" });
-          return;
-        }
-      }
-      setState({
-        status: "unavailable",
-        detail: err instanceof Error ? err.message : String(err),
-      });
-    }
+    setState(await resolverIdentidad());
   }, []);
 
+  // Primera carga: el estado inicial ya es "loading"; solo se fija el resultado.
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    let vigente = true;
+    void resolverIdentidad().then((resultado) => {
+      if (vigente) setState(resultado);
+    });
+    return () => {
+      vigente = false;
+    };
+  }, []);
 
   return { state, refresh };
+}
+
+async function resolverIdentidad(): Promise<IdentityState> {
+  try {
+    const identity = await apiFetch<Identity>("/api/auth/me/");
+    return { status: "ok", identity };
+  } catch (err) {
+    if (err instanceof ApiError) {
+      if (err.status === 401) {
+        const loginUrl =
+          typeof err.body === "object" && err.body !== null && "login_url" in err.body
+            ? ((err.body as { login_url?: string | null }).login_url ?? null)
+            : null;
+        return { status: "unauthorized", loginUrl };
+      }
+      if (err.status === 403) return { status: "forbidden" };
+    }
+    return { status: "unavailable", detail: err instanceof Error ? err.message : String(err) };
+  }
 }

@@ -39,6 +39,7 @@ def del_portal(pk, username, nombre, apellido, rol="usuario"):
 @override_settings(PALDACA_PORTAL_API_URL="http://portal.test")
 class DirectorioPortalTests(ApiTestCase):
     def setUp(self):
+        super().setUp()
         self.ana = crear_usuario("ana", portal_id=11)
         self.beto = crear_usuario("beto", portal_id=22)
         self.equipo = self.cliente(self.ana).post("/api/v1/equipos/", {"nombre": "Obra"}, format="json").json()

@@ -1,10 +1,11 @@
 import { Archive } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { useArchivarColumna } from "@/api/queries";
 import type { Columna, TableroDetalle } from "@/api/tipos";
 import { Boton } from "@/components/ui/Boton";
 import { Dialogo } from "@/components/ui/Dialogo";
+import { useAlAbrir } from "@/hooks/useAlAbrir";
 import { cn } from "@/lib/cn";
 
 /** Archivar una columna con tarjetas exige elegir a dónde van (nada se pierde). */
@@ -22,7 +23,7 @@ export function ArchivarColumnaDialogo({
   const cantidad = columna ? tablero.cards.filter((c) => c.columna === columna.id).length : 0;
   const [destino, setDestino] = useState<number | undefined>(otras[0]?.id);
 
-  useEffect(() => setDestino(otras[0]?.id), [columna?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useAlAbrir(columna !== null, () => setDestino(otras[0]?.id));
 
   async function confirmar() {
     if (!columna) return;

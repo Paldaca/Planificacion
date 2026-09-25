@@ -1,10 +1,10 @@
 import { CalendarRange, ClipboardList, LayoutGrid, Mail, Menu as MenuIcono, UsersRound, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState, type ReactNode } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 
 import { useMisInvitaciones } from "@/api/queries";
-import { nombreVisible, useIdentidad } from "@/auth/identidad";
+import { nombreVisible, useIdentidad } from "@/auth/useIdentidad";
 import { Avatar } from "@/components/ui/Avatar";
 import { isEmbedded } from "@/embed/protocol";
 import { cn } from "@/lib/cn";
@@ -40,9 +40,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
 function ShellSuelto({ children }: { children: ReactNode }) {
   const [abierto, setAbierto] = useState(false);
-  const { pathname } = useLocation();
 
-  useEffect(() => setAbierto(false), [pathname]);
 
   return (
     <div className="min-h-screen lg:pl-[264px]">
@@ -140,6 +138,7 @@ function Barra({ onCerrar }: { onCerrar?: () => void }) {
           <NavLink
             key={a}
             to={a}
+            onClick={onCerrar}
             className={({ isActive }) =>
               cn(
                 "group relative flex items-center gap-3 rounded-[11px] px-3.5 py-2.5 text-[0.94rem] font-medium transition-all duration-200",

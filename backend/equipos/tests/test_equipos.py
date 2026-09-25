@@ -10,6 +10,7 @@ from integracion_portal.tests.base import ApiTestCase, crear_usuario
 
 class EquiposTests(ApiTestCase):
     def setUp(self):
+        super().setUp()
         self.ana = crear_usuario("ana", portal_id=11)
         self.beto = crear_usuario("beto", portal_id=22)
         self.carla = crear_usuario("carla", portal_id=33)
@@ -68,8 +69,10 @@ class EquiposTests(ApiTestCase):
             with self.captureOnCommitCallbacks(execute=True):
                 r = self.cliente(self.beto).post(f"/api/v1/invitaciones/{pendientes[0]['id']}/aceptar/")
             self.assertEqual(r.status_code, 200, r.content)
-            resolucion = urlopen.call_args[0][0]
-            self.assertTrue(resolucion.full_url.endswith("/api/notificaciones/eventos/resolver/"))
+            urls = [llamada.args[0].full_url for llamada in urlopen.call_args_list]
+            self.assertTrue(any(u.endswith("/api/notificaciones/eventos/resolver/") for u in urls))
+            # Además, quien invitó recibe la respuesta.
+            self.assertTrue(any(u.endswith("/api/notificaciones/eventos/") for u in urls))
 
         miembro = MiembroEquipo.objects.get(equipo_id=equipo["id"], usuario=self.beto)
         self.assertEqual(miembro.rol, "miembro")

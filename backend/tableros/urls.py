@@ -29,6 +29,10 @@ urlpatterns = [
     path("cards/<int:pk>/mover/", views.CardMoverView.as_view(), name="card-mover"),
     path("cards/<int:pk>/archivar/", views.CardArchivarView.as_view(), name="card-archivar"),
     path("cards/<int:pk>/comentarios/", views.ComentariosView.as_view(), name="card-comentarios"),
+    path("cards/<int:pk>/trasladar/", views.CardTrasladarView.as_view(), name="card-trasladar"),
+    path("cards/<int:pk>/actividad/", views.ActividadView.as_view(), name="card-actividad"),
+    path("cards/<int:pk>/checklist/", views.ChecklistView.as_view(), name="card-checklist"),
+    path("checklist/<int:pk>/", views.ItemChecklistView.as_view(), name="checklist-item"),
     path("comentarios/<int:pk>/", views.ComentarioDetalleView.as_view(), name="comentario-detalle"),
     path("mis-tareas/", views.MisTareasView.as_view(), name="mis-tareas"),
 ]

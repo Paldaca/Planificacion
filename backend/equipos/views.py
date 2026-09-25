@@ -8,6 +8,8 @@ Planificación. Responder o cancelar la invitación resuelve el aviso.
 
 from __future__ import annotations
 
+import datetime
+
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
@@ -253,7 +255,7 @@ def _avisar_invitacion(invitacion: InvitacionEquipo, actor) -> None:
         cuerpo=cuerpo,
         destinatarios=[invitacion.invitado],
         actor=actor,
-        ruta="/invitaciones",
+        ruta=f"/invitaciones?invitacion={invitacion.pk}",
         clave_agrupacion=invitacion.clave_aviso,
     )
 
@@ -264,11 +266,42 @@ def _resolver_aviso(invitacion: InvitacionEquipo) -> None:
     )
 
 
+def _avisar_respuesta(invitacion: InvitacionEquipo, actor) -> None:
+    """Quien invitó se entera de la respuesta (si sigue administrando el equipo)."""
+    anfitrion = invitacion.invitado_por
+    if anfitrion is None or not permisos.puede_ver_equipo(anfitrion, invitacion.equipo):
+        return
+    equipo = invitacion.equipo
+    aceptada = invitacion.estado == EstadoInvitacion.ACEPTADA
+    verbo = "aceptó" if aceptada else "rechazó"
+    cuerpo = (
+        f"Ya es {ETIQUETA_ROL.get(invitacion.rol, invitacion.rol).lower()} de {equipo.nombre}."
+        if aceptada
+        else f"No se unirá a {equipo.nombre}. Puedes volver a invitarle más adelante."
+    )
+    notificaciones.emitir(
+        codigo=notificaciones.INVITACION_RESPONDIDA,
+        titulo=f"{nombre(actor)} {verbo} tu invitación",
+        cuerpo=cuerpo,
+        destinatarios=[anfitrion],
+        actor=actor,
+        ruta=f"/equipos/{equipo.pk}",
+    )
+
+
+#: Cuántos días de invitaciones ya respondidas ve el administrador del equipo.
+DIAS_HISTORIAL_INVITACIONES = 30
+
+
 class InvitacionesEquipoView(APIView):
     def get(self, request, pk):
+        """Pendientes y, como historial, las respondidas en los últimos 30 días."""
         equipo = obtener_equipo(request, pk, administrar=True)
-        qs = equipo.invitaciones.filter(estado=EstadoInvitacion.PENDIENTE).select_related(
-            "invitado__disciplina", "invitado_por__disciplina", "equipo"
+        desde = timezone.now() - datetime.timedelta(days=DIAS_HISTORIAL_INVITACIONES)
+        qs = (
+            equipo.invitaciones.filter(Q(estado=EstadoInvitacion.PENDIENTE) | Q(respondida_en__gte=desde))
+            .select_related("invitado__disciplina", "invitado_por__disciplina", "equipo")
+            .order_by("-creada_en")[:60]
         )
         return Response(InvitacionSerializer(qs, many=True, context=_ctx(request)).data)
 
@@ -369,6 +402,7 @@ class ResponderInvitacionView(APIView):
                     defaults={"rol": invitacion.rol, "agregado_por": invitacion.invitado_por},
                 )
             _resolver_aviso(invitacion)
+            _avisar_respuesta(invitacion, request.user)
         cuerpo = InvitacionSerializer(invitacion, context=_ctx(request)).data
         if self.aceptar:
             cuerpo["equipo_detalle"] = EquipoSerializer(invitacion.equipo, context=_ctx(request)).data

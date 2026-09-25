@@ -8,6 +8,7 @@ from tableros.servicios import dias_habiles_hasta
 
 class TablerosTests(ApiTestCase):
     def setUp(self):
+        super().setUp()
         self.ana = crear_usuario("ana")
         self.beto = crear_usuario("beto")
         self.lector = crear_usuario("lector")
@@ -204,6 +205,7 @@ class VencimientoTests(ApiTestCase):
 
 class RegresionesAuditoriaTests(ApiTestCase):
     def setUp(self):
+        super().setUp()
         self.ana = crear_usuario("ana")
         self.beto = crear_usuario("beto")
         equipo = self.cliente(self.ana).post("/api/v1/equipos/", {"nombre": "Obra"}, format="json").json()

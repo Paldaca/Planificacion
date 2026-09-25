@@ -1,34 +1,11 @@
 import { Search, TriangleAlert, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
-import type { CardResumen, Persona, Urgencia } from "@/api/tipos";
+import type { Persona } from "@/api/tipos";
 import { Avatar } from "@/components/ui/Avatar";
 import { cn } from "@/lib/cn";
 import { LISTA_URGENCIAS, URGENCIAS } from "@/lib/estilos";
-
-export type EstadoFiltros = {
-  texto: string;
-  urgencias: Urgencia[];
-  responsables: number[];
-  soloVencidas: boolean;
-};
-
-export const FILTROS_VACIOS: EstadoFiltros = { texto: "", urgencias: [], responsables: [], soloVencidas: false };
-
-export function hayFiltros(f: EstadoFiltros) {
-  return Boolean(f.texto.trim() || f.urgencias.length || f.responsables.length || f.soloVencidas);
-}
-
-export function filtrar(cards: CardResumen[], f: EstadoFiltros): CardResumen[] {
-  const texto = f.texto.trim().toLowerCase();
-  return cards.filter((c) => {
-    if (texto && !c.titulo.toLowerCase().includes(texto) && !`#${c.numero}`.includes(texto)) return false;
-    if (f.urgencias.length && !f.urgencias.includes(c.urgencia)) return false;
-    if (f.responsables.length && !c.responsables.some((p) => f.responsables.includes(p.id))) return false;
-    if (f.soloVencidas && c.vencimiento !== "vencida" && c.vencimiento !== "vence_pronto") return false;
-    return true;
-  });
-}
+import { FILTROS_VACIOS, hayFiltros, type EstadoFiltros } from "@/lib/filtros";
 
 function alternar<T>(lista: T[], valor: T): T[] {
   return lista.includes(valor) ? lista.filter((v) => v !== valor) : [...lista, valor];

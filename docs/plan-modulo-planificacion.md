@@ -1,7 +1,7 @@
 # Plan del módulo Planificación — diseño por fases
 
-> Estado: **fase 1 implementada** (tableros, cards, comentarios, equipos con invitación).
-> Fases 2–5: propuesta.
+> Estado: **fases 1 y 2 implementadas** (tableros, cards, equipos por invitación,
+> avisos en el Portal, checklist, historial, menciones). Fases 3–5: propuesta.
 > Stack: **Django + DRF** (`backend/`) y **React + Vite + TypeScript** (`frontend/`).
 > Integración: satélite **federado** del Portal Paldaca — ver
 > [`guia-integracion-programas-satelite.md`](guia-integracion-programas-satelite.md) y
@@ -279,11 +279,12 @@ satélite):
 | Código | Audiencia | Cuándo | Fase |
 |---|---|---|---|
 | `planificacion.invitacion_equipo` | `payload.usuario_ids` | Te invitan a un equipo (se resuelve al aceptar, rechazar o cancelar) | **1 (hecho)** |
-| `planificacion.card_asignada` | `payload.usuario_ids` | Alguien te agrega como responsable | 2 |
-| `planificacion.mencion` | `payload.usuario_ids` | Te mencionan con @ en un comentario | 2 |
-| `planificacion.comentario_nuevo` | `payload.usuario_ids` | Comentan en una card donde eres responsable | 2 |
-| `planificacion.card_por_vencer` | `payload.usuario_ids` | Tu card vence en ≤ 2 días hábiles | 2 |
-| `planificacion.card_vencida` | `payload.usuario_ids` | Tu card venció y no está terminada | 2 |
+| `planificacion.invitacion_respondida` | `payload.usuario_ids` | Quien invitó se entera de que aceptaron o rechazaron | **2 (hecho)** |
+| `planificacion.card_asignada` | `payload.usuario_ids` | Alguien te agrega como responsable | **2 (hecho)** |
+| `planificacion.mencion` | `payload.usuario_ids` | Te mencionan con @ en un comentario | **2 (hecho)** |
+| `planificacion.comentario_nuevo` | `payload.usuario_ids` | Comentan en una card donde eres responsable (si además te mencionan, solo llega la mención) | **2 (hecho)** |
+| `planificacion.card_por_vencer` | `payload.usuario_ids` | Tu card vence en ≤ `umbral_dias` días hábiles (2 por defecto, editable en el Portal) | **2 (hecho)** |
+| `planificacion.card_vencida` | `payload.usuario_ids` | Tu card venció y no está terminada | **2 (hecho)** |
 
 Reglas:
 
@@ -298,10 +299,21 @@ Reglas:
   con `clave_agrupacion = card-<id>` para no repetir avisos. Cuando la card
   pasa a una columna final o cambia su fecha, se llama a
   `POST /api/notificaciones/eventos/resolver/` con esa misma clave.
-- Emisión **asíncrona respecto del guardado**: si el Portal no responde, se
-  registra el fallo y **no se revierte** el cambio local. (Fase 2: envío
-  después del commit de la transacción; si el volumen lo pide, cola simple en
-  BD con reintentos.)
+- **Entrega fiable** (`integracion_portal.AvisoSaliente`): cada aviso se
+  guarda en la misma transacción que el cambio y se envía después del commit,
+  fuera de la petición. Si el Portal no responde (red, 5xx, credenciales) queda
+  pendiente y se reintenta con espera creciente (1, 2, 4… min, hasta 6 h, 10
+  intentos); un 400/404 se descarta. Los avisos de la misma `clave_agrupacion`
+  salen en orden. Nunca se revierte el cambio local.
+- **Vencimientos por transición**: se avisa una vez al pasar a «por vencer» y
+  otra al pasar a «vencida» (reemitir con la misma clave marcaría el aviso
+  como no leído cada día). Terminar, archivar o mover la fecha resuelve el
+  aviso al instante. La tarjeta muestra «vence pronto» con el mismo umbral que
+  usa el aviso (leído del Portal, caché de 10 min).
+- **Tareas programadas** (Scheduled Tasks de Coolify; en local las corre el
+  arranque de la Suite):
+  - `python manage.py procesar_avisos` — cada 5 minutos.
+  - `python manage.py revisar_vencimientos` — una vez al día, temprano.
 - Nunca datos sensibles en `titulo`/`cuerpo`: basta el título de la card y el
   nombre del tablero.
 
@@ -409,7 +421,7 @@ Criterios de aceptación:
 
 Fuera de alcance: notificaciones, Gantt, exportaciones, checklist, adjuntos.
 
-### Fase 2 — Colaboración y notificaciones
+### Fase 2 — Colaboración y notificaciones — ✅ implementada
 
 **Objetivo:** que el trabajo avise solo y que agregar personas no dependa de
 que hayan entrado antes.
@@ -522,7 +534,9 @@ cabecera `X-CSRFToken`.
 | `tableros/:id/cards/` | listar (con filtros), crear |
 | `cards/:id/` | ver, editar (con `version`), mover (columna + posición), archivar |
 | `cards/:id/comentarios/` | listar, crear, editar, borrar |
-| `cards/:id/actividad/` | listar (fase 2) |
+| `cards/:id/actividad/` | historial de la card |
+| `cards/:id/checklist/` · `checklist/:id/` | añadir · marcar, renombrar, eliminar |
+| `cards/:id/trasladar/` | llevar la card a un tablero de equipo |
 | `mis-tareas/` | cards donde soy responsable |
 | `tableros/:id/gantt/` | cards incluidas, grupos, dependencias, calendario (fase 3) |
 | `tableros/:id/exportar/?formato=xlsx|mspdi` | exportación (fase 4) |

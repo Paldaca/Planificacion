@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { CalendarDays, CircleCheck, Maximize2, MessageSquare, TextAlignStart } from "lucide-react";
+import { CalendarDays, CircleCheck, ListChecks, Maximize2, MessageSquare, TextAlignStart } from "lucide-react";
 import { memo, type CSSProperties } from "react";
 
 import type { CardResumen } from "@/api/tipos";
@@ -128,6 +128,18 @@ export function CuerpoTarjeta({
           >
             <CalendarDays className="size-3" />
             {fechas}
+          </span>
+        )}
+        {card.checklist.total > 0 && (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[0.72rem] font-semibold tabular-nums transition-colors duration-300",
+              card.checklist.hechos === card.checklist.total ? "bg-[#ecfdf5] text-[#059669]" : "text-tenue",
+            )}
+            aria-label={`Checklist ${card.checklist.hechos} de ${card.checklist.total}`}
+          >
+            <ListChecks className="size-3.5" />
+            {card.checklist.hechos}/{card.checklist.total}
           </span>
         )}
         {card.tiene_descripcion && <TextAlignStart className="size-3.5 text-tenue/70" aria-label="Tiene descripción" />}

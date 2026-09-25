@@ -43,14 +43,42 @@ export type CardResumen = {
   en_gantt: "heredar" | "si" | "no";
   responsables: Persona[];
   comentarios: number;
+  checklist: { hechos: number; total: number };
   vencimiento: Vencimiento;
   completada_en: string | null;
   version: number;
   actualizado_en: string;
 };
 
+export type ItemChecklist = {
+  id: number;
+  texto: string;
+  hecho: boolean;
+  orden: number;
+  hecho_por: Persona | null;
+};
+
+export type Actividad = {
+  id: number;
+  actor: Persona | null;
+  accion:
+    | "creo"
+    | "movio"
+    | "edito"
+    | "asigno"
+    | "desasigno"
+    | "comento"
+    | "checklist"
+    | "archivo"
+    | "restauro"
+    | "traslado";
+  detalle: Record<string, unknown>;
+  creado_en: string;
+};
+
 export type CardDetalle = CardResumen & {
   descripcion: string;
+  items: ItemChecklist[];
   creada_por: Persona | null;
   creado_en: string;
   tablero: { id: number; nombre: string; tipo: TipoTablero; equipo: EquipoBreve | null };
@@ -91,6 +119,7 @@ export type Comentario = {
   id: number;
   autor: Persona | null;
   texto: string;
+  menciones: Persona[];
   eliminado: boolean;
   creado_en: string;
   editado_en: string | null;

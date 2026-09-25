@@ -6,8 +6,8 @@ from rest_framework import serializers
 from integracion_portal.personas import persona
 
 from . import permisos
-from .models import Card, Columna, Comentario, EnGantt, Tablero, Urgencia
-from .servicios import vencimiento
+from .models import Actividad, Card, Columna, Comentario, EnGantt, ItemChecklist, Tablero, Urgencia
+from .servicios import DIAS_HABILES_VENCE_PRONTO, vencimiento
 
 
 def equipo_breve(equipo):
@@ -59,6 +59,7 @@ class CardResumenSerializer(serializers.ModelSerializer):
     columna = serializers.IntegerField(source="columna_id")
     responsables = serializers.SerializerMethodField()
     comentarios = serializers.SerializerMethodField()
+    checklist = serializers.SerializerMethodField()
     tiene_descripcion = serializers.SerializerMethodField()
     vencimiento = serializers.SerializerMethodField()
 
@@ -77,6 +78,7 @@ class CardResumenSerializer(serializers.ModelSerializer):
             "en_gantt",
             "responsables",
             "comentarios",
+            "checklist",
             "vencimiento",
             "completada_en",
             "version",
@@ -92,14 +94,46 @@ class CardResumenSerializer(serializers.ModelSerializer):
             valor = card.comentarios.filter(eliminado=False).count()
         return valor
 
+    def get_checklist(self, card):
+        total = getattr(card, "num_items", None)
+        if total is None:
+            total = card.checklist.count()
+            hechos = card.checklist.filter(hecho=True).count()
+        else:
+            hechos = card.num_items_hechos
+        return {"hechos": hechos, "total": total}
+
     def get_tiene_descripcion(self, card):
         return bool(card.descripcion.strip())
 
     def get_vencimiento(self, card):
-        return vencimiento(card, self.context.get("hoy"))
+        return vencimiento(card, self.context.get("hoy"), self.context.get("umbral", DIAS_HABILES_VENCE_PRONTO))
+
+
+class ItemChecklistSerializer(serializers.ModelSerializer):
+    hecho_por = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ItemChecklist
+        fields = ["id", "texto", "hecho", "orden", "hecho_por"]
+
+    def get_hecho_por(self, item):
+        return persona(item.hecho_por) if item.hecho else None
+
+
+class ActividadSerializer(serializers.ModelSerializer):
+    actor = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Actividad
+        fields = ["id", "actor", "accion", "detalle", "creado_en"]
+
+    def get_actor(self, actividad):
+        return persona(actividad.actor)
 
 
 class CardDetalleSerializer(CardResumenSerializer):
+    items = serializers.SerializerMethodField()
     creada_por = serializers.SerializerMethodField()
     tablero = serializers.SerializerMethodField()
     columna_nombre = serializers.CharField(source="columna.nombre")
@@ -108,6 +142,7 @@ class CardDetalleSerializer(CardResumenSerializer):
     class Meta(CardResumenSerializer.Meta):
         fields = CardResumenSerializer.Meta.fields + [
             "descripcion",
+            "items",
             "creada_por",
             "creado_en",
             "tablero",
@@ -115,6 +150,9 @@ class CardDetalleSerializer(CardResumenSerializer):
             "archivada",
             "permisos",
         ]
+
+    def get_items(self, card):
+        return ItemChecklistSerializer(card.checklist.select_related("hecho_por"), many=True).data
 
     def get_creada_por(self, card):
         return persona(card.creada_por)
@@ -172,11 +210,17 @@ class CardEscrituraSerializer(serializers.Serializer):
 class ComentarioSerializer(serializers.ModelSerializer):
     autor = serializers.SerializerMethodField()
     texto = serializers.SerializerMethodField()
+    menciones = serializers.SerializerMethodField()
     es_mio = serializers.SerializerMethodField()
 
     class Meta:
         model = Comentario
-        fields = ["id", "autor", "texto", "eliminado", "creado_en", "editado_en", "es_mio"]
+        fields = ["id", "autor", "texto", "menciones", "eliminado", "creado_en", "editado_en", "es_mio"]
+
+    def get_menciones(self, comentario):
+        if comentario.eliminado:
+            return []
+        return [persona(u) for u in comentario.menciones.all()]
 
     def get_autor(self, comentario):
         return persona(comentario.autor)

@@ -10,7 +10,7 @@ Convenciones (docs/plan-modulo-planificacion.md §3.1 y §8):
 from __future__ import annotations
 
 from django.db import transaction
-from django.db.models import Count, F, Q
+from django.db.models import Count, F, Max, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers, status
@@ -20,9 +20,10 @@ from rest_framework.views import APIView
 
 from equipos.models import Equipo
 
-from . import permisos, servicios
-from .models import Card, Columna, Comentario, Tablero, TipoTablero
+from . import actividad, avisos, permisos, servicios
+from .models import Actividad, Card, Columna, Comentario, ItemChecklist, Tablero, TipoTablero
 from .serializers import (
+    ActividadSerializer,
     CardDetalleSerializer,
     CardEscrituraSerializer,
     CardResumenSerializer,
@@ -30,10 +31,12 @@ from .serializers import (
     ColumnaSerializer,
     ComentarioEscrituraSerializer,
     ComentarioSerializer,
+    ItemChecklistSerializer,
     TableroDetalleSerializer,
     TableroEscrituraSerializer,
     TableroResumenSerializer,
     equipo_breve,
+    personas_asignables,
 )
 
 SIN_ACCESO = "No tienes acceso a este tablero."
@@ -42,7 +45,7 @@ SIN_PERMISO_GESTIONAR = "Solo los administradores del equipo pueden cambiar esto
 
 
 def _contexto(request):
-    return {"request": request, "hoy": timezone.localdate()}
+    return {"request": request, "hoy": timezone.localdate(), "umbral": avisos.umbral_por_vencer()}
 
 
 def _booleano(request, campo: str, defecto: bool) -> bool:
@@ -98,7 +101,9 @@ def _cards_con_detalle(qs):
         .annotate(
             num_comentarios=Count(
                 "comentarios", filter=Q(comentarios__eliminado=False), distinct=True
-            )
+            ),
+            num_items=Count("checklist", distinct=True),
+            num_items_hechos=Count("checklist", filter=Q(checklist__hecho=True), distinct=True),
         )
     )
 
@@ -239,6 +244,7 @@ class ColumnaDetalleView(APIView):
                 return _conflicto(columna, lambda c, context: ColumnaSerializer(c), request)
             if "es_final" in datos and datos["es_final"] != columna.es_final:
                 servicios.marcar_final(columna, datos["es_final"])
+                avisos.sincronizar_columna(columna)
             for campo in ("nombre", "incluir_en_gantt"):
                 if campo in datos:
                     setattr(columna, campo, datos[campo])
@@ -257,6 +263,8 @@ class ColumnaArchivarView(APIView):
             servicios.archivar_columna(columna, destino)
         except servicios.ReglaDeNegocio as exc:
             return _regla(exc)
+        if destino is not None:
+            avisos.sincronizar_columna(destino)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -279,14 +287,18 @@ class CardsView(APIView):
         if columna is None:
             raise ValidationError({"columna": "La columna no existe en este tablero."})
         campos = {c: datos[c] for c in CAMPOS_SIMPLES if c in datos and c != "titulo"}
-        card = servicios.crear_card(
-            tablero=tablero,
-            columna=columna,
-            titulo=datos["titulo"],
-            creada_por=request.user,
-            responsables=datos.get("responsables", []),
-            **campos,
-        )
+        responsables = datos.get("responsables", [])
+        with transaction.atomic():
+            card = servicios.crear_card(
+                tablero=tablero,
+                columna=columna,
+                titulo=datos["titulo"],
+                creada_por=request.user,
+                responsables=responsables,
+                **campos,
+            )
+            actividad.registrar(card, request.user, Actividad.Accion.CREO, columna=columna.nombre)
+            avisos.avisar_asignacion(card, responsables, request.user)
         return Response(_detalle_card(request, card), status=status.HTTP_201_CREATED)
 
 
@@ -320,18 +332,26 @@ class CardDetalleView(APIView):
                     CardDetalleSerializer,
                     request,
                 )
+            antes = {c: getattr(actual, c) for c in CAMPOS_SIMPLES if c in datos}
             for campo in CAMPOS_SIMPLES:
                 if campo in datos:
                     setattr(actual, campo, datos[campo])
+            nuevos = []
             if "responsables" in datos:
-                servicios.asignar_responsables(actual, datos["responsables"], por=request.user)
+                nuevos, quitados = servicios.asignar_responsables(actual, datos["responsables"], por=request.user)
+                actividad.registrar_responsables(actual, request.user, nuevos, quitados)
             actual.version += 1
             actual.save()
+            actividad.registrar_ediciones(actual, request.user, antes, {c: getattr(actual, c) for c in antes})
             if "columna" in datos and datos["columna"] != actual.columna_id:
                 destino = servicios.columnas_activas(actual.tablero).filter(pk=datos["columna"]).first()
                 if destino is None:
                     raise ValidationError({"columna": "La columna no existe en este tablero."})
+                desde = actual.columna.nombre
                 servicios.mover_card(actual, destino, posicion=10**6)
+                actividad.registrar(actual, request.user, Actividad.Accion.MOVIO, desde=desde, hacia=destino.nombre)
+            avisos.avisar_asignacion(actual, nuevos, request.user)
+            avisos.sincronizar_vencimiento(actual)
         return Response(_detalle_card(request, actual))
 
 
@@ -343,8 +363,13 @@ class CardMoverView(APIView):
             posicion = int(request.data.get("posicion", 0))
         except (TypeError, ValueError):
             raise ValidationError({"posicion": "Posición inválida."})
+        desde = card.columna
         try:
-            servicios.mover_card(card, destino, posicion)
+            with transaction.atomic():
+                servicios.mover_card(card, destino, posicion)
+                if desde.pk != destino.pk:
+                    actividad.registrar(card, request.user, Actividad.Accion.MOVIO, desde=desde.nombre, hacia=destino.nombre)
+                avisos.sincronizar_vencimiento(card)
         except servicios.ReglaDeNegocio as exc:
             return _regla(exc)
         return Response(_detalle_card(request, card))
@@ -353,11 +378,101 @@ class CardMoverView(APIView):
 class CardArchivarView(APIView):
     def post(self, request, pk):
         card = obtener_card(request, pk, editar=True)
-        if _booleano(request, "archivada", True):
-            servicios.archivar_card(card)
-        else:
-            servicios.restaurar_card(card)
+        archivar = _booleano(request, "archivada", True)
+        if archivar == card.archivada:
+            return Response(_detalle_card(request, card))
+        with transaction.atomic():
+            if archivar:
+                servicios.archivar_card(card)
+                actividad.registrar(card, request.user, Actividad.Accion.ARCHIVO)
+            else:
+                servicios.restaurar_card(card)
+                actividad.registrar(card, request.user, Actividad.Accion.RESTAURO)
+            avisos.sincronizar_vencimiento(card)
         return Response(_detalle_card(request, card))
+
+
+class CardTrasladarView(APIView):
+    """Lleva la tarjeta a un tablero de EQUIPO donde también puedes editar
+    (p. ej. de tu tablero personal al de tu equipo)."""
+
+    def post(self, request, pk):
+        card = obtener_card(request, pk, editar=True)
+        destino = get_object_or_404(Tablero.objects.select_related("equipo"), pk=request.data.get("tablero"))
+        if destino.es_personal:
+            raise ValidationError({"tablero": "Solo se puede trasladar a un tablero de equipo."})
+        if not permisos.puede_editar_tablero(request.user, destino):
+            raise PermissionDenied("No puedes crear tarjetas en ese tablero.")
+        origen = card.tablero.nombre
+        try:
+            with transaction.atomic():
+                servicios.trasladar_card(card, destino, personas_asignables(destino))
+                actividad.registrar(card, request.user, Actividad.Accion.TRASLADO, desde=origen, hacia=destino.nombre)
+                avisos.sincronizar_vencimiento(card)
+        except servicios.ReglaDeNegocio as exc:
+            return _regla(exc)
+        return Response(_detalle_card(request, card))
+
+
+class ActividadView(APIView):
+    def get(self, request, pk):
+        card = obtener_card(request, pk)
+        qs = card.actividad.select_related("actor__disciplina")[:100]
+        return Response(ActividadSerializer(qs, many=True).data)
+
+
+# --- Checklist ------------------------------------------------------------------
+
+
+class ChecklistView(APIView):
+    def post(self, request, pk):
+        card = obtener_card(request, pk, editar=True)
+        texto = (request.data.get("texto") or "").strip()
+        if not texto:
+            raise ValidationError({"texto": "Escribe el elemento."})
+        if card.checklist.count() >= 100:
+            raise ValidationError({"texto": "El checklist admite hasta 100 elementos."})
+        with transaction.atomic():
+            ultimo = card.checklist.aggregate(m=Max("orden"))["m"]
+            item = ItemChecklist.objects.create(
+                card=card, texto=texto[:300], orden=(ultimo if ultimo is not None else -1) + 1, creado_por=request.user
+            )
+            actividad.registrar(card, request.user, Actividad.Accion.CHECKLIST, cambio="agrego", texto=item.texto)
+        return Response(ItemChecklistSerializer(item).data, status=status.HTTP_201_CREATED)
+
+
+class ItemChecklistView(APIView):
+    def _obtener(self, request, pk) -> ItemChecklist:
+        item = get_object_or_404(ItemChecklist.objects.select_related("card"), pk=pk)
+        obtener_card(request, item.card_id, editar=True)
+        return item
+
+    def patch(self, request, pk):
+        item = self._obtener(request, pk)
+        with transaction.atomic():
+            if "texto" in request.data:
+                texto = (request.data.get("texto") or "").strip()
+                if not texto:
+                    raise ValidationError({"texto": "El elemento no puede quedar vacío."})
+                item.texto = texto[:300]
+            if "hecho" in request.data:
+                hecho = _booleano(request, "hecho", item.hecho)
+                if hecho != item.hecho:
+                    item.hecho = hecho
+                    item.hecho_por = request.user if hecho else None
+                    actividad.registrar(
+                        item.card, request.user, Actividad.Accion.CHECKLIST,
+                        cambio="marco" if hecho else "desmarco", texto=item.texto,
+                    )
+            item.save()
+        return Response(ItemChecklistSerializer(item).data)
+
+    def delete(self, request, pk):
+        item = self._obtener(request, pk)
+        with transaction.atomic():
+            actividad.registrar(item.card, request.user, Actividad.Accion.CHECKLIST, cambio="elimino", texto=item.texto)
+            item.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 # --- Comentarios ------------------------------------------------------------------
@@ -366,16 +481,20 @@ class CardArchivarView(APIView):
 class ComentariosView(APIView):
     def get(self, request, pk):
         card = obtener_card(request, pk)
-        qs = card.comentarios.select_related("autor__disciplina")
+        qs = card.comentarios.select_related("autor__disciplina").prefetch_related("menciones__disciplina")
         return Response(ComentarioSerializer(qs, many=True, context=_contexto(request)).data)
 
     def post(self, request, pk):
         card = obtener_card(request, pk, editar=True)
         datos = ComentarioEscrituraSerializer(data=request.data)
         datos.is_valid(raise_exception=True)
-        comentario = Comentario.objects.create(
-            card=card, autor=request.user, texto=datos.validated_data["texto"]
-        )
+        texto = datos.validated_data["texto"]
+        with transaction.atomic():
+            comentario = Comentario.objects.create(card=card, autor=request.user, texto=texto)
+            mencionados = servicios.extraer_menciones(texto, personas_asignables(card.tablero))
+            comentario.menciones.set(mencionados)
+            actividad.registrar(card, request.user, Actividad.Accion.COMENTO)
+            avisos.avisar_comentario(comentario, mencionados, request.user)
         return Response(
             ComentarioSerializer(comentario, context=_contexto(request)).data,
             status=status.HTTP_201_CREATED,
@@ -394,9 +513,16 @@ class ComentarioDetalleView(APIView):
         comentario = self._propio(request, pk)
         datos = ComentarioEscrituraSerializer(data=request.data)
         datos.is_valid(raise_exception=True)
-        comentario.texto = datos.validated_data["texto"]
-        comentario.editado_en = timezone.now()
-        comentario.save(update_fields=["texto", "editado_en"])
+        with transaction.atomic():
+            comentario.texto = datos.validated_data["texto"]
+            comentario.editado_en = timezone.now()
+            comentario.save(update_fields=["texto", "editado_en"])
+            antes = set(comentario.menciones.values_list("pk", flat=True))
+            mencionados = servicios.extraer_menciones(comentario.texto, personas_asignables(comentario.card.tablero))
+            comentario.menciones.set(mencionados)
+            # Al editar solo se avisa a quien se menciona por primera vez; el
+            # resto de responsables ya recibió el comentario original.
+            avisos.avisar_menciones(comentario, [u for u in mencionados if u.pk not in antes], request.user)
         return Response(ComentarioSerializer(comentario, context=_contexto(request)).data)
 
     def delete(self, request, pk):

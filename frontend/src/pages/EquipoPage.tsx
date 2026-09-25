@@ -31,7 +31,7 @@ import {
   useSalirEquipo,
   useTablerosEquipo,
 } from "@/api/queries";
-import type { Equipo, Miembro, RolEquipo } from "@/api/tipos";
+import type { Equipo, Invitacion, Miembro, RolEquipo } from "@/api/tipos";
 import { EquipoDialogo, TableroDialogo } from "@/components/equipos/Dialogos";
 import { InvitarDialogo } from "@/components/equipos/InvitarDialogo";
 import { MosaicoTablero } from "@/components/equipos/MosaicoTablero";
@@ -445,58 +445,105 @@ function TablerosArchivados({ tableros }: { tableros: { id: number; nombre: stri
   );
 }
 
+const ESTADO_INVITACION: Record<Invitacion["estado"], { etiqueta: string; color: string }> = {
+  pendiente: { etiqueta: "Esperando respuesta", color: "#d97706" },
+  aceptada: { etiqueta: "Aceptada", color: "#059669" },
+  rechazada: { etiqueta: "Rechazada", color: "#dc2626" },
+  cancelada: { etiqueta: "Cancelada", color: "#64748b" },
+};
+
 function PestanaInvitaciones({ equipo, onInvitar }: { equipo: Equipo; onInvitar: () => void }) {
   const { data: invitaciones, isLoading } = useInvitacionesEquipo(equipo.id, true);
   const cancelar = useCancelarInvitacion(equipo.id);
   if (isLoading) return <Esqueleto className="h-40 rounded-[22px]" />;
 
-  if (!invitaciones?.length) {
-    return (
-      <Vacio
-        icono={Mail}
-        titulo="No hay invitaciones pendientes"
-        texto="Cuando invites a alguien, aparecerá aquí hasta que acepte o rechace."
-        accion={
-          <Boton onClick={onInvitar}>
-            <UserPlus />
-            Invitar
-          </Boton>
-        }
-      />
-    );
-  }
+  const pendientes = invitaciones?.filter((i) => i.estado === "pendiente") ?? [];
+  const historial = invitaciones?.filter((i) => i.estado !== "pendiente") ?? [];
+
   return (
-    <ul className="space-y-2.5">
-      <AnimatePresence initial={false}>
-        {invitaciones.map((inv) => (
-          <motion.li
-            key={inv.id}
-            layout
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, x: 40 }}
-            className="flex items-center gap-4 rounded-2xl border border-linea bg-white px-5 py-3.5"
-          >
-            <Avatar persona={inv.invitado} tamano="md" conTooltip={false} />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-texto">{inv.invitado.nombre}</p>
-              <p className="truncate text-xs text-tenue">
-                Como {ROLES[inv.rol].toLowerCase()} · {inv.invitado_por ? `por ${inv.invitado_por.nombre} · ` : ""}
-                {haceCuanto(inv.creada_en)}
-              </p>
-            </div>
-            <Pildora color="#d97706">Esperando respuesta</Pildora>
-            <Boton
-              variante="fantasma"
-              tamano="sm"
-              cargando={cancelar.isPending && cancelar.variables === inv.id}
-              onClick={() => cancelar.mutate(inv.id, { onSuccess: () => toast("Invitación cancelada") })}
-            >
-              Cancelar
+    <div className="space-y-8">
+      {pendientes.length ? (
+        <ul className="space-y-2.5">
+          <AnimatePresence initial={false}>
+            {pendientes.map((inv) => (
+              <motion.li
+                key={inv.id}
+                layout
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, x: 40 }}
+                className="flex items-center gap-4 rounded-2xl border border-linea bg-white px-5 py-3.5"
+              >
+                <Avatar persona={inv.invitado} tamano="md" conTooltip={false} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-texto">{inv.invitado.nombre}</p>
+                  <p className="truncate text-xs text-tenue">
+                    Como {ROLES[inv.rol].toLowerCase()} · {inv.invitado_por ? `por ${inv.invitado_por.nombre} · ` : ""}
+                    {haceCuanto(inv.creada_en)}
+                  </p>
+                </div>
+                <Pildora color={ESTADO_INVITACION.pendiente.color} className="hidden sm:inline-flex">
+                  <span className="relative mr-0.5 flex size-1.5">
+                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-current opacity-60" />
+                    <span className="relative inline-flex size-1.5 rounded-full bg-current" />
+                  </span>
+                  {ESTADO_INVITACION.pendiente.etiqueta}
+                </Pildora>
+                <Boton
+                  variante="fantasma"
+                  tamano="sm"
+                  cargando={cancelar.isPending && cancelar.variables === inv.id}
+                  onClick={() => cancelar.mutate(inv.id, { onSuccess: () => toast("Invitación cancelada") })}
+                >
+                  Cancelar
+                </Boton>
+              </motion.li>
+            ))}
+          </AnimatePresence>
+        </ul>
+      ) : (
+        <Vacio
+          icono={Mail}
+          titulo="No hay invitaciones pendientes"
+          texto="Cuando invites a alguien, aparecerá aquí hasta que acepte o rechace. Te llegará un aviso con su respuesta."
+          accion={
+            <Boton onClick={onInvitar}>
+              <UserPlus />
+              Invitar
             </Boton>
-          </motion.li>
-        ))}
-      </AnimatePresence>
-    </ul>
+          }
+        />
+      )}
+
+      {historial.length > 0 && (
+        <section>
+          <p className="mb-2 text-[0.78rem] font-semibold tracking-[0.08em] text-tenue uppercase">Últimos 30 días</p>
+          <ul className="divide-y divide-linea/70 overflow-hidden rounded-2xl border border-linea bg-white">
+            {historial.map((inv) => {
+              const estado = ESTADO_INVITACION[inv.estado];
+              return (
+                <motion.li
+                  key={inv.id}
+                  layout
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex items-center gap-3 px-5 py-3"
+                >
+                  <Avatar persona={inv.invitado} tamano="sm" conTooltip={false} />
+                  <p className="min-w-0 flex-1 truncate text-sm text-texto">
+                    {inv.invitado.nombre}
+                    <span className="text-tenue"> · como {ROLES[inv.rol].toLowerCase()}</span>
+                  </p>
+                  <Pildora color={estado.color}>{estado.etiqueta}</Pildora>
+                  <span className="hidden w-24 text-right text-xs text-tenue sm:block">
+                    {inv.respondida_en ? haceCuanto(inv.respondida_en) : ""}
+                  </span>
+                </motion.li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+    </div>
   );
 }

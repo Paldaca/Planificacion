@@ -36,6 +36,14 @@ class EnGantt(models.TextChoices):
     NO = "no", "No"
 
 
+class AvisoVencimiento(models.TextChoices):
+    """Último aviso de vencimiento emitido (para avisar una sola vez por estado)."""
+
+    NINGUNO = "", "Ninguno"
+    POR_VENCER = "por_vencer", "Por vencer"
+    VENCIDA = "vencida", "Vencida"
+
+
 COLUMNAS_PREDETERMINADAS = (
     ("Tareas", False),
     ("En curso", False),
@@ -137,6 +145,9 @@ class Card(models.Model):
         blank=True,
     )
     completada_en = models.DateTimeField(null=True, blank=True)
+    aviso_vencimiento = models.CharField(
+        max_length=12, choices=AvisoVencimiento.choices, default=AvisoVencimiento.NINGUNO, blank=True
+    )
     creada_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -183,6 +194,9 @@ class Comentario(models.Model):
         settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="comentarios"
     )
     texto = models.TextField(max_length=5000)
+    menciones = models.ManyToManyField(
+        settings.AUTH_USER_MODEL, blank=True, related_name="menciones_recibidas"
+    )
     creado_en = models.DateTimeField(auto_now_add=True)
     editado_en = models.DateTimeField(null=True, blank=True)
     eliminado = models.BooleanField(default=False)
@@ -193,3 +207,55 @@ class Comentario(models.Model):
 
     def __str__(self):
         return f"Comentario {self.pk} en card {self.card_id}"
+
+
+class ItemChecklist(models.Model):
+    card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="checklist")
+    texto = models.CharField(max_length=300)
+    hecho = models.BooleanField(default=False)
+    orden = models.PositiveIntegerField(default=0)
+    creado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    hecho_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "planificacion_item_checklist"
+        ordering = ["orden", "id"]
+
+    def __str__(self):
+        return f"{'[x]' if self.hecho else '[ ]'} {self.texto}"
+
+
+class Actividad(models.Model):
+    """Historial de una card. Lo escribe el backend; nunca se edita."""
+
+    class Accion(models.TextChoices):
+        CREO = "creo", "Creó la tarjeta"
+        MOVIO = "movio", "Movió la tarjeta"
+        EDITO = "edito", "Editó un campo"
+        ASIGNO = "asigno", "Asignó responsables"
+        DESASIGNO = "desasigno", "Quitó responsables"
+        COMENTO = "comento", "Comentó"
+        CHECKLIST = "checklist", "Cambió el checklist"
+        ARCHIVO = "archivo", "Archivó la tarjeta"
+        RESTAURO = "restauro", "Restauró la tarjeta"
+        TRASLADO = "traslado", "Trasladó la tarjeta de tablero"
+
+    card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="actividad")
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    accion = models.CharField(max_length=12, choices=Accion.choices)
+    detalle = models.JSONField(default=dict, blank=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "planificacion_actividad"
+        ordering = ["-creado_en", "-id"]
+
+    def __str__(self):
+        return f"{self.card_id} {self.accion}"

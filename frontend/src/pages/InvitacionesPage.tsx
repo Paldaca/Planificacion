@@ -1,6 +1,7 @@
-import { Check, Mail, MailOpen, UsersRound, X } from "lucide-react";
+import { Check, Info, Mail, MailOpen, UsersRound, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { useMisInvitaciones, useResponderInvitacion } from "@/api/queries";
@@ -10,12 +11,19 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Boton } from "@/components/ui/Boton";
 import { Esqueleto, Pildora, Vacio } from "@/components/ui/Estados";
 import { useTitulo } from "@/hooks/useTitulo";
+import { cn } from "@/lib/cn";
 import { ROLES } from "@/lib/estilos";
 import { haceCuanto } from "@/lib/fechas";
 
 export default function InvitacionesPage() {
   useTitulo("Invitaciones");
   const { data: invitaciones, isLoading } = useMisInvitaciones();
+  // El aviso de la campana del Portal enlaza a /invitaciones?invitacion=<id>.
+  const [parametros] = useSearchParams();
+  const destacada = Number(parametros.get("invitacion")) || null;
+  const destacadaYaNoEsta = Boolean(
+    destacada && invitaciones && !invitaciones.some((i) => i.id === destacada),
+  );
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -24,6 +32,20 @@ export default function InvitacionesPage() {
         titulo="Invitaciones"
         subtitulo="Nadie entra a un equipo sin decidirlo: acepta las que te interesen."
       />
+
+      <AnimatePresence>
+        {destacadaYaNoEsta && (
+          <motion.p
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="mb-5 flex items-center gap-2 rounded-2xl bg-fondo px-4 py-3 text-sm text-tenue"
+          >
+            <Info className="size-4 shrink-0 text-morado" />
+            Esa invitación ya fue respondida o la cancelaron.
+          </motion.p>
+        )}
+      </AnimatePresence>
 
       {isLoading ? (
         <div className="space-y-4">
@@ -42,7 +64,7 @@ export default function InvitacionesPage() {
                   animate={{ opacity: 1, y: 0, transition: { delay: i * 0.06, duration: 0.4, ease: [0.22, 1, 0.36, 1] } }}
                   exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.25 } }}
                 >
-                  <TarjetaInvitacion invitacion={inv} />
+                  <TarjetaInvitacion invitacion={inv} destacada={inv.id === destacada} />
                 </motion.li>
               ))}
             </AnimatePresence>
@@ -60,8 +82,13 @@ export default function InvitacionesPage() {
   );
 }
 
-function TarjetaInvitacion({ invitacion }: { invitacion: Invitacion }) {
+function TarjetaInvitacion({ invitacion, destacada }: { invitacion: Invitacion; destacada: boolean }) {
   const navigate = useNavigate();
+  const nodo = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (destacada) nodo.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [destacada]);
   const responder = useResponderInvitacion();
   const { equipo } = invitacion;
   const pendiente = responder.isPending ? responder.variables?.aceptar : undefined;
@@ -73,6 +100,7 @@ function TarjetaInvitacion({ invitacion }: { invitacion: Invitacion }) {
         onSuccess: () => {
           if (aceptar) {
             toast.success(`Te uniste a ${equipo.nombre}`, {
+              description: invitacion.invitado_por ? `${invitacion.invitado_por.nombre} recibirá un aviso.` : undefined,
               action: { label: "Ver equipo", onClick: () => navigate(`/equipos/${equipo.id}`) },
             });
           } else {
@@ -84,7 +112,14 @@ function TarjetaInvitacion({ invitacion }: { invitacion: Invitacion }) {
   }
 
   return (
-    <article className="relative overflow-hidden rounded-[22px] border border-linea bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+    <article
+      ref={nodo}
+      className={cn(
+        "relative overflow-hidden rounded-[22px] border bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-shadow duration-500",
+        destacada ? "border-transparent" : "border-linea",
+      )}
+      style={destacada ? { boxShadow: `0 0 0 3px ${equipo.color}, 0 18px 40px -20px ${equipo.color}` } : undefined}
+    >
       <div
         className="h-2"
         style={{ background: `linear-gradient(90deg, ${equipo.color}, color-mix(in srgb, ${equipo.color} 25%, #fff))` }}

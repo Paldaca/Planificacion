@@ -1,5 +1,5 @@
 import { Check, LayoutGrid, UsersRound } from "lucide-react";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -8,6 +8,7 @@ import type { Equipo } from "@/api/tipos";
 import { Boton } from "@/components/ui/Boton";
 import { AreaTexto, Campo, Entrada } from "@/components/ui/Campos";
 import { Dialogo } from "@/components/ui/Dialogo";
+import { useAlAbrir } from "@/hooks/useAlAbrir";
 import { cn } from "@/lib/cn";
 import { COLORES_EQUIPO } from "@/lib/estilos";
 
@@ -52,16 +53,14 @@ export function EquipoDialogo({
   const editar = useEditarEquipo(equipo?.id ?? -1);
   const [valores, setValores] = useState({ nombre: "", descripcion: "", color: COLORES_EQUIPO[0] });
 
-  useEffect(() => {
-    if (abierto) {
-      setValores(
-        equipo
-          ? { nombre: equipo.nombre, descripcion: equipo.descripcion, color: equipo.color }
-          : { nombre: "", descripcion: "", color: COLORES_EQUIPO[0] },
-      );
-    }
-    // Solo al abrir: un refetch en segundo plano no debe pisar lo que se escribe.
-  }, [abierto]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Solo al abrir: un refetch en segundo plano no debe pisar lo que se escribe.
+  useAlAbrir(abierto, () =>
+    setValores(
+      equipo
+        ? { nombre: equipo.nombre, descripcion: equipo.descripcion, color: equipo.color }
+        : { nombre: "", descripcion: "", color: COLORES_EQUIPO[0] },
+    ),
+  );
 
   async function guardar() {
     if (equipo) {
@@ -144,13 +143,11 @@ export function TableroDialogo({
   const [descripcion, setDescripcion] = useState("");
   const [equipo, setEquipo] = useState<number | undefined>(equipoFijo);
 
-  useEffect(() => {
-    if (abierto) {
-      setNombre("");
-      setDescripcion("");
-      setEquipo(equipoFijo ?? equipos[0]?.id);
-    }
-  }, [abierto]); // eslint-disable-line react-hooks/exhaustive-deps
+  useAlAbrir(abierto, () => {
+    setNombre("");
+    setDescripcion("");
+    setEquipo(equipoFijo ?? equipos[0]?.id);
+  });
 
   const elegido = equipos.find((e) => e.id === equipo);
 
