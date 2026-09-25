@@ -1,7 +1,10 @@
 # Plan del módulo Planificación — diseño por fases
 
-> Estado: **fases 1 y 2 implementadas** (tableros, cards, equipos por invitación,
-> avisos en el Portal, checklist, historial, menciones). Fases 3–5: propuesta.
+> Estado (septiembre 2026): **fases 0–3 implementadas** y auditadas (tableros,
+> cards, equipos por invitación, avisos en el Portal, checklist, historial,
+> menciones, vistas Lista / Calendario / Gantt, dependencias, calendario
+> laboral). **Fase 4 en curso** (exportación e importación). Fase 5: propuesta.
+> El detalle de lo hecho y lo pendiente está en §7 («Estado del plan»).
 > Stack: **Django + DRF** (`backend/`) y **React + Vite + TypeScript** (`frontend/`).
 > Integración: satélite **federado** del Portal Paldaca — ver
 > [`guia-integracion-programas-satelite.md`](guia-integracion-programas-satelite.md) y
@@ -229,18 +232,24 @@ Validación: `fecha_fin >= fecha_inicio` cuando ambas existen.
 **Comentario** — `card`, `autor`, `texto`, `menciones` (usuarios),
 `editado_en`, `eliminado` (borrado lógico: se muestra "comentario eliminado").
 
-**Actividad** (historial) — `card` o `tablero`, `actor`, `accion` (creó,
-movió, cambió fecha, asignó, comentó…), `detalle` (antes/después), `fecha`.
-Se genera automáticamente; no se edita.
+**Actividad** (historial) — `card`, `actor`, `accion` (creó, movió, editó,
+asignó, quitó responsable, comentó, checklist, archivó, restauró, trasladó,
+dependencia), `detalle` (antes/después), `creado_en`. Se genera
+automáticamente; no se edita.
 
-**DependenciaCard** (fase 3) — `predecesora`, `sucesora`, `tipo`
-(fin→inicio por defecto; inicio→inicio, fin→fin), `desfase_dias`.
-Solo entre cards del mismo tablero; el backend rechaza ciclos.
+**Dependencia** (app `gantt`, fase 3) — `predecesora`, `sucesora`, `tipo`
+(`fin_inicio` por defecto; `inicio_inicio`, `fin_fin`), `desfase_dias` (días
+hábiles; negativo = solape), `creada_por`. Solo entre cards del mismo
+tablero; el backend rechaza ciclos, repetidas y a sí misma; se pierden al
+trasladar la card.
 
 **ItemChecklist** (fase 2) — `card`, `texto`, `hecho`, `orden`.
 
-**CalendarioLaboral** (fase 3) — días hábiles de la semana y **Feriado**
-(`fecha`, `nombre`), a nivel de instalación y, más adelante, por equipo.
+**Feriado** (app `calendario`) — `fecha`, `nombre`, `recurrente` (se repite
+cada año; se guarda con el año 2000). Días hábiles = lunes a viernes que no
+son feriado. Los nacionales vienen sembrados; los **móviles** (Carnaval,
+Jueves y Viernes Santo) no se guardan: se calculan desde la Pascua. Nivel de
+instalación; por equipo, si algún día se pide.
 
 **PlantillaTablero** (fase 5) — columnas y cards con duraciones relativas.
 
@@ -437,19 +446,50 @@ aviso. Queda como opcional de la fase 2.
 Cada fase termina con algo **usable en producción**. El alcance de una fase no
 crece a mitad de camino: lo nuevo va a la siguiente.
 
+### Estado del plan
+
+| Fase | Estado | Commits (repo Planificación, rama `dev`) |
+|---|---|---|
+| 0 — Cimientos | ✅ hecha; queda la BD MySQL propia antes de datos reales (D-06) | `4e9ef6b` |
+| 1 — Tableros y cards | ✅ implementada | `6d7034c`, `6f8f9fa`, `d7de71c` |
+| 2 — Colaboración y avisos | ✅ implementada; §6.6 (estado del módulo suelto) sigue opcional | `6aa1a61` |
+| 3 — Gantt y vistas | ✅ implementada y auditada | `644c063`, `594fde4` |
+| 4 — Exportación e importación | 🚧 en curso | — |
+| 5 — Flexibilidad avanzada | Propuesta | — |
+
+**Hecho fuera de las fases** (mejoras pedidas por el camino):
+- **Reorganización del backend** por capas (`services/`, `api/`, QuerySet
+  propios) tras auditar contra las buenas prácticas de Django (§3.3) —
+  `4b45e36`.
+- **App `calendario`** (días hábiles y feriados) adelantada de la fase 3 —
+  `4b45e36`.
+- **Varios tableros personales:** al crear un tablero el equipo es
+  opcional; sin equipo es personal. Personales archivables (si queda otro
+  activo) y restaurables desde *Tableros* — `e8d521c`.
+- **Barra de la Suite:** abierta suelta, Planificación monta `paldaca-nav`
+  del Portal (menú propio solo de respaldo); icono del módulo = Gantt (§6.4) —
+  `594fde4` y Portal `d27c0de`.
+- **Gantt adaptable** al espacio de la ventana — `594fde4`.
+- Correcciones: `frontend/src/lib/` no se versionaba por un patrón del
+  `.gitignore` (`c116d13`); la lista de *Archivadas* mostraba la caché vacía
+  al reabrirla (`e8d521c`).
+
+**Pendiente transversal:** MySQL propia (D-06); estado del módulo abierto
+suelto (§6.6, opcional); prueba con sesión real del Portal (solo se probó con
+un usuario de demostración).
+
 ### Fase 0 — Cimientos (ya hecho, ajustes menores)
 
 **Hecho:** scaffold federado (SSO, embed, cuenta espejo, `me/`), SPA con
 pantallas de estado, arranque desde `iniciar.ps1 -Modo planificacion`,
 registro del módulo en el Portal.
 
-**Pendiente antes de la fase 1:**
-- Layout base de la SPA: barra lateral (Mis tareas, Tableros, Equipos),
-  área de contenido y comportamiento en el celular.
-- Convenciones de API: versión (`/api/v1/`), paginación, formato de errores,
-  409 por versión, permisos DRF por objeto.
-- Base de datos: plan de migración a **MySQL propia** (nunca la instancia del
-  Portal) antes de cargar datos reales.
+**Resuelto después:** layout base (hoy la barra es `paldaca-nav`, §6.4);
+convenciones de API (`/api/v1/`, `{"detail"}` en errores de negocio, 409 por
+versión, permisos por objeto en `permisos.py`).
+
+**Pendiente:** migración a **MySQL propia** (nunca la instancia del Portal)
+antes de cargar datos reales (D-06).
 
 ### Fase 1 — Tableros y cards (primera versión útil) — ✅ implementada
 
@@ -463,7 +503,8 @@ Alcance:
   rol y mensaje; aviso `planificacion.invitacion_equipo` en la campana del
   Portal; aceptar / rechazar desde *Invitaciones*; cancelar; el aviso se
   resuelve al responder.
-- **Tablero personal** automático en el primer ingreso.
+- **Tablero personal** automático en el primer ingreso (después se
+  permitieron varios, ver «Estado del plan»).
 - **Tableros de equipo:** varios por equipo; crear, renombrar, archivar.
 - **Columnas:** Tareas / En curso / Hecho al crear; agregar, renombrar,
   reordenar, archivar; marcar cuál es la columna final. Archivar una columna
@@ -512,8 +553,9 @@ Alcance:
   abierta).
 - **Checklist** dentro de la card, con progreso visible en el tablero.
 - **Actualización automática** según §6.5.
-- **Mover card** del tablero personal a uno de equipo.
-- (Opcional) Aviso de **estado del módulo** fuera del Portal (§6.6).
+- **Mover card** del tablero personal a uno de equipo (y, con varios
+  personales, entre personales propios).
+- (Opcional, **pendiente**) Aviso de **estado del módulo** fuera del Portal (§6.6).
 
 Criterios de aceptación:
 - Asignar a alguien genera exactamente una notificación, a esa persona, con
@@ -635,19 +677,21 @@ cabecera `X-CSRFToken`.
 | `invitaciones/:id/aceptar/` · `rechazar/` · `cancelar/` | responder (invitado) o cancelar (admin) |
 | `equipos/:id/salir/` | salir del equipo |
 | `personas/?q=` | buscador de personas (§6.2) |
-| `tableros/` | listar (personal + de mis equipos), crear, ver, editar, archivar |
+| `tableros/` | listar (personales + de mis equipos; `?archivados=personales`), crear (sin `equipo` = personal), ver, editar, archivar / restaurar |
+| `equipos/:id/tableros/` | tableros del equipo (con archivados para su admin) |
 | `tableros/:id/columnas/` | crear, editar, reordenar, archivar (con destino de cards) |
 | `tableros/:id/cards/` | listar (con filtros), crear |
 | `cards/:id/` | ver, editar (con `version`), mover (columna + posición), archivar |
 | `cards/:id/comentarios/` | listar, crear, editar, borrar |
 | `cards/:id/actividad/` | historial de la card |
 | `cards/:id/checklist/` · `checklist/:id/` | añadir · marcar, renombrar, eliminar |
-| `cards/:id/trasladar/` | llevar la card a un tablero de equipo |
+| `cards/:id/trasladar/` | llevar la card a otro tablero (de personal: a personal propio o equipo; de equipo: solo a equipo) |
+| `tableros/:id/archivadas/` | cards archivadas del tablero |
 | `mis-tareas/` | cards donde soy responsable |
 | `tableros/:id/dependencias/` · `dependencias/:id/` | listar (con `incumplida`), crear · cambiar tipo o desfase, quitar |
 | `cards/:id/programar/` | nuevas fechas y, con `mover_sucesoras`, empujar la cadena (devuelve las tarjetas cambiadas) |
 | `calendario/feriados/?desde&hasta` · `calendario/feriados/:id/` | feriados del rango (fijos, puntuales y móviles) · alta y baja (admin del módulo) |
-| `tableros/:id/exportar/?formato=xlsx|mspdi` | exportación (fase 4) |
+| `tableros/:id/exportar/?formato=xlsx|mspdi` | exportación (fase 4, en curso) |
 
 ---
 
@@ -658,11 +702,13 @@ cabecera `X-CSRFToken`.
 | D-01 | ¿Fechas con hora o solo día? | Solo día en fases 1–4 |
 | D-02 | ¿Quién crea equipos? | Cualquier usuario con acceso al módulo (**decidido**) |
 | D-08 | ¿Cómo se entra a un equipo? | Solo por invitación aceptada (**decidido**) |
-| D-03 | Umbral de "vence pronto" | 2 días hábiles, configurable más adelante |
+| D-03 | Umbral de "vence pronto" | 2 días hábiles; lo ajusta el Portal en el tipo de aviso `card_por_vencer` (**decidido**) |
 | D-04 | ¿Comentarios en el tablero personal? | Sí, como notas propias (nadie más los ve) |
-| D-05 | Librería de Gantt | Prueba técnica al inicio de la fase 3 |
+| D-05 | Librería de Gantt | Gantt propio en HTML + SVG, sin librería (**decidido**, §3.2) |
 | D-06 | Motor de BD en producción | MySQL propia antes de la fase 1 en producción |
-| D-07 | ¿El admin del módulo ve tableros personales? | No: el tablero personal es privado para todos |
+| D-07 | ¿El admin del módulo ve tableros personales? | No: el tablero personal es privado para todos (**decidido**) |
+| D-09 | ¿Uno o varios tableros personales? | Varios; el equipo es opcional al crear (**decidido**) |
+| D-10 | Menú al abrir la app suelta | `paldaca-nav` del Portal; el propio solo de respaldo (**decidido**) |
 
 ---
 

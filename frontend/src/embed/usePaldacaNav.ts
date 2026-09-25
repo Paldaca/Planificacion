@@ -56,10 +56,19 @@ export function usePaldacaNav(activo: boolean): EstadoNav {
     };
 
     const observador = new MutationObserver(() => {
-      if (document.body.classList.contains("paldaca-nav-mounted")) setEstado("montado");
+      // Una vez en el respaldo no se vuelve atrás: el contenedor ya no existe.
+      if (document.body.classList.contains("paldaca-nav-mounted")) setEstado((e) => (e === "fallo" ? e : "montado"));
     });
     observador.observe(document.body, { attributes: true, attributeFilter: ["class"] });
-    const limite = window.setTimeout(() => setEstado((e) => (e === "cargando" ? "fallo" : e)), LIMITE_MS);
+    const aRespaldo = () => {
+      // Si el script llega tarde, sin configuración no intenta montarse en un
+      // contenedor que ya no está (dejaría un error en la consola).
+      delete window.__PALDACA_NAV__;
+      setEstado((e) => (e === "montado" ? e : "fallo"));
+    };
+    const limite = window.setTimeout(() => {
+      if (!document.body.classList.contains("paldaca-nav-mounted")) aRespaldo();
+    }, LIMITE_MS);
 
     if (!document.getElementById(ID_CSS)) {
       const css = document.createElement("link");
@@ -75,7 +84,7 @@ export function usePaldacaNav(activo: boolean): EstadoNav {
       script.id = ID_SCRIPT;
       script.src = `${NAV_ASSETS}/paldaca-nav.js`;
       script.defer = true;
-      script.onerror = () => setEstado("fallo");
+      script.onerror = aRespaldo;
       document.body.appendChild(script);
     }
 
