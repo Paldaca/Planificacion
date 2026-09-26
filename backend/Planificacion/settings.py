@@ -10,14 +10,17 @@ separada (`frontend/`) que consume esta API y habla el protocolo
 `paldaca-embed` v1 para vivir dentro del iframe del shell del Portal.
 
 `DEBUG` se deriva SIEMPRE de la variable de entorno `DJANGO_DEBUG` — nunca
-hardcodeado. El propio Portal-Paldaca (y, hasta hace poco, Calidad/Códigos)
-tienen/tuvieron `DEBUG=True` hardcodeado en producción, documentado como
-riesgo en `IA_CONTEXT.md` §13; no se repite ese error aquí.
+hardcodeado — y **por defecto es falso** (auditoría A-01): un despliegue al
+que le falte la variable arranca seguro, no con trazas públicas. El desarrollo
+local la pone en `true` en `backend/.env` (ver `.env.example`). El propio
+Portal-Paldaca (y, hasta hace poco, Calidad/Códigos) tienen/tuvieron
+`DEBUG=True` hardcodeado en producción (`IA_CONTEXT.md` §13); no se repite.
 """
 
 import os
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -36,11 +39,15 @@ def _csv_env(name: str, default: str = "") -> list[str]:
 
 # --- Núcleo -------------------------------------------------------------
 
-SECRET_KEY = os.getenv(
-    "DJANGO_SECRET_KEY",
-    "django-insecure-planificacion-dev-only-cambiar-en-produccion",
-)
-DEBUG = _bool_env("DJANGO_DEBUG", "true")
+_CLAVE_DE_DESARROLLO = "django-insecure-planificacion-dev-only-cambiar-en-produccion"
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", _CLAVE_DE_DESARROLLO)
+DEBUG = _bool_env("DJANGO_DEBUG", "false")
+if not DEBUG and (SECRET_KEY.startswith("django-insecure-") or len(SECRET_KEY) < 40):
+    # Sin DEBUG = producción: nunca con la clave pública de desarrollo.
+    raise ImproperlyConfigured(
+        "DJANGO_SECRET_KEY falta o es insegura (mínimo 40 caracteres). "
+        "Para desarrollo local, DJANGO_DEBUG=true en backend/.env."
+    )
 ALLOWED_HOSTS = _csv_env("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
 
 
@@ -180,7 +187,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 SESSION_COOKIE_NAME = os.getenv("SESSION_COOKIE_NAME", "planificacion_sessionid")
 SESSION_COOKIE_DOMAIN = os.getenv("SESSION_COOKIE_DOMAIN", "") or None
-SESSION_COOKIE_SECURE = _bool_env("SESSION_COOKIE_SECURE", "false")
+# Secure por defecto fuera de DEBUG (auditoría A-03): en producción todo va por HTTPS.
+SESSION_COOKIE_SECURE = _bool_env("SESSION_COOKIE_SECURE", "false" if DEBUG else "true")
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_PATH = "/"
@@ -195,6 +203,32 @@ CSRF_COOKIE_HTTPONLY = False  # el frontend necesita leerla para el header X-CSR
 CSRF_TRUSTED_ORIGINS = _csv_env(
     "DJANGO_CSRF_TRUSTED_ORIGINS", "http://localhost:5181,http://localhost:8007"
 )
+
+
+# --- HTTPS (auditoría A-03) ------------------------------------------------
+#
+# En producción TLS termina en el proxy de Coolify (Traefik), que avisa con
+# X-Forwarded-Proto. Redirección a HTTPS y HSTS activas por defecto fuera de
+# DEBUG; `/api/health/` queda fuera de la redirección porque el chequeo de
+# salud de Coolify llama por HTTP dentro de la red del contenedor.
+
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_SSL_REDIRECT = _bool_env("DJANGO_SECURE_SSL_REDIRECT", "false" if DEBUG else "true")
+SECURE_REDIRECT_EXEMPT = [r"^api/health/$"]
+SECURE_HSTS_SECONDS = int(os.getenv("DJANGO_SECURE_HSTS_SECONDS", "0" if DEBUG else "31536000"))
+# Solo abarca *.planificacion.cpaldaca.com (no existen): no afecta al resto de la Suite.
+SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
+
+SILENCED_SYSTEM_CHECKS = [
+    # El embed en el Portal se controla con CSP `frame-ancestors`
+    # (paldaca_sso.embed); `XFrameOptionsMiddleware` no admite lista de
+    # orígenes y rompería el iframe, por eso no está.
+    "security.W002",
+    # HSTS preload exige inscribir el dominio en la lista de los navegadores:
+    # decisión del dominio cpaldaca.com, no de un satélite.
+    "security.W021",
+]
 
 
 # --- CORS (la SPA en dev corre en otro puerto que Django) -----------------
@@ -223,11 +257,14 @@ REST_FRAMEWORK = {
 }
 
 
-# --- Email (placeholder hasta que haga falta) ------------------------------
+# --- Email ------------------------------------------------------------------
+# Planificación no envía correo (los avisos van a la campana del Portal) y no
+# define ADMINS. En desarrollo, cualquier correo se ve por consola; en
+# producción queda el SMTP por defecto de Django (sin uso hoy): el día que haga
+# falta, se configura con las variables EMAIL_* estándar.
 
-MAILERS = {
-    "default": {"BACKEND": "django.core.mail.backends.console.EmailBackend"},
-}
+if DEBUG:
+    MAILERS = {"default": {"BACKEND": "django.core.mail.backends.console.EmailBackend"}}
 
 
 # --- Contrato SSO federado -------------------------------------------------

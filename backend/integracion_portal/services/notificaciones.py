@@ -281,6 +281,27 @@ def procesar_pendientes(limite: int = 200) -> dict:
     return {"revisados": len(ids), "enviados": enviados}
 
 
+#: Cuánto se conservan los avisos ya cerrados (datos técnicos, no de
+#: negocio). Los descartados, más tiempo: sirven para diagnosticar.
+DIAS_CONSERVAR_ENVIADOS = 30
+DIAS_CONSERVAR_DESCARTADOS = 90
+
+
+def purgar(ahora=None) -> dict:
+    """Borra de la bandeja los enviados y descartados viejos (auditoría A-05).
+    Los pendientes nunca se tocan."""
+    ahora = ahora or timezone.now()
+    corte_enviados = ahora - datetime.timedelta(days=DIAS_CONSERVAR_ENVIADOS)
+    corte_descartados = ahora - datetime.timedelta(days=DIAS_CONSERVAR_DESCARTADOS)
+    enviados, _ = AvisoSaliente.objects.filter(
+        estado=AvisoSaliente.Estado.ENVIADO, creado_en__lt=corte_enviados
+    ).delete()
+    descartados, _ = AvisoSaliente.objects.filter(
+        estado=AvisoSaliente.Estado.DESCARTADO, creado_en__lt=corte_descartados
+    ).delete()
+    return {"enviados": enviados, "descartados": descartados}
+
+
 # --- Configuración de un tipo (umbral editable sin deploy desde el Portal) ------
 
 

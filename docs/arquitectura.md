@@ -216,7 +216,8 @@ Todo por variables de entorno (`backend/.env`, plantilla en
 
 | Grupo | Variables |
 |---|---|
-| Núcleo | `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `CORS_ALLOWED_ORIGINS` |
+| Núcleo | `DJANGO_SECRET_KEY` (≥ 40 caracteres y no `django-insecure-` si no hay DEBUG), `DJANGO_DEBUG` (por defecto **false**), `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `CORS_ALLOWED_ORIGINS` |
+| HTTPS | `DJANGO_SECURE_SSL_REDIRECT` y `DJANGO_SECURE_HSTS_SECONDS` (fuera de DEBUG: `true` y un año; `/api/health/` sin redirección). `SECURE_PROXY_SSL_HEADER` confía en `X-Forwarded-Proto` del proxy |
 | Sesión | `SESSION_COOKIE_NAME` (`planificacion_sessionid`), `SESSION_COOKIE_DOMAIN` (vacío), `SESSION_COOKIE_SECURE`, `SESSION_COOKIE_AGE` (8 h) |
 | SSO | `PALDACA_SSO_ENABLED` (false = deploy dark), `PALDACA_MODULO_CODIGO`, `PALDACA_PORTAL_URL`, `PALDACA_PORTAL_API_URL`, `PALDACA_SSO_*` (timeouts, gracia, breaker) |
 | Avisos | `PALDACA_NOTIFICACIONES_ACTIVAS`, `PALDACA_NOTIF_SECRET` (≥ 32, = `PALDACA_NOTIF_SECRET_PLANIFICACION` del Portal), `PALDACA_NOTIF_ASINCRONO` |
@@ -230,7 +231,8 @@ backend **8007** · Planificación frontend **5181**. Idioma `es-ve`, zona
 
 - Servidor WSGI: gunicorn (en `requirements.txt`); estáticos con WhiteNoise.
 - Coolify (Scheduled Tasks):
-  - `python manage.py procesar_avisos` — cada 5 minutos.
+  - `python manage.py procesar_avisos` — cada 5 minutos (también purga la
+    bandeja de avisos cerrados viejos).
   - `python manage.py revisar_vencimientos` — una vez al día, temprano.
 - En local los corre el arranque de la Suite (`iniciar.ps1 -Modo planificacion`
   en el repo del Portal).

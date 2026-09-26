@@ -36,7 +36,8 @@ Qué se avisa, a quién y con qué texto **no** se decide aquí: eso es de
 4. Red, 5xx o credenciales → pendiente con espera 1, 2, 4… min (techo 6 h,
    máx. 10 intentos). 400/404 → descartado (reintentar no lo arregla).
 5. `python manage.py procesar_avisos` (cron cada 5 min) reintenta los
-   pendientes.
+   pendientes y purga la bandeja (`purgar()`): enviados de más de 30 días y
+   descartados de más de 90.
 
 Nunca se revierte el cambio local porque el Portal falle. Sin
 `PALDACA_NOTIF_SECRET` (≥ 32 caracteres) no se encola nada y queda registrado.
@@ -70,7 +71,8 @@ Nunca se revierte el cambio local porque el Portal falle. Sin
 - Nunca poner datos sensibles en `titulo`/`cuerpo` de un aviso.
 - La caché de `config_tipo` es de 10 min (1 min si el Portal falló) y es **por
   proceso** (ver auditoría A-04).
-- Los envíos enviados/descartados no se purgan todavía (auditoría A-05).
+- La purga borra solo avisos cerrados (enviados/descartados), nunca
+  pendientes: son datos técnicos, no de negocio.
 
 ## Pruebas
 

@@ -1,3 +1,4 @@
+import io
 import json
 from unittest import mock
 
@@ -99,3 +100,34 @@ class ConfigTipoTests(TestCase):
             from tableros.services.vencimientos import umbral_por_vencer
 
             self.assertEqual(umbral_por_vencer(), 4)
+
+
+class PurgaTests(ApiTestCase):
+    def test_procesar_avisos_purga_solo_los_cerrados_viejos(self):
+        import datetime
+
+        from django.core.management import call_command
+        from django.utils import timezone
+
+        from integracion_portal.models import AvisoSaliente
+
+        E = AvisoSaliente.Estado
+        ahora = timezone.now()
+        casos = {
+            "enviado_viejo": (E.ENVIADO, 31),
+            "enviado_reciente": (E.ENVIADO, 5),
+            "descartado_31": (E.DESCARTADO, 31),
+            "descartado_viejo": (E.DESCARTADO, 91),
+            "pendiente_viejo": (E.PENDIENTE, 400),
+        }
+        for clave, (estado, dias) in casos.items():
+            aviso = AvisoSaliente.objects.create(
+                tipo="emitir", codigo="x", datos={}, clave_agrupacion=clave, estado=estado,
+                proximo_intento=ahora + datetime.timedelta(days=1),
+            )
+            AvisoSaliente.objects.filter(pk=aviso.pk).update(creado_en=ahora - datetime.timedelta(days=dias))
+        salida = io.StringIO()
+        call_command("procesar_avisos", stdout=salida)
+        quedan = set(AvisoSaliente.objects.values_list("clave_agrupacion", flat=True))
+        self.assertEqual(quedan, {"enviado_reciente", "descartado_31", "pendiente_viejo"})
+        self.assertIn("purgados: 1 enviados, 1 descartados", salida.getvalue())

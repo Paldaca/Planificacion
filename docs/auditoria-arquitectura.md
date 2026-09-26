@@ -32,11 +32,11 @@ CI, componentes muy grandes). Ninguno exige rediseñar.
 
 | ID | Severidad | Hallazgo |
 |---|---|---|
-| A-01 | Alta | `DEBUG` y `SECRET_KEY` con valores por defecto inseguros si falta la variable de entorno |
+| A-01 | Alta | `DEBUG` y `SECRET_KEY` con valores por defecto inseguros si falta la variable de entorno — ✅ resuelto 2026-09-26 |
 | A-02 | Alta | SQLite como única BD configurada (D-06 pendiente) |
-| A-03 | Media | `manage.py check --deploy` falla (1 error, 5 avisos) |
+| A-03 | Media | `manage.py check --deploy` falla (1 error, 5 avisos) — ✅ resuelto 2026-09-26 |
 | A-04 | Media | Caché en memoria por proceso: feriados y umbral pueden quedar desfasados entre workers |
-| A-05 | Media | La bandeja `AvisoSaliente` crece sin límite |
+| A-05 | Media | La bandeja `AvisoSaliente` crece sin límite — ✅ resuelto 2026-09-26 |
 | A-10 | Media | Sin pruebas de frontend ni integración continua |
 | A-06 | Baja | `gantt` y `exportacion` dependen de la capa HTTP interna de `tableros` |
 | A-07 | Baja | `equipos` traduce ids del Portal sin pasar por `integracion_portal` |
@@ -81,6 +81,10 @@ CI, componentes muy grandes). Ninguno exige rediseñar.
 
 ### A-01 · Alta · Valores por defecto inseguros en `settings.py`
 
+> ✅ **Resuelto 2026-09-26.** `DJANGO_DEBUG` por defecto `false`; sin DEBUG el
+> arranque falla (`ImproperlyConfigured`) si `DJANGO_SECRET_KEY` falta, empieza
+> por `django-insecure-` o tiene menos de 40 caracteres.
+
 **Evidencia.** `backend/Planificacion/settings.py:43`
 `DEBUG = _bool_env("DJANGO_DEBUG", "true")` y `:39` `SECRET_KEY` con
 `"django-insecure-..."` por defecto. `PALDACA_PORTAL_URL`/`PALDACA_PORTAL_API_URL`
@@ -111,6 +115,14 @@ contenedor no es persistente.
 y correr la suite contra MySQL una vez.
 
 ### A-03 · Media · `check --deploy` en rojo
+
+> ✅ **Resuelto 2026-09-26.** `check --deploy` sin problemas (con `DJANGO_DEBUG=false`,
+> clave propia y cookies seguras). Fuera de DEBUG: cookies `Secure`,
+> `SECURE_PROXY_SSL_HEADER`, redirección a HTTPS (salvo `/api/health/`),
+> HSTS de un año con subdominios (`DJANGO_SECURE_SSL_REDIRECT`,
+> `DJANGO_SECURE_HSTS_SECONDS`). Silenciados con su razón: `security.W002`
+> (embed por CSP) y `security.W021` (preload: decisión del dominio). Correo:
+> consola solo en DEBUG; en producción, el SMTP por defecto (sin uso).
 
 **Evidencia.** Con `DJANGO_DEBUG=false`:
 
@@ -146,6 +158,10 @@ resultados distintos según el worker.
 nueva) o Redis si ya existe en el servidor. Mientras tanto, documentado.
 
 ### A-05 · Media · Bandeja de avisos sin purga
+
+> ✅ **Resuelto 2026-09-26.** `procesar_avisos` llama a
+> `notificaciones.purgar()`: borra enviados de más de 30 días y descartados de
+> más de 90 (por `creado_en`); los pendientes nunca se tocan.
 
 **Evidencia.** `integracion_portal/services/notificaciones.py`: los avisos
 pasan a `enviado`/`descartado` pero nada los borra; `procesar_pendientes`
@@ -287,11 +303,11 @@ entorno (`LOG_LEVEL`).
 
 - [ ] `DJANGO_DEBUG=false`, `DJANGO_SECRET_KEY` propia y larga.
 - [ ] `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `CORS_ALLOWED_ORIGINS` del dominio real.
-- [ ] `SESSION_COOKIE_SECURE=true` (y por ende CSRF).
+- [x] `SESSION_COOKIE_SECURE` y CSRF `Secure` por defecto fuera de DEBUG (A-03).
 - [ ] MySQL propia configurada y migrada.
 - [ ] `PALDACA_SSO_ENABLED=true`, `PALDACA_PORTAL_URL`, `PALDACA_PORTAL_API_URL`, `PALDACA_FRAME_ANCESTORS`.
 - [ ] `PALDACA_NOTIF_SECRET` = `PALDACA_NOTIF_SECRET_PLANIFICACION` del Portal; `planificacion` en `PALDACA_NOTIF_ESTRICTO`.
 - [ ] `npm run build` y `collectstatic`.
 - [ ] Scheduled Tasks: `procesar_avisos` (5 min) y `revisar_vencimientos` (diario).
-- [ ] `manage.py check --deploy` sin errores.
+- [ ] `manage.py check --deploy` sin errores (pasa con clave propia desde 2026-09-26).
 - [ ] Recién entonces, `planificacion` en `VITE_EMBEDDED_MODULES` del Portal.
