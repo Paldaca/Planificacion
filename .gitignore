@@ -224,3 +224,6 @@ frontend/dist/
 
 # Django staticfiles collected
 backend/staticfiles/
+
+# Ajustes personales de Claude Code (las reglas del proyecto sí se versionan)
+.claude/settings.local.json

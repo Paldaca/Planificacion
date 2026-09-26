@@ -1,0 +1,52 @@
+---
+description: "Contratos con el Portal PALDACA: SSO federado, embed, avisos firmados y configuración"
+globs: backend/paldaca_sso/**,backend/integracion_portal/**,backend/Planificacion/**,backend/.env.example,frontend/src/embed/**,frontend/src/auth/**,frontend/.env*,frontend/vite.config.ts
+alwaysApply: false
+---
+
+# Reglas de integración con PALDACA Suite
+
+> Gemela de `.claude/rules/integracion-suite.md` (fuente): si cambias una, cambia la otra.
+> Lee antes `docs/modulos/paldaca_sso.md`, `docs/modulos/integracion_portal.md`
+> y `docs/arquitectura.md` §4–§6.
+
+Estos archivos son contratos con el Portal y con los demás satélites. Un error
+aquí rompe el login o el embed **en silencio** y afecta a toda la Suite.
+
+## No se hace
+
+- Modificar `backend/paldaca_sso/` sin pedido explícito (es el kit compartido;
+  los cambios nacen en el Portal/kit y se copian).
+- Reponer `XFrameOptionsMiddleware` o poner `X-Frame-Options`: el framing lo
+  controla la CSP `frame-ancestors` de `PaldacaEmbedMiddleware`.
+- `SESSION_COOKIE_NAME = "paldaca_sessionid"` o `SESSION_COOKIE_DOMAIN` con
+  valor (checks `paldaca_sso.E001`/`E002`).
+- Compartir BD, tablas `core_*` o `SECRET_KEY` con el Portal.
+- Firmar avisos con `DJANGO_SECRET_KEY`: se usa `PALDACA_NOTIF_SECRET` propio.
+- Crear tipos de aviso desde este repo: se crean con migración en el Portal.
+- Crear cuentas espejo con datos enviados por el navegador: solo con datos
+  confirmados por el Portal.
+- Hardcodear `DEBUG=True`, secretos u orígenes de producción.
+- Temporizadores que llamen a la API sin actividad del usuario (R-07).
+
+## Se hace
+
+- Toda llamada de negocio al Portal pasa por `integracion_portal`.
+- Si cambias la firma HMAC, cámbiala también en
+  `Portal-Paldaca/backend/notificaciones/firma.py` y actualiza el vector de
+  prueba compartido en ambos repos.
+- Si cambias `frontend/src/embed/protocol.ts`, cambia también
+  `Portal-Paldaca/frontend/src/components/module-frame/protocol.ts`.
+- Configuración nueva: variable de entorno leída en `settings.py` con
+  `_bool_env`/`_csv_env`/`os.getenv`, documentada en `backend/.env.example` y
+  en `docs/arquitectura.md` §6. Valores por defecto seguros para producción
+  (auditoría A-01).
+- El catch-all de `urls.py` sigue siendo el último patrón y sigue excluyendo
+  `admin/`, `api/`, `static/` y `assets/`.
+- Mantener CSP de `vite.config.ts` alineada con `PALDACA_FRAME_ANCESTORS`.
+- En local, `localhost` (no `127.0.0.1`).
+- Probar con `manage.py test` y, si tocaste SSO o embed, dentro del Portal
+  (`iniciar.ps1 -Modo planificacion`).
+
+Referencias externas (repo del Portal):
+`docs/PALDACA_SUITE/CONTRATO_SSO_FEDERADO.md`, `CONTRATO_EMBED.md`.

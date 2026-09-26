@@ -9,6 +9,9 @@ Planificación PALDACA: satélite **federado** de PALDACA Suite (React + Django)
   `GET /api/auth/me/` del Portal. Código de módulo: `planificacion`.
 
 Diseño funcional y plan por fases: [`docs/plan-modulo-planificacion.md`](docs/plan-modulo-planificacion.md).
+Índice de la documentación (contexto, arquitectura, auditoría y un documento
+por módulo): [`docs/README.md`](docs/README.md). Las reglas para asistentes de
+IA están en `.claude/` (Claude Code) y `.cursor/rules/` (Cursor).
 
 Contrato: `Portal-Paldaca/docs/PALDACA_SUITE/CONTRATO_SSO_FEDERADO.md` y
 [`docs/guia-integracion-programas-satelite.md`](docs/guia-integracion-programas-satelite.md).

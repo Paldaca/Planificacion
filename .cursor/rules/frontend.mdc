@@ -1,0 +1,77 @@
+---
+description: "Reglas del frontend React + Vite: datos con TanStack Query, reglas de dominio, estilo visual y verificación"
+globs: frontend/**
+alwaysApply: false
+---
+
+# Reglas del frontend (React + Vite)
+
+> Gemela de `.claude/rules/frontend.md` (fuente): si cambias una, cambia la otra.
+> Antes de tocar el frontend, lee `docs/modulos/frontend.md` (y
+> `docs/modulos/gantt.md` o `exportacion.md` si tocas esas vistas).
+
+## Arquitectura
+
+- Páginas en `src/pages/` (una por ruta, cargadas con `lazy()` en `App.tsx`);
+  componentes por dominio en `src/components/<dominio>/`; primitivas en
+  `src/components/ui/` (`Boton`, `Campos`, `Dialogo`, `Menu`, `Avatar`,
+  `Estados`). Reutilizarlas antes de crear otras.
+- **Datos del servidor solo con TanStack Query** en `src/api/queries.ts`
+  (claves en `claves.*`). Nada de `fetch` directo en componentes: usar
+  `api.get/post/patch/del` de `src/api/client.ts`.
+- Formas de la API en `src/api/tipos.ts`; si el backend cambia un serializer,
+  actualizar el tipo en el mismo cambio.
+- Lógica sin React en `src/lib/` (funciones puras y testeables). La geometría
+  del Gantt vive en `lib/gantt.ts`, no en el componente.
+- Alias `@/` para importar desde `src/`.
+
+## Reglas de dominio
+
+- El frontend **refleja** reglas y permisos (vienen en `tablero.permisos`), no
+  los decide. Si hace falta una regla nueva, va al backend.
+- Mutaciones de tarjeta: optimistas y en serie por tarjeta (`scope`), leyendo
+  la `version` vigente justo antes de enviar; ante 409, reemplazar por
+  `actual` del servidor y avisar con toast. Seguir el patrón existente de
+  `usePatchCard`.
+- Errores al usuario con `toast.error(mensajeError(error))`.
+- Refresco automático solo con `refrescoVivo` (`lib/actividadUsuario.ts`):
+  nunca `setInterval`/`refetchInterval` fijo que llame a la API con la pestaña
+  oculta o sin actividad (R-07: mantendría viva la sesión del Portal).
+- Fechas de la API (`"YYYY-MM-DD"`): `parsearDia()` de `lib/fechas.ts`; nunca
+  `new Date("YYYY-MM-DD")`. Los espejos locales de días hábiles y
+  vencimiento (`lib/dias.ts`, `lib/vencimiento.ts`) no conocen feriados: solo
+  para dibujar u optimismo.
+- Filtros: si cambias `lib/filtros.ts`, cambia igual
+  `backend/exportacion/services/datos.py::Filtros` (exportar = lo que se ve).
+- Navegación: cada ruta debe ser enlazable; la vista va en `?vista=`. No
+  romper `usePaldacaEmbed` (emite `navigate` en cada cambio de ruta).
+- No repetir ítems de menú de la Suite: se definen en el Portal.
+
+## Estilo visual y UI
+
+- Tailwind 4 con los tokens de `src/index.css` (`bg-morado`, `text-texto`,
+  `text-tenue`, `border-linea`, `bg-fondo`, `ease-suave`…). No introducir
+  colores sueltos si existe token; colores de dominio en `lib/estilos.ts`.
+- Rojo de marca (`rojo`) solo para lo urgente/destructivo.
+- Combinar clases con `cn()` (`lib/cn.ts`).
+- Adaptable: cada pantalla debe funcionar en el celular.
+- Accesible: controles con etiqueta, foco visible, arrastrar también con
+  teclado (dnd-kit), respetar `reducedMotion`.
+- Textos en español con tuteo; a la card se le dice «tarjeta».
+
+## Estilo de código
+
+- TypeScript estricto (`noUnusedLocals`, `noUnusedParameters`,
+  `erasableSyntaxOnly`, `verbatimModuleSyntax` → `import type`).
+- Componentes y hooks con nombres en español (`Boton`, `useTablero`,
+  `usePreferencia`); hooks con prefijo `use`.
+- Comentarios que expliquen el porqué, como en el código existente.
+- Archivos que ya superan ~800 líneas (`VistaGantt.tsx`, `queries.ts`,
+  `CardDialogo.tsx`): no hacerlos crecer; extraer subcomponentes o módulos al
+  tocarlos (auditoría A-11).
+
+## Verificación
+
+Desde `frontend/`: `npm run lint` y `npm run build` sin errores. Para cambios
+visibles, probar en `http://localhost:5181` (con el backend en 8007) y, si
+afecta al embed, dentro del Portal (`http://localhost:5173/planificacion`).

@@ -1,0 +1,94 @@
+---
+paths:
+  - "backend/**/*.py"
+  - "requirements.txt"
+---
+
+# Reglas del backend (Django + DRF)
+
+> Gemela de `.cursor/rules/backend.mdc`: si cambias una, cambia la otra.
+> Antes de tocar una app, lee `docs/modulos/<app>.md`.
+
+## Capas (dónde va cada cosa)
+
+- `models.py`: campos, `Meta` (con `db_table = "planificacion_<nombre>"` en
+  toda tabla de negocio), `CheckConstraint`/`UniqueConstraint` para invariantes,
+  reglas de **una** instancia como métodos (`Card.clean()`), lecturas
+  reutilizables en un `QuerySet` propio (`Card.objects.activas().con_detalle()`).
+  No hay capa de «selectors».
+- `permisos.py`: funciones puras `puede_*(usuario, objeto) -> bool`, sin HTTP.
+- `services/<tema>.py`: toda operación con efectos. Decorada con
+  `@transaction.atomic`, argumentos **por nombre** (`*, actor, version`), deja
+  todo consistente en una transacción (cambio + historial + avisos +
+  vencimiento). Lanza `core.errores.ReglaDeNegocio` / `ConflictoDeVersion` /
+  `ServicioNoDisponible`; nunca devuelve `Response` ni conoce `request`
+  (salvo `equipos.services.candidatos`, que reenvía la cookie del Portal).
+- `api/serializers.py`: solo formato de entrada/salida; **no escriben** (nada
+  de `save()`/`create()` con lógica).
+- `api/views.py` o `api/views/<recurso>.py`: `APIView` por recurso, delgadas:
+  obtener objeto + permiso (`obtener_tablero(..., editar=True)`) → validar con
+  serializer → llamar al servicio → serializar. Atrapan `ConflictoDeVersion` y
+  responden 409 con `conflicto(exc, datos_actuales)`.
+- Señales solo si un cambio llega por varios caminos o para invertir una
+  dependencia entre apps; el resto, llamadas explícitas.
+
+## Dependencias entre apps
+
+Solo hacia abajo: `exportacion → gantt → tableros → equipos · calendario →
+integracion_portal → paldaca_sso → core`. Nunca importar una app de arriba
+desde una de abajo; si hace falta reaccionar, emitir una señal en la de abajo
+y escucharla en la de arriba (`receivers.py`, conectado en `apps.py::ready`).
+
+## Reglas de dominio
+
+- Toda regla de negocio vive aquí, no en el frontend.
+- Tarjetas y columnas: comparar y subir `version` en cada edición
+  (`select_for_update` + `ConflictoDeVersion`).
+- No borrar físicamente datos de negocio: archivar (`archivada`/`archivado`).
+- Días hábiles solo con `calendario.services.dias_habiles`.
+- Cambios de fechas/columna/archivo de una tarjeta: reutilizar
+  `tableros.services.tarjetas` (`editar_card`, `mover_card`…), que ya
+  registran historial, avisan y sincronizan vencimientos.
+- Avisos al Portal solo vía `integracion_portal.services.notificaciones`
+  (`emitir`/`resolver`), decidiendo destinatarios en `services/avisos.py` de la
+  app: nunca al actor, solo a quien hoy puede ver el tablero, siempre con ruta a
+  la tarjeta, sin datos sensibles en título/cuerpo.
+- FK a personas: `settings.AUTH_USER_MODEL`. Nombre/email/disciplina se leen
+  de la cuenta espejo (`integracion_portal.services.personas`), nunca se
+  copian a modelos de negocio.
+- Traducir usuario local ↔ `portal_user_id` solo en `integracion_portal`.
+- Fechas de tarjeta: `DateField` (solo día, D-01). Para «hoy» usar
+  `timezone.localdate()`.
+
+## Estilo
+
+- `from __future__ import annotations` y anotaciones de tipo como en el código
+  existente; docstring de módulo que explique el porqué (con referencia a
+  `docs/plan-modulo-planificacion.md §x` cuando aplique).
+- Nombres en español (`crear_card`, `puede_editar_tablero`, `Urgencia`).
+- Mensajes de error para el usuario en español, tuteo, accionables
+  («Escribe un título para la tarjeta.»).
+- Constantes y `TextChoices` en lugar de cadenas sueltas.
+
+## Migraciones
+
+- `makemigrations <app>` desde `backend/`; revisar el archivo generado.
+- Una migración por cambio lógico, con nombre descriptivo
+  (`0005_varios_tableros_personales`). Migraciones de datos con `RunPython` y
+  función inversa cuando sea posible.
+- Los tipos de aviso `planificacion.*` se crean con migración **en el Portal**,
+  nunca aquí.
+
+## Pruebas
+
+- Toda regla nueva o corregida lleva prueba en `<app>/tests/test_<funcionalidad>.py`.
+- Heredar de `core.testing.ApiTestCase` (o `ConAvisos` si hay avisos, o de
+  `tableros.tests.base.EscenarioTablero` para el escenario con equipo y
+  tablero). Probar por la API (`self.cliente(usuario).post(...)`), no llamando
+  a vistas.
+- Avisos: envolver con `self.captureOnCommitCallbacks(execute=True)` y
+  comprobar `self.emitidos(codigo)` / `self.resueltos(codigo)`.
+- Permisos: probar cada fila de la tabla del documento del módulo (incluido el
+  403 para `ajeno` y el solo-lectura para `lector`).
+- Ejecutar: `..\venv\Scripts\python.exe manage.py test` desde `backend/` (toda
+  la suite tarda ~20 s; correrla completa antes de dar algo por terminado).
