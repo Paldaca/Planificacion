@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     "calendario",
     "tableros",
     "gantt",
+    "exportacion",
 ]
 
 MIDDLEWARE = [
@@ -200,6 +201,9 @@ CSRF_TRUSTED_ORIGINS = _csv_env(
 
 CORS_ALLOWED_ORIGINS = _csv_env("CORS_ALLOWED_ORIGINS", "http://localhost:5181")
 CORS_ALLOW_CREDENTIALS = True
+# El nombre de un archivo exportado viaja en esta cabecera; entre orígenes
+# (Vite en desarrollo) el navegador solo la deja leer si se expone.
+CORS_EXPOSE_HEADERS = ["Content-Disposition"]
 
 
 # --- DRF --------------------------------------------------------------

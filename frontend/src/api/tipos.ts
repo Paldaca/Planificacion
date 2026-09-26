@@ -189,3 +189,37 @@ export type Dependencia = {
   /** La sucesora empieza (o termina) antes de lo que la dependencia permite. */
   incumplida: boolean;
 };
+
+// --- Exportación e importación (fase 4) ------------------------------------------------
+
+export type FormatoExportacion = "xlsx" | "xml";
+
+export type FilaVistaPrevia = {
+  fila: number;
+  ref: number | null;
+  titulo: string;
+  columna: string | null;
+  urgencia: Urgencia;
+  inicio: string | null;
+  fin: string | null;
+  responsables: string[];
+  depende: string[];
+  /** Con errores la fila no se importa; con avisos, se importa con un ajuste. */
+  errores: string[];
+  avisos: string[];
+};
+
+export type VistaPrevia = {
+  filas: FilaVistaPrevia[];
+  total: number;
+  validas: number;
+  con_errores: number;
+  dependencias: number;
+};
+
+export type ResultadoImportacion = {
+  creadas: number;
+  omitidas: number;
+  dependencias: number;
+  avisos: string[];
+};

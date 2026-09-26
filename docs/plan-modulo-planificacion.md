@@ -3,7 +3,8 @@
 > Estado (septiembre 2026): **fases 0–3 implementadas** y auditadas (tableros,
 > cards, equipos por invitación, avisos en el Portal, checklist, historial,
 > menciones, vistas Lista / Calendario / Gantt, dependencias, calendario
-> laboral). **Fase 4 en curso** (exportación e importación). Fase 5: propuesta.
+> laboral) y **fase 4 implementada** (Excel y MS Project de ida y vuelta).
+> Fase 5: propuesta.
 > El detalle de lo hecho y lo pendiente está en §7 («Estado del plan»).
 > Stack: **Django + DRF** (`backend/`) y **React + Vite + TypeScript** (`frontend/`).
 > Integración: satélite **federado** del Portal Paldaca — ver
@@ -92,7 +93,7 @@ depende de `equipos`, nunca al revés):
 | `calendario` | Calendario laboral: feriados nacionales, puntuales y móviles (Carnaval, Semana Santa); días hábiles para duraciones, vencimientos y Gantt |
 | `tableros` | Tableros, columnas, cards, responsables, comentarios, checklist, historial, vencimientos |
 | `gantt` | Vista Gantt (fase 3): qué tarjetas entran, dependencias entre tarjetas y reprogramación de sucesoras en días hábiles. Las vistas Lista y Calendario no necesitan app propia: leen las tarjetas de `tableros` |
-| `exportacion` | Excel y XML de MS Project (e importación, fase 4) |
+| `exportacion` | Fase 4: exportar a Excel (.xlsx) y a MS Project (XML MSPDI) e importar desde ambos, con vista previa. Sin modelos propios: `services/datos.py` arma el contenido, `excel.py` y `mspdi.py` lo presentan o lo leen, `importacion.py` valida y crea |
 | `plantillas` | Fase 5: tableros modelo (columnas + cards con duraciones relativas en días hábiles) para crear un tablero nuevo con un clic, y guardar un tablero existente como plantilla |
 
 Organización interna de cada app (guía de estilo de HackSoft adaptada a las
@@ -454,7 +455,7 @@ crece a mitad de camino: lo nuevo va a la siguiente.
 | 1 — Tableros y cards | ✅ implementada | `6d7034c`, `6f8f9fa`, `d7de71c` |
 | 2 — Colaboración y avisos | ✅ implementada; §6.6 (estado del módulo suelto) sigue opcional | `6aa1a61` |
 | 3 — Gantt y vistas | ✅ implementada y auditada | `644c063`, `594fde4` |
-| 4 — Exportación e importación | 🚧 en curso | — |
+| 4 — Exportación e importación | ✅ implementada; falta abrir el XML en un MS Project real (aquí no hay Project) | ver `git log` |
 | 5 — Flexibilidad avanzada | Propuesta | — |
 
 **Hecho fuera de las fases** (mejoras pedidas por el camino):
@@ -625,7 +626,7 @@ Criterios de aceptación:
   cards.
 - Una dependencia circular se rechaza con un mensaje claro.
 
-### Fase 4 — Exportación e importación
+### Fase 4 — Exportación e importación — ✅ implementada
 
 **Objetivo:** llevar el plan a las herramientas que ya usa la empresa.
 
@@ -643,8 +644,39 @@ Alcance:
 
 Criterios de aceptación:
 - Un tablero exportado a XML e importado de nuevo conserva cards, fechas y
-  dependencias.
-- El XML abre en MS Project sin advertencias.
+  dependencias. ✅ (prueba automática; también por Excel)
+- El XML abre en MS Project sin advertencias. ⏳ El XML sigue el orden del
+  esquema MSPDI; falta abrirlo en un MS Project real.
+
+Cómo quedó:
+- **Menú «Excel / Project»** en la cabecera del tablero: exportar a Excel,
+  exportar a MS Project e *Importar tarjetas…* (quien puede editar). Con
+  filtros activos se exporta solo lo filtrado y el Excel lo anota.
+- **Excel, hoja Tarjetas:** bloque de identificación (tablero, fecha,
+  resumen, filtros), fechas y números reales con formato, bordes, filas
+  alternadas, autofiltro y «#»/«Título» fijos, mismo criterio que el
+  desglose de Nómina (`Reportes/services/desglose_excel.py`). Sus columnas
+  son las de la plantilla, así que **un Excel exportado se vuelve a importar**
+  tal cual. Dependencias en texto estilo Project: `3`, `3CC+2`, `3FF-1`.
+- **Excel, hoja Gantt:** una columna por día (por semana si el rango pasa de
+  un año), días pintados del color de la urgencia (verde si terminada),
+  fines de semana y feriados atenuados.
+- **MS Project (MSPDI):** tablero = proyecto, columnas = tareas resumen,
+  tarjetas del Gantt = tareas **programadas manualmente** (Project respeta
+  las fechas), calendario con los feriados como excepciones, vínculos con
+  tipo y desfase, responsables = recursos, urgencia = prioridad, avance =
+  checklist, descripción = notas.
+- **Importar:** plantilla descargable (listas de columnas y urgencias, hoja
+  de instrucciones); vista previa sin guardar nada con **errores** (la fila
+  no entra) y **avisos** (entra con un ajuste: columna desconocida, persona
+  que no está en el tablero, vínculo a una fila que no se importa); al
+  confirmar, todo en una transacción. Desde Project: la columna sale de la
+  tarea resumen y una tarea al 100 % va a la columna final. Los responsables
+  reciben **un** aviso agrupado, no uno por tarjeta. Límites: 5 MB y 1000
+  filas.
+- Generación síncrona: un tablero tiene decenas o cientos de tarjetas y el
+  archivo se arma en milisegundos; la «descarga cuando está listo» queda para
+  cuando haga falta (D-11).
 
 ### Fase 5 — Flexibilidad avanzada
 
@@ -691,7 +723,8 @@ cabecera `X-CSRFToken`.
 | `tableros/:id/dependencias/` · `dependencias/:id/` | listar (con `incumplida`), crear · cambiar tipo o desfase, quitar |
 | `cards/:id/programar/` | nuevas fechas y, con `mover_sucesoras`, empujar la cadena (devuelve las tarjetas cambiadas) |
 | `calendario/feriados/?desde&hasta` · `calendario/feriados/:id/` | feriados del rango (fijos, puntuales y móviles) · alta y baja (admin del módulo) |
-| `tableros/:id/exportar/?formato=xlsx|mspdi` | exportación (fase 4, en curso) |
+| `tableros/:id/exportar/?formato=xlsx|xml` | descarga (con los filtros del tablero: `q`, `urgencia`, `responsable`, `vencidas`) |
+| `tableros/:id/importar/` · `importar/plantilla/` | multipart `archivo` (.xlsx o .xml): vista previa; con `confirmar=true`, crea · plantilla Excel |
 
 ---
 
@@ -709,6 +742,8 @@ cabecera `X-CSRFToken`.
 | D-07 | ¿El admin del módulo ve tableros personales? | No: el tablero personal es privado para todos (**decidido**) |
 | D-09 | ¿Uno o varios tableros personales? | Varios; el equipo es opcional al crear (**decidido**) |
 | D-10 | Menú al abrir la app suelta | `paldaca-nav` del Portal; el propio solo de respaldo (**decidido**) |
+| D-11 | ¿Exportación en segundo plano? | No por ahora: síncrona (tableros de cientos de tarjetas); revisar si un tablero pasa de ~5000 (**decidido**) |
+| D-12 | Tareas en MS Project | Programadas manualmente, para conservar las fechas del tablero (**decidido**) |
 
 ---
 

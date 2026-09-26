@@ -84,8 +84,17 @@ def _reubicar(card: Card, destino: Columna, posicion: int) -> None:
 
 @transaction.atomic
 def crear_card(
-    *, tablero: Tablero, columna: Columna, titulo: str, actor, responsables: Iterable = (), **campos
+    *,
+    tablero: Tablero,
+    columna: Columna,
+    titulo: str,
+    actor,
+    responsables: Iterable = (),
+    avisar: bool = True,
+    **campos,
 ) -> Card:
+    """`avisar=False`: sin aviso de asignación (la importación manda uno
+    agrupado por persona en lugar de uno por tarjeta)."""
     responsables = list(responsables)
     card = Card(
         tablero=tablero,
@@ -101,7 +110,8 @@ def crear_card(
     card.save()
     _asignar(card, responsables, por=actor)
     actividad.registrar(card, actor, Actividad.Accion.CREO, columna=columna.nombre)
-    avisos.avisar_asignacion(card, responsables, actor)
+    if avisar:
+        avisos.avisar_asignacion(card, responsables, actor)
     return card
 
 

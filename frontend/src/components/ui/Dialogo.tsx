@@ -14,10 +14,10 @@ type Props = {
   color?: string;
   children: ReactNode;
   pie?: ReactNode;
-  ancho?: "sm" | "md" | "lg";
+  ancho?: "sm" | "md" | "lg" | "xl";
 };
 
-const ANCHOS = { sm: "max-w-md", md: "max-w-lg", lg: "max-w-2xl" };
+const ANCHOS = { sm: "max-w-md", md: "max-w-lg", lg: "max-w-2xl", xl: "max-w-4xl" };
 
 /** Diálogo con la misma anatomía que `Modal.tsx` del Portal, animado. */
 export function Dialogo({

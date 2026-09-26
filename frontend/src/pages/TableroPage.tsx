@@ -1,15 +1,34 @@
-import { Archive, ArchiveRestore, ArrowLeft, Ellipsis, Lock, Pencil, UsersRound } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  ArrowLeft,
+  ChartGantt,
+  Ellipsis,
+  FileSpreadsheet,
+  FileUp,
+  Lock,
+  Pencil,
+  UsersRound,
+} from "lucide-react";
 import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { ApiError } from "@/api/client";
-import { useArchivadas, useArchivarCard, useArchivarTablero, useEditarTablero, useTablero } from "@/api/queries";
+import {
+  useArchivadas,
+  useArchivarCard,
+  useArchivarTablero,
+  useEditarTablero,
+  useExportar,
+  useTablero,
+} from "@/api/queries";
 import type { CardResumen } from "@/api/tipos";
 import { CardDialogo } from "@/components/card/CardDialogo";
 import { Encabezado } from "@/components/layout/Encabezado";
 import { BarraFiltros } from "@/components/tablero/Filtros";
 import { FILTROS_VACIOS, filtrar, hayFiltros, type EstadoFiltros } from "@/lib/filtros";
+import { ImportarDialogo } from "@/components/tablero/ImportarDialogo";
 import { Kanban } from "@/components/tablero/Kanban";
 import { SelectorVista } from "@/components/tablero/SelectorVista";
 import { CuerpoTarjeta } from "@/components/tablero/Tarjeta";
@@ -41,6 +60,8 @@ export default function TableroPage() {
   const [editando, setEditando] = useState(false);
   const [confirmarArchivo, setConfirmarArchivo] = useState(false);
   const archivarTablero = useArchivarTablero(id);
+  const exportar = useExportar(id);
+  const [importando, setImportando] = useState(false);
 
   useTitulo(tablero?.nombre);
 
@@ -115,6 +136,29 @@ export default function TableroPage() {
         acciones={
           <>
             <SelectorVista vista={vista} onCambio={setVista} />
+            <Menu
+              disparador={
+                <Boton variante="secundario" tamano="sm" cargando={exportar.isPending}>
+                  <FileSpreadsheet />
+                  Excel / Project
+                </Boton>
+              }
+            >
+              <ItemMenu icono={FileSpreadsheet} onSelect={() => exportar.mutate({ formato: "xlsx", filtros })}>
+                {hayFiltros(filtros) ? "Exportar lo filtrado a Excel" : "Exportar a Excel"}
+              </ItemMenu>
+              <ItemMenu icono={ChartGantt} onSelect={() => exportar.mutate({ formato: "xml", filtros })}>
+                {hayFiltros(filtros) ? "Exportar lo filtrado a MS Project" : "Exportar a MS Project"}
+              </ItemMenu>
+              {permisos.editar && (
+                <>
+                  <SeparadorMenu />
+                  <ItemMenu icono={FileUp} onSelect={() => setImportando(true)}>
+                    Importar tarjetas…
+                  </ItemMenu>
+                </>
+              )}
+            </Menu>
             <Boton variante="secundario" tamano="sm" onClick={() => setVerArchivadas(true)}>
               <Archive />
               Archivadas
@@ -168,6 +212,8 @@ export default function TableroPage() {
         {vista === "calendario" && <VistaCalendario tablero={tablero} visibles={visibles} onAbrir={abrir} />}
         {vista === "gantt" && <VistaGantt tablero={tablero} visibles={visibles} onAbrir={abrir} />}
       </Suspense>
+
+      <ImportarDialogo tableroId={id} abierto={importando} onCerrar={() => setImportando(false)} />
 
       <PanelArchivadas tableroId={id} abierto={verArchivadas} onCerrar={() => setVerArchivadas(false)} puedeRestaurar={permisos.editar} />
 

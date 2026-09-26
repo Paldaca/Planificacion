@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { refrescoVivo } from "@/lib/actividadUsuario";
 import { calcularVencimiento } from "@/lib/vencimiento";
 
-import { ApiError, api, mensajeError } from "./client";
+import { ApiError, api, descargar, mensajeError } from "./client";
 import type {
   Actividad,
   CardDetalle,
@@ -30,6 +30,9 @@ import type {
   EnGantt,
   Equipo,
   Feriado,
+  FormatoExportacion,
+  ResultadoImportacion,
+  VistaPrevia,
   Invitacion,
   Miembro,
   MisTarea,
@@ -927,6 +930,62 @@ export function useEliminarFeriado() {
   return useMutation({
     mutationFn: (id: number) => api.del(`${V1}/calendario/feriados/${id}/`),
     onSuccess: () => trasCambioDeFeriados(qc),
+    onError: avisarError,
+  });
+}
+
+// --- Exportación e importación (fase 4) ------------------------------------------------
+
+/** Filtros del tablero en la forma que entiende `exportar/` (los mismos de la pantalla). */
+export type FiltrosExportacion = { texto: string; urgencias: string[]; responsables: number[]; soloVencidas: boolean };
+
+export function useExportar(tableroId: number) {
+  return useMutation({
+    mutationFn: ({ formato, filtros }: { formato: FormatoExportacion; filtros?: FiltrosExportacion }) => {
+      const params = new URLSearchParams({ formato });
+      if (filtros?.texto.trim()) params.set("q", filtros.texto.trim());
+      filtros?.urgencias.forEach((u) => params.append("urgencia", u));
+      filtros?.responsables.forEach((r) => params.append("responsable", String(r)));
+      if (filtros?.soloVencidas) params.set("vencidas", "1");
+      return descargar(`${V1}/tableros/${tableroId}/exportar/?${params}`, `tablero.${formato}`);
+    },
+    onError: avisarError,
+  });
+}
+
+export function useDescargarPlantilla(tableroId: number) {
+  return useMutation({
+    mutationFn: () => descargar(`${V1}/tableros/${tableroId}/importar/plantilla/`, "plantilla.xlsx"),
+    onError: avisarError,
+  });
+}
+
+function formularioImportacion(archivo: File, confirmar: boolean): FormData {
+  const datos = new FormData();
+  datos.append("archivo", archivo);
+  if (confirmar) datos.append("confirmar", "true");
+  return datos;
+}
+
+/** Paso 1: lee y valida el archivo sin guardar nada. */
+export function useVistaPreviaImportacion(tableroId: number) {
+  return useMutation({
+    mutationFn: (archivo: File) =>
+      api.subir<VistaPrevia>(`${V1}/tableros/${tableroId}/importar/`, formularioImportacion(archivo, false)),
+  });
+}
+
+/** Paso 2: crea las filas válidas (el servidor vuelve a validar el mismo archivo). */
+export function useImportar(tableroId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (archivo: File) =>
+      api.subir<ResultadoImportacion>(`${V1}/tableros/${tableroId}/importar/`, formularioImportacion(archivo, true)),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: claves.tablero(tableroId) });
+      qc.invalidateQueries({ queryKey: claves.misTareas });
+      qc.invalidateQueries({ queryKey: claves.tableros });
+    },
     onError: avisarError,
   });
 }

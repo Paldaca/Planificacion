@@ -78,7 +78,45 @@ export const api = {
   post: <T>(path: string, datos?: unknown) => apiFetch<T>(path, conCuerpo("POST", datos ?? {})),
   patch: <T>(path: string, datos: unknown) => apiFetch<T>(path, conCuerpo("PATCH", datos)),
   del: <T = null>(path: string) => apiFetch<T>(path, { method: "DELETE" }),
+  /** Multipart (archivos). Sin `Content-Type`: el navegador pone el `boundary`. */
+  subir: <T>(path: string, datos: FormData) => apiFetch<T>(path, { method: "POST", body: datos }),
 };
+
+function nombreDeDescarga(respuesta: Response, porDefecto: string): string {
+  const cabecera = respuesta.headers.get("Content-Disposition") ?? "";
+  const utf8 = cabecera.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8) return decodeURIComponent(utf8[1]);
+  const simple = cabecera.match(/filename="?([^";]+)"?/i);
+  return simple ? simple[1] : porDefecto;
+}
+
+/**
+ * Descarga un archivo de la API con la sesión (cookies). Se pide con `fetch`
+ * y se entrega como blob: funciona igual suelta y embebida en el Portal.
+ */
+export async function descargar(path: string, porDefecto: string): Promise<void> {
+  const respuesta = await fetch(`${API_BASE_URL}${path}`, { credentials: "include" });
+  if (!respuesta.ok) {
+    const texto = await respuesta.text();
+    let cuerpo: unknown = texto;
+    try {
+      cuerpo = JSON.parse(texto);
+    } catch {
+      // No era JSON: se deja el texto.
+    }
+    if (respuesta.status === 401) alExpirarSesion?.();
+    throw new ApiError(respuesta.status, cuerpo);
+  }
+  const url = URL.createObjectURL(await respuesta.blob());
+  const enlace = document.createElement("a");
+  enlace.href = url;
+  enlace.download = nombreDeDescarga(respuesta, porDefecto);
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+  // Dar tiempo al navegador a empezar la descarga antes de liberar el blob.
+  window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+}
 
 /** Mensaje legible de un error de la API (`detail` o el primer error de campo). */
 export function mensajeError(error: unknown, porDefecto = "No se pudo completar la acción."): string {
