@@ -221,3 +221,39 @@ class ProjectTests(Base):
         self.importar(destino["id"], "plan.xml", self.exportar("xml").content, confirmar=True)
         self.assertEqual(self.cards_de(destino["id"])["Levantamiento"].columna.nombre, "Hecho")
         self.assertTrue(Tablero.objects.filter(pk=destino["id"]).exists())
+
+
+class SeguridadTests(Base):
+    def test_un_titulo_con_formula_se_exporta_como_texto(self):
+        Card.objects.filter(pk=self.a["id"]).update(titulo='=HYPERLINK("http://x","clic")', descripcion="=1+1")
+        libro = load_workbook(io.BytesIO(self.exportar("xlsx").content))
+        celdas = [c for fila in libro["Tarjetas"].iter_rows() for c in fila if isinstance(c.value, str) and c.value.startswith("=")]
+        self.assertEqual(len(celdas), 2)
+        self.assertTrue(all(c.data_type == "s" for c in celdas))
+        gantt = [c for fila in libro["Gantt"].iter_rows() for c in fila if isinstance(c.value, str) and c.value.startswith("=")]
+        self.assertTrue(gantt and all(c.data_type == "s" for c in gantt))
+
+    def test_caracteres_de_control_no_rompen_el_xml(self):
+        Card.objects.filter(pk=self.a["id"]).update(titulo="Plano\x0b final\x01", descripcion="línea\x0c")
+        raiz = ET.fromstring(self.exportar("xml").content)  # no lanza
+        nombres = [t.findtext("p:Name", namespaces=NS) for t in raiz.findall("p:Tasks/p:Task", NS)]
+        self.assertIn("Plano final", nombres)
+
+    def test_xml_con_entidades_se_rechaza(self):
+        bomba = b'<?xml version="1.0"?><!DOCTYPE a [<!ENTITY x "xxxx">]><Project xmlns="http://schemas.microsoft.com/project">&x;</Project>'
+        r = self.importar(self.tablero["id"], "p.xml", bomba)
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("DOCTYPE", r.json()["detail"])
+
+    def test_limite_de_filas(self):
+        from exportacion.services import importacion
+
+        filas = [[i, f"Tarea {i}", "", "", "", "", "", "", ""] for i in range(1, 8)]
+        original = importacion.MAX_FILAS
+        importacion.MAX_FILAS = 5
+        try:
+            r = self.importar(self.tablero["id"], "t.xlsx", plantilla_llena(filas))
+        finally:
+            importacion.MAX_FILAS = original
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("hasta 5", r.json()["detail"])

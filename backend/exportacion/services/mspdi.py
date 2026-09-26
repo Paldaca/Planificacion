@@ -19,6 +19,7 @@ Al importar se hace el camino inverso (ver `leer`).
 from __future__ import annotations
 
 import datetime
+import re
 import xml.etree.ElementTree as ET
 
 from calendario.services.dias_habiles import duracion_habil, feriados_entre
@@ -49,10 +50,18 @@ def urgencia_de_prioridad(prioridad: int) -> str:
     return "media"
 
 
+#: Caracteres que XML 1.0 no admite (un título pegado desde otro programa
+#: puede traerlos y Project rechazaría el archivo entero).
+_NO_XML = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+#: Un MSPDI nunca trae DTD ni entidades: se rechazan (sin ellas no hay
+#: expansión de entidades ni referencias externas).
+_DTD = re.compile(rb"<!(DOCTYPE|ENTITY)", re.IGNORECASE)
+
+
 def _sub(padre, etiqueta: str, texto=None):
     nodo = ET.SubElement(padre, etiqueta)
     if texto is not None:
-        nodo.text = str(texto)
+        nodo.text = _NO_XML.sub("", str(texto))
     return nodo
 
 
@@ -280,6 +289,8 @@ def _fecha(valor: str) -> datetime.date | None:
 def leer(contenido_archivo: bytes) -> list[FilaEntrada]:
     """Tareas (no resumen) del XML. La columna sale del nombre de su tarea
     resumen; lanza ValueError si no es un XML de Project."""
+    if _DTD.search(contenido_archivo):
+        raise ValueError("El XML trae declaraciones DOCTYPE o ENTITY: no se admiten.")
     try:
         raiz = ET.fromstring(contenido_archivo)
     except ET.ParseError as exc:

@@ -57,7 +57,7 @@ def leer_archivo(nombre: str, contenido: bytes) -> list[FilaEntrada]:
     extension = nombre.lower().rsplit(".", 1)[-1] if "." in nombre else ""
     try:
         if extension == "xlsx":
-            filas = excel.leer(contenido)
+            filas = excel.leer(contenido, limite=MAX_FILAS + 1)
         elif extension == "xml":
             filas = mspdi.leer(contenido)
         else:

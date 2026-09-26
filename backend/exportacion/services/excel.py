@@ -84,9 +84,26 @@ ALIAS = {
 }
 
 DIAS_MAXIMOS_POR_DIA = 366
+#: Tope de celdas de la cuadrícula del Gantt (tarjetas × días); más, por semana.
+CELDAS_MAXIMAS_GANTT = 120_000
+#: Filas que se recorren como mucho al leer (un .xlsx comprimido puede
+#: inflarse a millones de filas vacías con formato).
+FILAS_MAXIMAS_LEIDAS = 50_000
+
+
+def _sin_formulas(libro: Workbook) -> None:
+    """Este módulo nunca escribe fórmulas: openpyxl toma como fórmula todo
+    texto que empiece por «=», y un título como `=HYPERLINK(...)` se
+    ejecutaría en el Excel de quien descarga. Todo se guarda como texto."""
+    for hoja in libro.worksheets:
+        for fila in hoja.iter_rows():
+            for celda in fila:
+                if celda.data_type == "f":
+                    celda.data_type = "s"
 
 
 def _guardar(libro: Workbook) -> bytes:
+    _sin_formulas(libro)
     salida = io.BytesIO()
     libro.save(salida)
     return salida.getvalue()
@@ -211,7 +228,8 @@ def _hoja_gantt(hoja, c: Contenido) -> None:
 
     desde = min(card.fecha_inicio for card in filas)
     hasta = max(card.fecha_fin for card in filas)
-    por_semana = (hasta - desde).days + 1 > DIAS_MAXIMOS_POR_DIA
+    dias = (hasta - desde).days + 1
+    por_semana = dias > DIAS_MAXIMOS_POR_DIA or dias * len(filas) > CELDAS_MAXIMAS_GANTT
     if por_semana:
         desde -= datetime.timedelta(days=desde.weekday())
         paso = datetime.timedelta(days=7)
@@ -351,19 +369,21 @@ def _ref(valor) -> int | None:
         return None
 
 
-def leer(contenido_archivo: bytes) -> list[FilaEntrada]:
+def leer(contenido_archivo: bytes, limite: int | None = None) -> list[FilaEntrada]:
     """Filas de la hoja «Tarjetas» (o la primera hoja). Lanza ValueError si el
-    archivo no es un Excel o no tiene la columna «Título»."""
+    archivo no es un Excel o no tiene la columna «Título». Deja de leer al
+    pasar `limite` filas con datos (quien llama decide qué hacer)."""
     try:
         libro = load_workbook(io.BytesIO(contenido_archivo), read_only=True, data_only=True)
     except Exception as exc:  # zip corrupto, otro formato…
         raise ValueError("El archivo no es un Excel (.xlsx) válido.") from exc
     hoja = libro["Tarjetas"] if "Tarjetas" in libro.sheetnames else libro.worksheets[0]
-    filas = list(hoja.iter_rows(values_only=True))
+    recorrido = hoja.iter_rows(values_only=True, max_row=FILAS_MAXIMAS_LEIDAS)
+    primeras = [fila for _, fila in zip(range(15), recorrido)]
 
     indices: dict[str, int] = {}
     inicio = None
-    for n, fila in enumerate(filas[:15]):
+    for n, fila in enumerate(primeras):
         encabezados = [normalizar(v) for v in fila]
         encontrados: dict[str, int] = {}
         for campo, alias in ALIAS.items():
@@ -382,10 +402,16 @@ def leer(contenido_archivo: bytes) -> list[FilaEntrada]:
         i = indices.get(campo)
         return fila[i] if i is not None and i < len(fila) else None
 
+    def restantes():
+        yield from enumerate(primeras[inicio:], start=inicio + 1)
+        yield from enumerate(recorrido, start=len(primeras) + 1)
+
     entradas = []
-    for n, fila in enumerate(filas[inicio:], start=inicio + 1):
+    for n, fila in restantes():
         if not any(v not in (None, "") for v in fila):
             continue
+        if limite is not None and len(entradas) >= limite:
+            break
         errores = []
         inicio_f, e1 = _fecha(valor(fila, "inicio"))
         fin_f, e2 = _fecha(valor(fila, "fin"))

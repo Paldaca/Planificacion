@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.api import booleano
+from core.errores import ReglaDeNegocio
 from exportacion.services import excel, importacion, mspdi
 from exportacion.services.datos import Filtros, contenido, nombre_archivo
 from tableros.api.views.comunes import obtener_tablero
@@ -61,7 +62,9 @@ class ImportarView(APIView):
         archivo = request.FILES.get("archivo")
         if archivo is None:
             raise ValidationError({"archivo": "Adjunta un Excel (.xlsx) o un XML de MS Project."})
-        datos = archivo.read(importacion.MAX_BYTES + 1)
+        if archivo.size > importacion.MAX_BYTES:
+            raise ReglaDeNegocio("El archivo supera los 5 MB.")
+        datos = archivo.read()
         if booleano(request, "confirmar", False):
             resultado = importacion.importar(tablero, archivo.name, datos, actor=request.user)
             return Response(resultado, status=status.HTTP_201_CREATED)
