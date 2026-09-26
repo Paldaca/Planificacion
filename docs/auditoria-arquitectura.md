@@ -44,7 +44,7 @@ CI, componentes muy grandes). Ninguno exige rediseñar.
 | A-09 | Baja | Reglas espejadas en el frontend (vencimiento, filtros) sin prueba de contrato |
 | A-11 | Baja | Componentes y módulos del frontend de más de 800 líneas |
 | A-12 | Baja | Sin configuración de `LOGGING` |
-| A-13 | Info | Importación: XML con `ElementTree` y generación síncrona |
+| A-13 | Info | Importación: XML con `ElementTree` y generación síncrona — XML ✅ resuelto 2026-09-26 (`e81f239`) |
 | A-14 | Info | Utilidades de test dentro de código de producción |
 
 ## 3. Fortalezas verificadas
@@ -252,9 +252,13 @@ entorno (`LOG_LEVEL`).
 
 ### A-13 · Info · Importación
 
-- `exportacion/services/mspdi.py:22` parsea XML subido con
-  `xml.etree.ElementTree`. No resuelve entidades externas y el expat moderno
-  mitiga la expansión exponencial; `defusedxml` lo haría explícito.
+- ✅ **Resuelto 2026-09-26 (`e81f239`):** `exportacion/services/mspdi.py`
+  rechaza cualquier XML con `DOCTYPE`/`ENTITY` antes de parsearlo con
+  `ElementTree` (un MSPDI legítimo nunca los trae), sin agregar `defusedxml`.
+  En el mismo commit: las celdas del Excel exportado nunca se guardan como
+  fórmula (inyección con títulos que empiezan por `=`), lectura de Excel bajo
+  demanda con tope de filas y hoja Gantt por semanas si pasa de 120 000
+  celdas.
 - Límites correctos (5 MB, 1000 filas; `read_only=True` en openpyxl).
 - Exportar e importar son síncronos dentro de la petición; el plan prevé
   descarga diferida para archivos grandes.
