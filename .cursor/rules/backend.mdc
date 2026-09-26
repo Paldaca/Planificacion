@@ -34,7 +34,7 @@ alwaysApply: false
 
 ## Dependencias entre apps
 
-Solo hacia abajo: `exportacion → gantt → tableros → equipos · calendario →
+Solo hacia abajo: `exportacion · plantillas → gantt → tableros → equipos · calendario →
 integracion_portal → paldaca_sso → core`. Nunca importar una app de arriba
 desde una de abajo; si hace falta reaccionar, emitir una señal en la de abajo
 y escucharla en la de arriba (`receivers.py`, conectado en `apps.py::ready`).

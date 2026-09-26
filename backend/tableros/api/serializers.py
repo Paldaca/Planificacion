@@ -6,7 +6,20 @@ from rest_framework import serializers
 from integracion_portal.services.personas import persona
 
 from tableros import permisos
-from tableros.models import Actividad, Card, Columna, Comentario, EnGantt, ItemChecklist, Tablero, Urgencia
+from tableros.models import (
+    Actividad,
+    CampoPersonalizado,
+    Card,
+    Columna,
+    Comentario,
+    EnGantt,
+    Etiqueta,
+    ItemChecklist,
+    Tablero,
+    TipoCampo,
+    Urgencia,
+)
+from tableros.services.campos import validar_valores
 from tableros.services.vencimientos import DIAS_HABILES_VENCE_PRONTO, vencimiento
 
 
@@ -22,7 +35,7 @@ def equipo_breve(equipo):
 class ColumnaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Columna
-        fields = ["id", "nombre", "orden", "es_final", "incluir_en_gantt", "version"]
+        fields = ["id", "nombre", "orden", "es_final", "incluir_en_gantt", "limite_cards", "version"]
         read_only_fields = ["id", "orden", "version"]
 
 
@@ -30,6 +43,7 @@ class ColumnaEscrituraSerializer(serializers.Serializer):
     nombre = serializers.CharField(max_length=60, required=False, trim_whitespace=True)
     es_final = serializers.BooleanField(required=False)
     incluir_en_gantt = serializers.BooleanField(required=False)
+    limite_cards = serializers.IntegerField(required=False, allow_null=True, min_value=1, max_value=999)
     version = serializers.IntegerField(min_value=1)
 
     def validate_nombre(self, valor):
@@ -51,6 +65,7 @@ class CardResumenSerializer(serializers.ModelSerializer):
     tiene_descripcion = serializers.SerializerMethodField()
     vencimiento = serializers.SerializerMethodField()
     en_gantt_efectivo = serializers.BooleanField(source="entra_en_gantt", read_only=True)
+    etiquetas = serializers.SerializerMethodField()
 
     class Meta:
         model = Card
@@ -66,6 +81,8 @@ class CardResumenSerializer(serializers.ModelSerializer):
             "orden",
             "en_gantt",
             "en_gantt_efectivo",
+            "etiquetas",
+            "campos",
             "responsables",
             "comentarios",
             "checklist",
@@ -74,6 +91,9 @@ class CardResumenSerializer(serializers.ModelSerializer):
             "version",
             "actualizado_en",
         ]
+
+    def get_etiquetas(self, card):
+        return [e.pk for e in card.etiquetas.all()]
 
     def get_responsables(self, card):
         return [persona(a.usuario) for a in card.asignaciones.all()]
@@ -166,6 +186,8 @@ class CardEscrituraSerializer(serializers.Serializer):
         child=serializers.IntegerField(), required=False, max_length=30
     )
     columna = serializers.IntegerField(required=False)
+    etiquetas = serializers.ListField(child=serializers.IntegerField(), required=False, max_length=30)
+    campos = serializers.DictField(required=False)
     version = serializers.IntegerField(required=False, min_value=1)
 
     def validate_titulo(self, valor):
@@ -196,7 +218,46 @@ class CardEscrituraSerializer(serializers.Serializer):
             if columna is None:
                 raise serializers.ValidationError({"columna": "La columna no existe en este tablero."})
             datos["columna"] = columna
+        if "etiquetas" in datos:
+            tablero = self.context["tablero"]
+            permitidas = {e.pk: e for e in tablero.etiquetas.all()}
+            ids = list(dict.fromkeys(datos["etiquetas"]))
+            if any(i not in permitidas for i in ids):
+                raise serializers.ValidationError({"etiquetas": "Esa etiqueta no es de este tablero."})
+            datos["etiquetas"] = [permitidas[i] for i in ids]
+        if "campos" in datos:
+            # Mismo nombre que el parámetro del servicio.
+            datos["valores_campos"] = validar_valores(self.context["tablero"], datos.pop("campos"))
         return datos
+
+
+# --- Etiquetas y campos personalizados ------------------------------------------------------
+
+
+class EtiquetaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Etiqueta
+        fields = ["id", "nombre", "color", "orden"]
+
+
+class EtiquetaEscrituraSerializer(serializers.Serializer):
+    nombre = serializers.CharField(max_length=40, required=False)
+    color = serializers.CharField(max_length=7, required=False)
+
+
+class CampoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CampoPersonalizado
+        fields = ["id", "nombre", "tipo", "opciones", "orden", "visible_en_tarjeta", "archivado"]
+
+
+class CampoEscrituraSerializer(serializers.Serializer):
+    nombre = serializers.CharField(max_length=60, required=False)
+    tipo = serializers.ChoiceField(choices=TipoCampo.choices, required=False)
+    opciones = serializers.ListField(child=serializers.CharField(max_length=60), required=False, max_length=30)
+    visible_en_tarjeta = serializers.BooleanField(required=False)
+    orden = serializers.IntegerField(required=False, min_value=0)
+    archivado = serializers.BooleanField(required=False)
 
 
 # --- Comentarios ------------------------------------------------------------------
@@ -281,7 +342,24 @@ class TableroDetalleSerializer(TableroResumenSerializer):
     mi_rol = serializers.SerializerMethodField()
 
     class Meta(TableroResumenSerializer.Meta):
-        fields = TableroResumenSerializer.Meta.fields + ["columnas", "cards", "personas", "mi_rol"]
+        fields = TableroResumenSerializer.Meta.fields + [
+            "columnas",
+            "cards",
+            "personas",
+            "mi_rol",
+            "etiquetas",
+            "campos",
+        ]
+
+    etiquetas = serializers.SerializerMethodField()
+    campos = serializers.SerializerMethodField()
+
+    def get_etiquetas(self, tablero):
+        return EtiquetaSerializer(tablero.etiquetas.all(), many=True).data
+
+    def get_campos(self, tablero):
+        """Todos, archivados incluidos (para gestionarlos); la interfaz usa los activos."""
+        return CampoSerializer(tablero.campos.all(), many=True).data
 
     def get_columnas(self, tablero):
         return ColumnaSerializer(tablero.columnas_activas, many=True).data

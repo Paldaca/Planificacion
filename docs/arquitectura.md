@@ -52,7 +52,8 @@ Planificacion/
 │   ├── calendario/          feriados y días hábiles
 │   ├── tableros/            tableros, columnas, tarjetas, comentarios, checklist…
 │   ├── gantt/               dependencias y reprogramación
-│   └── exportacion/         Excel, MS Project (MSPDI), importación (fase 4)
+│   ├── exportacion/         Excel, MS Project (MSPDI), importación (fase 4)
+│   └── plantillas/          plantillas de tablero (fase 5)
 ├── frontend/                SPA React (ver docs/modulos/frontend.md)
 ├── docs/                    documentación (ver docs/README.md)
 ├── requirements.txt         dependencias Python
@@ -101,12 +102,18 @@ graph BT
   exportacion --> integracion_portal
   exportacion --> tableros
   exportacion --> gantt
+  plantillas --> core
+  plantillas --> calendario
+  plantillas --> equipos
+  plantillas --> integracion_portal
+  plantillas --> tableros
+  plantillas --> gantt
 ```
 
 Orden de capas (una app solo importa de las de abajo):
 
 ```
-exportacion
+exportacion · plantillas
 gantt
 tableros
 equipos · calendario

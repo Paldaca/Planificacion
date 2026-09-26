@@ -1,4 +1,4 @@
-import { Archive, ArchiveRestore, ChevronDown, LayoutGrid, Plus, UsersRound } from "lucide-react";
+import { Archive, ArchiveRestore, ChevronDown, LayoutGrid, LayoutTemplate, Plus, UsersRound } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -10,6 +10,7 @@ import { EquipoDialogo, TableroDialogo } from "@/components/equipos/Dialogos";
 import { MosaicoTablero } from "@/components/equipos/MosaicoTablero";
 import { AvisoInvitaciones } from "@/components/invitaciones/AvisoInvitaciones";
 import { Encabezado } from "@/components/layout/Encabezado";
+import { PlantillasDialogo } from "@/components/plantillas/PlantillasDialogo";
 import { Boton } from "@/components/ui/Boton";
 import { Esqueleto, Vacio } from "@/components/ui/Estados";
 import { useTitulo } from "@/hooks/useTitulo";
@@ -23,6 +24,8 @@ export default function TablerosPage() {
   const { data: equipos } = useEquipos();
   const [nuevoTablero, setNuevoTablero] = useState<NuevoTablero>(undefined);
   const [nuevoEquipo, setNuevoEquipo] = useState(false);
+  const [verPlantillas, setVerPlantillas] = useState(false);
+  const [plantilla, setPlantilla] = useState<number | null>(null);
 
   const administrables = useMemo(() => (equipos ?? []).filter((e) => e.permisos.administrar && e.mi_rol), [equipos]);
 
@@ -57,6 +60,10 @@ export default function TablerosPage() {
                 Crear un equipo
               </Boton>
             )}
+            <Boton variante="secundario" onClick={() => setVerPlantillas(true)}>
+              <LayoutTemplate />
+              Plantillas
+            </Boton>
             <Boton onClick={() => setNuevoTablero(null)}>
               <Plus />
               Nuevo tablero
@@ -146,9 +153,24 @@ export default function TablerosPage() {
 
       <TableroDialogo
         abierto={nuevoTablero !== undefined}
-        onCerrar={() => setNuevoTablero(undefined)}
+        onCerrar={() => {
+          setNuevoTablero(undefined);
+          setPlantilla(null);
+        }}
         equipos={administrables}
         equipoInicial={nuevoTablero ?? null}
+        plantillaInicial={plantilla}
+      />
+      <PlantillasDialogo
+        abierto={verPlantillas}
+        onCerrar={() => setVerPlantillas(false)}
+        onUsar={(p) => {
+          setVerPlantillas(false);
+          setPlantilla(p.id);
+          // Una plantilla de equipo propone ese equipo si se pueden crear tableros en él.
+          const equipo = p.equipo && administrables.some((e) => e.id === p.equipo?.id) ? p.equipo.id : null;
+          setNuevoTablero(equipo);
+        }}
       />
       <EquipoDialogo abierto={nuevoEquipo} onCerrar={() => setNuevoEquipo(false)} />
     </div>

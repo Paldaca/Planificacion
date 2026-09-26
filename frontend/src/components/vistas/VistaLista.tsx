@@ -2,14 +2,25 @@ import { ArrowDown, ArrowUp, ChartGantt, CircleCheck, ListChecks, MessageSquare 
 import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState } from "react";
 
-import type { CardResumen, Columna, TableroDetalle } from "@/api/tipos";
+import type { CampoPersonalizado, CardResumen, Columna, Etiqueta, TableroDetalle } from "@/api/tipos";
 import { PilaAvatares } from "@/components/ui/Avatar";
 import { Pildora } from "@/components/ui/Estados";
+import { textoValor, useConfigTablero } from "@/hooks/useConfigTablero";
 import { cn } from "@/lib/cn";
 import { URGENCIAS, VENCIMIENTOS } from "@/lib/estilos";
 import { diaCorto } from "@/lib/fechas";
 
-type Clave = "numero" | "titulo" | "columna" | "responsables" | "urgencia" | "fecha_inicio" | "fecha_fin" | "avance";
+/** `campo:<id>`: columna de un campo personalizado (fase 5). */
+type Clave =
+  | "numero"
+  | "titulo"
+  | "columna"
+  | "responsables"
+  | "urgencia"
+  | "fecha_inicio"
+  | "fecha_fin"
+  | "avance"
+  | `campo:${number}`;
 
 type Orden = { clave: Clave; asc: boolean };
 
@@ -24,7 +35,7 @@ const COLUMNAS: { clave: Clave; etiqueta: string; className?: string }[] = [
   { clave: "avance", etiqueta: "Avance", className: "hidden w-24 lg:table-cell" },
 ];
 
-/** Las fechas vacías van siempre al final, se ordene como se ordene. */
+/** Las fechas vacías (y los campos sin valor) van siempre al final, se ordene como se ordene. */
 function comparar(a: CardResumen, b: CardResumen, orden: Orden, columnas: Map<number, Columna>): number {
   const signo = orden.asc ? 1 : -1;
   const vacioAlFinal = (x: string | null, y: string | null) => {
@@ -53,6 +64,16 @@ function comparar(a: CardResumen, b: CardResumen, orden: Orden, columnas: Map<nu
       const pb = b.checklist.total ? b.checklist.hechos / b.checklist.total : -1;
       return signo * (pa - pb);
     }
+    default: {
+      const id = orden.clave.slice("campo:".length);
+      const x = a.campos[id];
+      const y = b.campos[id];
+      if (x === y) return 0;
+      if (x === undefined) return 1;
+      if (y === undefined) return -1;
+      if (typeof x === "number" && typeof y === "number") return signo * (x - y);
+      return signo * String(x).localeCompare(String(y), "es", { numeric: true });
+    }
   }
 }
 
@@ -66,7 +87,16 @@ export function VistaLista({
   onAbrir: (card: CardResumen) => void;
 }) {
   const [orden, setOrden] = useState<Orden>({ clave: "fecha_fin", asc: true });
+  const { etiquetas, campos } = useConfigTablero();
   const columnas = useMemo(() => new Map(tablero.columnas.map((c) => [c.id, c])), [tablero.columnas]);
+  // Una columna por campo personalizado activo; en pantallas anchas (no caben en el celular).
+  const encabezados = useMemo(
+    () => [
+      ...COLUMNAS,
+      ...campos.map((c) => ({ clave: `campo:${c.id}` as Clave, etiqueta: c.nombre, className: "hidden w-32 xl:table-cell" })),
+    ],
+    [campos],
+  );
   const filas = useMemo(
     () => [...visibles].sort((a, b) => comparar(a, b, orden, columnas) || a.id - b.id),
     [visibles, orden, columnas],
@@ -90,7 +120,7 @@ export function VistaLista({
         <table className="w-full min-w-[640px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-linea bg-fondo/70 text-left">
-              {COLUMNAS.map(({ clave, etiqueta, className }) => {
+              {encabezados.map(({ clave, etiqueta, className }) => {
                 const activa = orden.clave === clave;
                 const Flecha = orden.asc ? ArrowUp : ArrowDown;
                 return (
@@ -103,7 +133,7 @@ export function VistaLista({
                         activa ? "text-morado" : "text-tenue hover:text-morado",
                       )}
                     >
-                      {etiqueta}
+                      <span className="max-w-28 truncate">{etiqueta}</span>
                       <Flecha className={cn("size-3 transition-opacity", activa ? "opacity-100" : "opacity-0")} />
                     </button>
                   </th>
@@ -114,7 +144,14 @@ export function VistaLista({
           <tbody>
             <AnimatePresence initial={false}>
               {filas.map((card) => (
-                <Fila key={card.id} card={card} columna={columnas.get(card.columna)} onAbrir={onAbrir} />
+                <Fila
+                  key={card.id}
+                  card={card}
+                  columna={columnas.get(card.columna)}
+                  etiquetas={etiquetas}
+                  campos={campos}
+                  onAbrir={onAbrir}
+                />
               ))}
             </AnimatePresence>
           </tbody>
@@ -127,7 +164,19 @@ export function VistaLista({
   );
 }
 
-function Fila({ card, columna, onAbrir }: { card: CardResumen; columna?: Columna; onAbrir: (c: CardResumen) => void }) {
+function Fila({
+  card,
+  columna,
+  etiquetas,
+  campos,
+  onAbrir,
+}: {
+  card: CardResumen;
+  columna?: Columna;
+  etiquetas: Map<number, Etiqueta>;
+  campos: CampoPersonalizado[];
+  onAbrir: (c: CardResumen) => void;
+}) {
   const urgencia = URGENCIAS[card.urgencia];
   const venc = VENCIMIENTOS[card.vencimiento];
   const terminada = card.vencimiento === "terminada";
@@ -154,6 +203,20 @@ function Fila({ card, columna, onAbrir }: { card: CardResumen; columna?: Columna
           {card.en_gantt_efectivo && card.fecha_inicio && card.fecha_fin && (
             <ChartGantt className="size-3.5 shrink-0 text-tenue/50" aria-label="Entra en el Gantt" />
           )}
+          {card.etiquetas.map((id) => {
+            const e = etiquetas.get(id);
+            return (
+              e && (
+                <span
+                  key={id}
+                  className="shrink-0 rounded-md px-1.5 py-px text-[0.66rem] font-semibold text-white"
+                  style={{ background: e.color }}
+                >
+                  {e.nombre}
+                </span>
+              )
+            );
+          })}
         </span>
       </td>
       <td className="px-3 py-2.5">
@@ -202,6 +265,18 @@ function Fila({ card, columna, onAbrir }: { card: CardResumen; columna?: Columna
           )}
         </span>
       </td>
+      {campos.map((c) => {
+        const texto = textoValor(c, card.campos[String(c.id)]);
+        return (
+          <td
+            key={c.id}
+            className={cn("hidden max-w-40 truncate px-3 py-2.5 text-xs text-texto xl:table-cell", c.tipo === "numero" && "tabular-nums")}
+            title={texto || undefined}
+          >
+            {texto || <span className="text-tenue/60">—</span>}
+          </td>
+        );
+      })}
     </motion.tr>
   );
 }

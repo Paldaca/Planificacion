@@ -158,6 +158,9 @@ class Columna(models.Model):
         default=False, help_text="Sus cards cuentan como terminadas."
     )
     incluir_en_gantt = models.BooleanField(default=True)
+    # Límite de trabajo en curso (fase 5). Suave: la columna avisa al pasarse
+    # pero no bloquea (D-13). Vacío = sin límite.
+    limite_cards = models.PositiveSmallIntegerField(null=True, blank=True)
     archivada = models.BooleanField(default=False)
     version = models.PositiveIntegerField(default=1)
     creado_en = models.DateTimeField(auto_now_add=True)
@@ -170,6 +173,59 @@ class Columna(models.Model):
 
     def __str__(self):
         return f"{self.tablero_id}/{self.nombre}"
+
+
+class Etiqueta(models.Model):
+    """Etiqueta de un tablero (fase 5): disciplina, cliente, tipo de tarea…"""
+
+    tablero = models.ForeignKey(Tablero, on_delete=models.CASCADE, related_name="etiquetas")
+    nombre = models.CharField(max_length=40)
+    color = models.CharField(max_length=7, default="#2563eb")
+    orden = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = "planificacion_etiqueta"
+        ordering = ["orden", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["tablero", "nombre"], name="etiqueta_unica_por_tablero"),
+        ]
+
+    def __str__(self):
+        return self.nombre
+
+
+class TipoCampo(models.TextChoices):
+    TEXTO = "texto", "Texto"
+    NUMERO = "numero", "Número"
+    LISTA = "lista", "Lista"
+
+
+class CampoPersonalizado(models.Model):
+    """Campo propio de un tablero (fase 5). Los valores viven en `Card.campos`
+    (JSON por id de campo). Se archiva, no se borra: sus valores se conservan."""
+
+    tablero = models.ForeignKey(Tablero, on_delete=models.CASCADE, related_name="campos")
+    nombre = models.CharField(max_length=60)
+    tipo = models.CharField(max_length=10, choices=TipoCampo.choices)
+    #: Solo para `lista`: las opciones posibles, en orden.
+    opciones = models.JSONField(default=list, blank=True)
+    orden = models.PositiveIntegerField(default=0)
+    visible_en_tarjeta = models.BooleanField(default=False, help_text="Se ve en la tarjeta del Kanban.")
+    archivado = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "planificacion_campo_personalizado"
+        ordering = ["orden", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tablero", "nombre"],
+                condition=Q(archivado=False),
+                name="campo_activo_unico_por_tablero",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.nombre} ({self.tipo})"
 
 
 class CardQuerySet(models.QuerySet):
@@ -189,7 +245,7 @@ class CardQuerySet(models.QuerySet):
     def con_detalle(self):
         """Todo lo que pinta una tarjeta, sin consultas por card."""
         return self.select_related("columna", "creada_por", "tablero__equipo", "tablero__propietario").prefetch_related(
-            "asignaciones__usuario__disciplina"
+            "asignaciones__usuario__disciplina", "etiquetas"
         ).annotate(
             num_comentarios=Count("comentarios", filter=Q(comentarios__eliminado=False), distinct=True),
             num_items=Count("checklist", distinct=True),
@@ -211,6 +267,9 @@ class Card(models.Model):
     urgencia = models.CharField(max_length=10, choices=Urgencia.choices, default=Urgencia.MEDIA)
     orden = models.PositiveIntegerField(default=0)
     en_gantt = models.CharField(max_length=10, choices=EnGantt.choices, default=EnGantt.HEREDAR)
+    etiquetas = models.ManyToManyField(Etiqueta, blank=True, related_name="cards", db_table="planificacion_card_etiqueta")
+    #: Valores de los campos personalizados: {"<id del campo>": valor}.
+    campos = models.JSONField(default=dict, blank=True)
     responsables = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
         through="ResponsableCard",

@@ -47,7 +47,9 @@ class ExportarView(APIView):
 class PlantillaView(APIView):
     def get(self, request, pk):
         tablero = obtener_tablero(request, pk)
-        datos = excel.plantilla([c.nombre for c in tablero.columnas.activas()])
+        datos = excel.plantilla(
+            [c.nombre for c in tablero.columnas.activas()], list(tablero.campos.filter(archivado=False))
+        )
         return _descarga(datos, TIPOS["xlsx"][0], f"plantilla-{nombre_archivo(tablero, 'xlsx')}")
 
 

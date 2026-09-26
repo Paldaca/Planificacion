@@ -6,8 +6,10 @@ import {
   Ellipsis,
   FileSpreadsheet,
   FileUp,
+  LayoutTemplate,
   Lock,
   Pencil,
+  Settings2,
   UsersRound,
 } from "lucide-react";
 import { lazy, Suspense, useCallback, useMemo, useState } from "react";
@@ -26,6 +28,8 @@ import {
 import type { CardResumen } from "@/api/tipos";
 import { CardDialogo } from "@/components/card/CardDialogo";
 import { Encabezado } from "@/components/layout/Encabezado";
+import { GuardarPlantillaDialogo } from "@/components/plantillas/GuardarPlantillaDialogo";
+import { ConfiguracionDialogo } from "@/components/tablero/ConfiguracionDialogo";
 import { BarraFiltros } from "@/components/tablero/Filtros";
 import { FILTROS_VACIOS, filtrar, hayFiltros, type EstadoFiltros } from "@/lib/filtros";
 import { ImportarDialogo } from "@/components/tablero/ImportarDialogo";
@@ -39,6 +43,7 @@ import { Entrada, Campo, AreaTexto } from "@/components/ui/Campos";
 import { Esqueleto, Pildora, Vacio } from "@/components/ui/Estados";
 import { ItemMenu, Menu, SeparadorMenu } from "@/components/ui/Menu";
 import { useAlAbrir } from "@/hooks/useAlAbrir";
+import { ContextoConfigTablero, useValorConfigTablero } from "@/hooks/useConfigTablero";
 import { useTitulo } from "@/hooks/useTitulo";
 import { useVista } from "@/hooks/useVista";
 import { VistaLista } from "@/components/vistas/VistaLista";
@@ -62,10 +67,21 @@ export default function TableroPage() {
   const archivarTablero = useArchivarTablero(id);
   const exportar = useExportar(id);
   const [importando, setImportando] = useState(false);
+  const [configurando, setConfigurando] = useState(false);
+  const [guardandoPlantilla, setGuardandoPlantilla] = useState(false);
+  const config = useValorConfigTablero(tablero);
 
   useTitulo(tablero?.nombre);
 
-  const visibles = useMemo(() => (tablero ? filtrar(tablero.cards, filtros) : []), [tablero, filtros]);
+  // Una etiqueta eliminada deja de filtrar (si no, el tablero quedaría vacío sin chip que quitar).
+  const vigentes = useMemo(
+    () =>
+      filtros.etiquetas.every((e) => config.etiquetas.has(e))
+        ? filtros
+        : { ...filtros, etiquetas: filtros.etiquetas.filter((e) => config.etiquetas.has(e)) },
+    [filtros, config.etiquetas],
+  );
+  const visibles = useMemo(() => (tablero ? filtrar(tablero.cards, vigentes) : []), [tablero, vigentes]);
   // La vista viaja en la URL de la tarjeta abierta: al cerrarla se vuelve a la misma vista.
   const abrir = useCallback((card: CardResumen) => navigate(`cards/${card.numero}${search}`), [navigate, search]);
 
@@ -97,7 +113,7 @@ export default function TableroPage() {
   const { permisos } = tablero;
 
   return (
-    <div>
+    <ContextoConfigTablero.Provider value={config}>
       <Encabezado
         antetitulo={
           <span className="inline-flex items-center gap-2">
@@ -144,11 +160,11 @@ export default function TableroPage() {
                 </Boton>
               }
             >
-              <ItemMenu icono={FileSpreadsheet} onSelect={() => exportar.mutate({ formato: "xlsx", filtros })}>
-                {hayFiltros(filtros) ? "Exportar lo filtrado a Excel" : "Exportar a Excel"}
+              <ItemMenu icono={FileSpreadsheet} onSelect={() => exportar.mutate({ formato: "xlsx", filtros: vigentes })}>
+                {hayFiltros(vigentes) ? "Exportar lo filtrado a Excel" : "Exportar a Excel"}
               </ItemMenu>
-              <ItemMenu icono={ChartGantt} onSelect={() => exportar.mutate({ formato: "xml", filtros })}>
-                {hayFiltros(filtros) ? "Exportar lo filtrado a MS Project" : "Exportar a MS Project"}
+              <ItemMenu icono={ChartGantt} onSelect={() => exportar.mutate({ formato: "xml", filtros: vigentes })}>
+                {hayFiltros(vigentes) ? "Exportar lo filtrado a MS Project" : "Exportar a MS Project"}
               </ItemMenu>
               {permisos.editar && (
                 <>
@@ -163,27 +179,35 @@ export default function TableroPage() {
               <Archive />
               Archivadas
             </Boton>
-            {permisos.gestionar && (
-              <Menu
-                disparador={
-                  <Boton variante="secundario" tamano="icono" aria-label="Opciones del tablero">
-                    <Ellipsis />
-                  </Boton>
-                }
-              >
-                <ItemMenu icono={Pencil} onSelect={() => setEditando(true)}>
-                  Editar nombre y descripción
-                </ItemMenu>
-                {permisos.archivar && (
-                  <>
-                    <SeparadorMenu />
-                    <ItemMenu icono={Archive} peligro onSelect={() => setConfirmarArchivo(true)}>
-                      Archivar tablero
-                    </ItemMenu>
-                  </>
-                )}
-              </Menu>
-            )}
+            <Menu
+              disparador={
+                <Boton variante="secundario" tamano="icono" aria-label="Opciones del tablero">
+                  <Ellipsis />
+                </Boton>
+              }
+            >
+              {permisos.gestionar && (
+                <>
+                  <ItemMenu icono={Pencil} onSelect={() => setEditando(true)}>
+                    Editar nombre y descripción
+                  </ItemMenu>
+                  <ItemMenu icono={Settings2} onSelect={() => setConfigurando(true)}>
+                    Etiquetas y campos…
+                  </ItemMenu>
+                </>
+              )}
+              <ItemMenu icono={LayoutTemplate} onSelect={() => setGuardandoPlantilla(true)}>
+                Guardar como plantilla…
+              </ItemMenu>
+              {permisos.archivar && !tablero.archivado && (
+                <>
+                  <SeparadorMenu />
+                  <ItemMenu icono={Archive} peligro onSelect={() => setConfirmarArchivo(true)}>
+                    Archivar tablero
+                  </ItemMenu>
+                </>
+              )}
+            </Menu>
             {tablero.archivado && permisos.archivar && (
               <Boton
                 variante="suave"
@@ -199,14 +223,15 @@ export default function TableroPage() {
       />
 
       <BarraFiltros
-        filtros={filtros}
+        filtros={vigentes}
         onCambio={setFiltros}
         personas={tablero.personas}
+        etiquetas={tablero.etiquetas}
         total={tablero.cards.length}
         visibles={visibles.length}
       />
 
-      {vista === "tablero" && <Kanban tablero={tablero} visibles={visibles} filtrando={hayFiltros(filtros)} onAbrir={abrir} />}
+      {vista === "tablero" && <Kanban tablero={tablero} visibles={visibles} filtrando={hayFiltros(vigentes)} onAbrir={abrir} />}
       {vista === "lista" && <VistaLista tablero={tablero} visibles={visibles} onAbrir={abrir} />}
       <Suspense fallback={<Esqueleto className="h-[60vh] rounded-2xl" />}>
         {vista === "calendario" && <VistaCalendario tablero={tablero} visibles={visibles} onAbrir={abrir} />}
@@ -214,6 +239,8 @@ export default function TableroPage() {
       </Suspense>
 
       <ImportarDialogo tableroId={id} abierto={importando} onCerrar={() => setImportando(false)} />
+      <ConfiguracionDialogo tablero={tablero} abierto={configurando} onCerrar={() => setConfigurando(false)} />
+      <GuardarPlantillaDialogo tablero={tablero} abierto={guardandoPlantilla} onCerrar={() => setGuardandoPlantilla(false)} />
 
       <PanelArchivadas tableroId={id} abierto={verArchivadas} onCerrar={() => setVerArchivadas(false)} puedeRestaurar={permisos.editar} />
 
@@ -263,7 +290,7 @@ export default function TableroPage() {
       </Dialogo>
 
       <Outlet />
-    </div>
+    </ContextoConfigTablero.Provider>
   );
 }
 

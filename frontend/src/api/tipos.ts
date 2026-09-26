@@ -29,8 +29,29 @@ export type Columna = {
   orden: number;
   es_final: boolean;
   incluir_en_gantt: boolean;
+  /** Límite suave de tarjetas (fase 5): avisa al pasarse, no bloquea. */
+  limite_cards: number | null;
   version: number;
 };
+
+/** Etiqueta de un tablero (fase 5). */
+export type Etiqueta = { id: number; nombre: string; color: string; orden: number };
+
+export type TipoCampo = "texto" | "numero" | "lista";
+
+/** Campo personalizado de un tablero (fase 5). Archivado: oculto, sus valores se conservan. */
+export type CampoPersonalizado = {
+  id: number;
+  nombre: string;
+  tipo: TipoCampo;
+  opciones: string[];
+  orden: number;
+  visible_en_tarjeta: boolean;
+  archivado: boolean;
+};
+
+/** Valores de los campos personalizados de una tarjeta: { "<id del campo>": valor }. */
+export type ValoresCampos = Record<string, string | number>;
 
 export type CardResumen = {
   id: number;
@@ -45,6 +66,9 @@ export type CardResumen = {
   en_gantt: EnGantt;
   /** Regla de inclusión ya resuelta por el backend (card o, si hereda, columna). */
   en_gantt_efectivo: boolean;
+  /** Ids de las etiquetas del tablero. */
+  etiquetas: number[];
+  campos: ValoresCampos;
   responsables: Persona[];
   comentarios: number;
   checklist: { hechos: number; total: number };
@@ -118,6 +142,9 @@ export type TableroDetalle = TableroResumen & {
   cards: CardResumen[];
   personas: Persona[];
   mi_rol: RolEquipo | "propietario" | null;
+  etiquetas: Etiqueta[];
+  /** Todos los campos, archivados incluidos (para gestionarlos). */
+  campos: CampoPersonalizado[];
 };
 
 export type Comentario = {
@@ -203,6 +230,7 @@ export type FilaVistaPrevia = {
   inicio: string | null;
   fin: string | null;
   responsables: string[];
+  etiquetas: string[];
   depende: string[];
   /** Con errores la fila no se importa; con avisos, se importa con un ajuste. */
   errores: string[];
@@ -222,4 +250,21 @@ export type ResultadoImportacion = {
   omitidas: number;
   dependencias: number;
   avisos: string[];
+};
+
+// --- Plantillas (fase 5) -------------------------------------------------------------
+
+export type AlcancePlantilla = "personal" | "equipo" | "global";
+
+export type Plantilla = {
+  id: number;
+  nombre: string;
+  descripcion: string;
+  alcance: AlcancePlantilla;
+  equipo: EquipoBreve | null;
+  creada_por: string | null;
+  creada_en: string;
+  /** `duracion`: días hábiles de principio a fin (null si no hay fechas). */
+  resumen: { columnas: number; tarjetas: number; etiquetas: number; campos: number; duracion: number | null };
+  permisos: { gestionar: boolean };
 };

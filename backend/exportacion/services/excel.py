@@ -29,7 +29,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 from calendario.services.dias_habiles import duracion_habil, feriados_entre
 from tableros.models import Urgencia
 
-from .datos import Contenido, leer_referencias, normalizar, referencia, responsables_texto
+from .datos import Contenido, etiquetas_texto, leer_referencias, normalizar, referencia, responsables_texto
 from .modelo import FilaEntrada
 
 # --- Estilo (los colores de la Suite y de la escala de urgencia de la app) ---------------
@@ -66,7 +66,10 @@ COLUMNAS_IMPORTABLES = [
     ("Fin", 12),
     ("Depende de", 14),
     ("Descripción", 50),
+    ("Etiquetas", 20),
 ]
+#: Después de las importables van los campos personalizados del tablero (una
+#: columna por campo, con su nombre como encabezado; también se importan).
 #: Solo informativas (la importación las ignora).
 COLUMNAS_INFORMATIVAS = [("Vencimiento", 14), ("Días hábiles", 12), ("Checklist", 11), ("En Gantt", 10)]
 
@@ -81,6 +84,7 @@ ALIAS = {
     "fin": {"fin", "fecha fin", "final", "fecha final", "fecha de fin", "vence"},
     "depende": {"depende de", "predecesoras", "dependencias"},
     "descripcion": {"descripcion", "notas", "detalle"},
+    "etiquetas": {"etiquetas", "etiqueta"},
 }
 
 DIAS_MAXIMOS_POR_DIA = 366
@@ -164,7 +168,9 @@ def _ancho(valores, minimo: int, maximo: int) -> int:
 def _hoja_tarjetas(hoja, c: Contenido) -> None:
     hoja.title = "Tarjetas"
     hoja.sheet_view.showGridLines = False
-    columnas = COLUMNAS_IMPORTABLES + COLUMNAS_INFORMATIVAS
+    columnas = COLUMNAS_IMPORTABLES + [(campo.nombre, 16) for campo in c.campos] + COLUMNAS_INFORMATIVAS
+    col_urgencia = 4
+    col_vencimiento = len(COLUMNAS_IMPORTABLES) + len(c.campos) + 1
     _identificacion(hoja, c, len(columnas))
     _encabezados(hoja, columnas, fila=FILA_ENCABEZADOS)
     # Fijos al desplazarse: encabezados, «#» y «Título».
@@ -192,6 +198,8 @@ def _hoja_tarjetas(hoja, c: Contenido) -> None:
             card.fecha_fin,
             ", ".join(predecesoras.get(card.pk, [])),
             card.descripcion,
+            etiquetas_texto(card),
+            *[(card.campos or {}).get(str(campo.pk)) for campo in c.campos],
             ETIQUETA_VENCIMIENTO.get(venc, venc),
             duracion_habil(card.fecha_inicio, card.fecha_fin) if card.fecha_inicio and card.fecha_fin else None,
             f"{sum(i.hecho for i in items)}/{len(items)}" if items else "",
@@ -206,11 +214,11 @@ def _hoja_tarjetas(hoja, c: Contenido) -> None:
                 celda.fill = _ALTERNA
             if isinstance(valor, datetime.date):
                 celda.number_format = _FECHA
-        hoja.cell(row=fila, column=4).font = Font(bold=True, color=COLOR_URGENCIA[card.urgencia])
+        hoja.cell(row=fila, column=col_urgencia).font = Font(bold=True, color=COLOR_URGENCIA[card.urgencia])
         if venc == "vencida":
-            hoja.cell(row=fila, column=10).font = Font(bold=True, color="DC2626")
+            hoja.cell(row=fila, column=col_vencimiento).font = Font(bold=True, color="DC2626")
         elif venc == "terminada":
-            hoja.cell(row=fila, column=10).font = Font(color=COLOR_TERMINADA)
+            hoja.cell(row=fila, column=col_vencimiento).font = Font(color=COLOR_TERMINADA)
     if not c.cards:
         hoja.cell(row=FILA_ENCABEZADOS + 1, column=1, value="Ninguna tarjeta coincide.").font = Font(italic=True, color=TENUE)
     ultima = FILA_ENCABEZADOS + max(1, len(c.cards))
@@ -291,11 +299,14 @@ def _hoja_gantt(hoja, c: Contenido) -> None:
 # --- Plantilla --------------------------------------------------------------------------
 
 
-def plantilla(nombres_columnas: list[str]) -> bytes:
+def plantilla(nombres_columnas: list[str], campos: list | None = None) -> bytes:
+    """`campos`: campos personalizados activos del tablero (una columna cada
+    uno; los de tipo lista con su lista desplegable)."""
+    campos = campos or []
     libro = Workbook()
     hoja = libro.active
     hoja.title = "Tarjetas"
-    _encabezados(hoja, COLUMNAS_IMPORTABLES)
+    _encabezados(hoja, COLUMNAS_IMPORTABLES + [(campo.nombre, 16) for campo in campos])
     for col in (6, 7):
         for fila in range(2, 502):
             hoja.cell(row=fila, column=col).number_format = _FECHA
@@ -310,6 +321,14 @@ def plantilla(nombres_columnas: list[str]) -> bytes:
         (f"=Listas!$A$1:$A${max(1, len(nombres_columnas))}", "C2:C501"),
         (f"=Listas!$B$1:$B${len(ETIQUETA_URGENCIA)}", "D2:D501"),
     ]
+    for i, campo in enumerate(campos):
+        if campo.tipo != "lista" or not campo.opciones:
+            continue
+        col_listas = get_column_letter(3 + i)
+        for j, opcion in enumerate(campo.opciones, start=1):
+            listas.cell(row=j, column=3 + i, value=opcion)
+        col_hoja = get_column_letter(len(COLUMNAS_IMPORTABLES) + 1 + i)
+        validaciones.append((f"=Listas!${col_listas}$1:${col_listas}${len(campo.opciones)}", f"{col_hoja}2:{col_hoja}501"))
     for formula, rango in validaciones:
         dv = DataValidation(type="list", formula1=formula, allow_blank=True)
         dv.add(rango)
@@ -329,6 +348,8 @@ def plantilla(nombres_columnas: list[str]) -> bytes:
         ("Inicio / Fin", "Fechas (dd/mm/aaaa). El fin no puede ser anterior al inicio."),
         ("Depende de", "Números de otras filas: 3 (empieza cuando la 3 termina), 3CC (empieza cuando la 3 empieza), 3FF (termina cuando la 3 termina). Desfase en días hábiles: 3+2, 3CC-1."),
         ("Descripción", "Opcional."),
+        ("Etiquetas", "Nombres de etiquetas del tablero separados por comas."),
+        ("Campos propios", "Las columnas después de «Etiquetas» son los campos personalizados del tablero."),
         ("", ""),
         ("Nota", "Un Excel exportado desde Planificación también se puede importar tal cual."),
     ]
@@ -382,6 +403,7 @@ def leer(contenido_archivo: bytes, limite: int | None = None) -> list[FilaEntrad
     primeras = [fila for _, fila in zip(range(15), recorrido)]
 
     indices: dict[str, int] = {}
+    extras: dict[int, str] = {}
     inicio = None
     for n, fila in enumerate(primeras):
         encabezados = [normalizar(v) for v in fila]
@@ -394,6 +416,9 @@ def leer(contenido_archivo: bytes, limite: int | None = None) -> list[FilaEntrad
         # en la fila 1 (p. ej. «Tareas») no se confunde con los encabezados.
         if "titulo" in encontrados and len(encontrados) >= 2:
             indices, inicio = encontrados, n + 1
+            # Encabezados que no son estándar: campos personalizados (por nombre).
+            usados = set(encontrados.values())
+            extras = {i: str(v).strip() for i, v in enumerate(fila) if v not in (None, "") and i not in usados}
             break
     if inicio is None:
         raise ValueError("No se encontró la columna «Título». Usa la plantilla de importación.")
@@ -419,6 +444,8 @@ def leer(contenido_archivo: bytes, limite: int | None = None) -> list[FilaEntrad
         refs, e3 = leer_referencias(valor(fila, "depende"))
         errores += e3
         responsables = [p.strip() for p in str(valor(fila, "responsables") or "").split(",") if p.strip()]
+        etiquetas = [p.strip() for p in str(valor(fila, "etiquetas") or "").split(",") if p.strip()]
+        campos = {nombre: fila[i] for i, nombre in extras.items() if i < len(fila) and fila[i] not in (None, "")}
         entradas.append(
             FilaEntrada(
                 fila=n,
@@ -431,6 +458,8 @@ def leer(contenido_archivo: bytes, limite: int | None = None) -> list[FilaEntrad
                 fin=fin_f,
                 responsables=responsables,
                 depende=refs,
+                etiquetas=etiquetas,
+                campos=campos,
                 errores=errores,
             )
         )

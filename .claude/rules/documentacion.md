@@ -17,6 +17,7 @@ estás editando.
 | `backend/tableros/` | `docs/modulos/tableros.md` |
 | `backend/gantt/`, `frontend/src/components/gantt/`, `frontend/src/lib/gantt.ts` | `docs/modulos/gantt.md` |
 | `backend/exportacion/`, `frontend/src/components/tablero/ImportarDialogo.tsx` | `docs/modulos/exportacion.md` |
+| `backend/plantillas/`, `frontend/src/components/plantillas/` | `docs/modulos/plantillas.md` |
 | `frontend/` (cualquier otro archivo) | `docs/modulos/frontend.md` |
 | `backend/Planificacion/` (settings, urls, spa) | `docs/arquitectura.md` §3.3, §4.5, §6 y `docs/auditoria-arquitectura.md` |
 | Varios módulos a la vez | `docs/arquitectura.md` + el documento de cada módulo |

@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import checklist, columnas, comentarios, mis_tareas, tableros, tarjetas
+from .views import checklist, columnas, comentarios, configuracion, mis_tareas, tableros, tarjetas
 
 urlpatterns = [
     # Tableros
@@ -31,6 +31,11 @@ urlpatterns = [
     path("checklist/<int:pk>/", checklist.ItemChecklistView.as_view(), name="checklist-item"),
     path("cards/<int:pk>/comentarios/", comentarios.ComentariosView.as_view(), name="card-comentarios"),
     path("comentarios/<int:pk>/", comentarios.ComentarioDetalleView.as_view(), name="comentario-detalle"),
+    # Configuración del tablero (fase 5): etiquetas y campos personalizados
+    path("tableros/<int:pk>/etiquetas/", configuracion.EtiquetasView.as_view(), name="tablero-etiquetas"),
+    path("etiquetas/<int:pk>/", configuracion.EtiquetaDetalleView.as_view(), name="etiqueta-detalle"),
+    path("tableros/<int:pk>/campos/", configuracion.CamposView.as_view(), name="tablero-campos"),
+    path("campos/<int:pk>/", configuracion.CampoDetalleView.as_view(), name="campo-detalle"),
     # Mis tareas
     path("mis-tareas/", mis_tareas.MisTareasView.as_view(), name="mis-tareas"),
 ]

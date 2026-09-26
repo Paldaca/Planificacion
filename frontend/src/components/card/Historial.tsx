@@ -85,11 +85,28 @@ function frase(a: Actividad): string {
           return despues ? `puso la fecha final el ${diaCorto(despues)}` : "quitó la fecha final";
         case "en_gantt":
           return "cambió si aparece en el Gantt";
+        case "etiquetas":
+          return fraseEtiquetas(texto(d.antes), despues);
+        case "personalizado":
+          return despues ? `puso «${texto(d.nombre)}» en ${despues}` : `vació «${texto(d.nombre)}»`;
         default:
           return "editó la tarjeta";
       }
     }
   }
+}
+
+/** Las etiquetas se registran como nombres separados por coma, antes y después. */
+function fraseEtiquetas(antes: string, despues: string): string {
+  const separar = (t: string) => (t ? t.split(", ") : []);
+  const previas = separar(antes);
+  const nuevas = separar(despues);
+  const puestas = nuevas.filter((e) => !previas.includes(e));
+  const quitadas = previas.filter((e) => !nuevas.includes(e));
+  const citar = (l: string[]) => l.map((e) => `«${e}»`).join(", ");
+  if (puestas.length && !quitadas.length) return `puso la etiqueta${puestas.length > 1 ? "s" : ""} ${citar(puestas)}`;
+  if (quitadas.length && !puestas.length) return `quitó la etiqueta${quitadas.length > 1 ? "s" : ""} ${citar(quitadas)}`;
+  return "cambió las etiquetas";
 }
 
 export function Historial({ cardId }: { cardId: number }) {

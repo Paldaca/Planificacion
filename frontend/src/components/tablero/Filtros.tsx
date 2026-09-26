@@ -1,7 +1,7 @@
 import { Search, TriangleAlert, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
-import type { Persona } from "@/api/tipos";
+import type { Etiqueta, Persona } from "@/api/tipos";
 import { Avatar } from "@/components/ui/Avatar";
 import { cn } from "@/lib/cn";
 import { LISTA_URGENCIAS, URGENCIAS } from "@/lib/estilos";
@@ -15,12 +15,14 @@ export function BarraFiltros({
   filtros,
   onCambio,
   personas,
+  etiquetas = [],
   total,
   visibles,
 }: {
   filtros: EstadoFiltros;
   onCambio: (f: EstadoFiltros) => void;
   personas: Persona[];
+  etiquetas?: Etiqueta[];
   total: number;
   visibles: number;
 }) {
@@ -74,6 +76,29 @@ export function BarraFiltros({
         <TriangleAlert className="size-3.5" />
         Vencidas o por vencer
       </button>
+
+      {etiquetas.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1 rounded-xl border border-linea bg-white p-1" aria-label="Filtrar por etiqueta">
+          {etiquetas.map((e) => {
+            const activa = filtros.etiquetas.includes(e.id);
+            return (
+              <button
+                key={e.id}
+                type="button"
+                onClick={() => onCambio({ ...filtros, etiquetas: alternar(filtros.etiquetas, e.id) })}
+                aria-pressed={activa}
+                className={cn(
+                  "rounded-lg px-2 py-1 text-xs font-semibold transition-all duration-200",
+                  activa ? "text-white shadow-sm" : "text-tenue hover:bg-columna",
+                )}
+                style={activa ? { background: e.color } : { color: e.color }}
+              >
+                {e.nombre}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {personas.length > 1 && (
         <div className="flex items-center -space-x-1 pl-1">

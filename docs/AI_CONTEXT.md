@@ -54,6 +54,7 @@ backend/                     proyecto Django — manage.py se ejecuta DESDE AQU�
   tableros/                  tableros, columnas, tarjetas, comentarios, checklist, vencimientos
   gantt/                     dependencias entre tarjetas y reprogramación
   exportacion/               Excel, MS Project (MSPDI), importación — fase 4
+  plantillas/                plantillas de tablero (foto JSON con fechas en días hábiles) — fase 5
 frontend/src/
   api/                       client.ts (fetch + CSRF), queries.ts (TanStack Query), tipos.ts
   auth/ embed/               identidad vía /api/auth/me/ y protocolo paldaca-embed
@@ -63,8 +64,8 @@ docs/                        documentación (índice en docs/README.md)
 ```
 
 Orden de dependencias entre apps (una app solo importa de las de abajo):
-`exportacion → gantt → tableros → equipos · calendario → integracion_portal →
-paldaca_sso → core`. Para reaccionar «hacia arriba» se usan señales
+`exportacion · plantillas → gantt → tableros → equipos · calendario →
+integracion_portal → paldaca_sso → core`. Para reaccionar «hacia arriba» se usan señales
 (`tableros.signals.tarjeta_trasladada`, la escucha `gantt`).
 
 ## 4. Glosario mínimo
@@ -117,6 +118,7 @@ paldaca_sso → core`. Para reaccionar «hacia arriba» se usan señales
 | `backend/tableros/` | [`modulos/tableros.md`](modulos/tableros.md) |
 | `backend/gantt/`, `frontend/src/components/gantt/`, `frontend/src/lib/gantt.ts` | [`modulos/gantt.md`](modulos/gantt.md) |
 | `backend/exportacion/`, importar/exportar en el frontend | [`modulos/exportacion.md`](modulos/exportacion.md) |
+| `backend/plantillas/`, `frontend/src/components/plantillas/` | [`modulos/plantillas.md`](modulos/plantillas.md) |
 | `frontend/` | [`modulos/frontend.md`](modulos/frontend.md) |
 | `backend/Planificacion/` (settings, urls, spa) | [`arquitectura.md`](arquitectura.md) §3.3, §4.5, §6 y [`auditoria-arquitectura.md`](auditoria-arquitectura.md) |
 | Un cambio que cruza varios módulos | [`arquitectura.md`](arquitectura.md) + el documento de cada módulo |
@@ -131,7 +133,7 @@ Rutas relativas a la raíz del repo; en Windows (PowerShell) el venv está en
 ```powershell
 # Backend (desde backend/)
 ..\venv\Scripts\python.exe manage.py runserver 127.0.0.1:8007
-..\venv\Scripts\python.exe manage.py test                    # 109 pruebas, ~20 s
+..\venv\Scripts\python.exe manage.py test                    # 128 pruebas, ~20 s
 ..\venv\Scripts\python.exe manage.py test tableros.tests.test_tarjetas
 ..\venv\Scripts\python.exe manage.py makemigrations <app>
 ..\venv\Scripts\python.exe manage.py migrate
@@ -155,7 +157,10 @@ El `manage.py` de la raíz del repo está roto (auditoría A-08): usar siempre
   laboral).
 - **Fase 4 implementada** (`6e9157a`): app `exportacion` y
   `frontend/src/components/tablero/ImportarDialogo.tsx`; falta abrir el XML en
-  un MS Project real. Fase 5: propuesta.
+  un MS Project real.
+- **Fase 5 implementada**: etiquetas, campos personalizados y límite suave
+  por columna (en `tableros`), y app `plantillas`. Queda fuera: automatizaciones
+  y vista de carga de trabajo (ver plan §7).
 - Pendientes transversales: MySQL propia (D-06), prueba con sesión real del
   Portal, estado del módulo abierto suelto (opcional), hallazgos de
   [`auditoria-arquitectura.md`](auditoria-arquitectura.md) (los de severidad

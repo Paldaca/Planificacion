@@ -19,7 +19,7 @@ from core.errores import ConflictoDeVersion, ReglaDeNegocio
 from tableros.models import Actividad, Card, Columna, ResponsableCard, Tablero
 from tableros.signals import tarjeta_trasladada
 
-from . import actividad, avisos, vencimientos
+from . import actividad, avisos, campos as servicio_campos, vencimientos
 
 #: Campos que se copian tal cual desde la petición.
 CAMPOS_EDITABLES = ("titulo", "descripcion", "fecha_inicio", "fecha_fin", "urgencia", "en_gantt")
@@ -59,6 +59,43 @@ def _asignar(card: Card, usuarios: Iterable, *, por) -> tuple[list, list]:
     return nuevos, quitados
 
 
+def _poner_etiquetas(card: Card, etiquetas: Iterable, actor, *, registrar: bool = True) -> None:
+    etiquetas = list(etiquetas)
+    if any(e.tablero_id != card.tablero_id for e in etiquetas):
+        raise ReglaDeNegocio("Esa etiqueta no es de este tablero.")
+    antes = sorted(e.nombre for e in card.etiquetas.all())
+    card.etiquetas.set(etiquetas)
+    despues = sorted(e.nombre for e in etiquetas)
+    if registrar and antes != despues:
+        actividad.registrar(
+            card, actor, Actividad.Accion.EDITO, campo="etiquetas", antes=", ".join(antes), despues=", ".join(despues)
+        )
+
+
+def _poner_campos(card: Card, valores: dict, actor, *, registrar: bool = True) -> None:
+    """`valores` ya validados ({"<id>": valor | None}); se aplican en memoria
+    (se guardan con la tarjeta) y cada cambio queda en el historial."""
+    nombres = {str(c.pk): c.nombre for c in card.tablero.campos.all()}
+    actuales = dict(card.campos or {})
+    for clave, valor in valores.items():
+        previo = actuales.get(clave)
+        if valor is None:
+            actuales.pop(clave, None)
+        else:
+            actuales[clave] = valor
+        if registrar and previo != valor:
+            actividad.registrar(
+                card,
+                actor,
+                Actividad.Accion.EDITO,
+                campo="personalizado",
+                nombre=nombres.get(clave, "?"),
+                antes=servicio_campos.texto_valor(previo),
+                despues=servicio_campos.texto_valor(valor),
+            )
+    card.campos = actuales
+
+
 def _reubicar(card: Card, destino: Columna, posicion: int) -> None:
     """Coloca la card en `posicion` de `destino` y renumera origen y destino."""
     if destino.tablero_id != card.tablero_id or destino.archivada:
@@ -90,11 +127,14 @@ def crear_card(
     titulo: str,
     actor,
     responsables: Iterable = (),
+    etiquetas: Iterable = (),
+    valores_campos: dict | None = None,
     avisar: bool = True,
     **campos,
 ) -> Card:
     """`avisar=False`: sin aviso de asignación (la importación manda uno
-    agrupado por persona en lugar de uno por tarjeta)."""
+    agrupado por persona en lugar de uno por tarjeta). `valores_campos`: los
+    campos personalizados ya validados (`campos.validar_valores`)."""
     responsables = list(responsables)
     card = Card(
         tablero=tablero,
@@ -107,8 +147,12 @@ def crear_card(
     )
     card.clean()
     card.alinear_con_columna(columna, timezone.now())
+    if valores_campos:
+        _poner_campos(card, valores_campos, actor, registrar=False)
     card.save()
     _asignar(card, responsables, por=actor)
+    if etiquetas:
+        _poner_etiquetas(card, etiquetas, actor, registrar=False)
     actividad.registrar(card, actor, Actividad.Accion.CREO, columna=columna.nombre)
     if avisar:
         avisos.avisar_asignacion(card, responsables, actor)
@@ -117,9 +161,18 @@ def crear_card(
 
 @transaction.atomic
 def editar_card(
-    card: Card, *, actor, version: int, responsables: Iterable | None = None, columna: Columna | None = None, **campos
+    card: Card,
+    *,
+    actor,
+    version: int,
+    responsables: Iterable | None = None,
+    columna: Columna | None = None,
+    etiquetas: Iterable | None = None,
+    valores_campos: dict | None = None,
+    **campos,
 ) -> Card:
-    """Edita campos, responsables y (opcional) columna. Lanza ConflictoDeVersion."""
+    """Edita campos, responsables, etiquetas, campos personalizados (ya
+    validados) y, opcional, la columna. Lanza ConflictoDeVersion."""
     actual = Card.objects.select_for_update().select_related("tablero__equipo", "columna").get(pk=card.pk)
     if version != actual.version:
         raise ConflictoDeVersion(actual)
@@ -132,6 +185,10 @@ def editar_card(
     if responsables is not None:
         nuevos, quitados = _asignar(actual, responsables, por=actor)
         actividad.registrar_responsables(actual, actor, nuevos, quitados)
+    if etiquetas is not None:
+        _poner_etiquetas(actual, etiquetas, actor)
+    if valores_campos:
+        _poner_campos(actual, valores_campos, actor)
     actual.version += 1
     actual.save()
     actividad.registrar_ediciones(actual, actor, antes, {c: getattr(actual, c) for c in antes})
@@ -197,6 +254,8 @@ def trasladar_card(card: Card, *, destino: Tablero, actor) -> Card:
         raise ReglaDeNegocio("El tablero destino no tiene columnas.")
     columna = next((c for c in activas if c.nombre.lower() == card.columna.nombre.lower()), activas[0])
     origen, origen_columna = card.tablero, card.columna_id
+    nombres_etiquetas = {e.nombre.lower() for e in card.etiquetas.all()}
+    card.campos = servicio_campos.remapear(card.campos, origen, destino)
     card.numero = _tomar_numero(destino)
     card.tablero = destino
     card.columna = columna
@@ -206,6 +265,8 @@ def trasladar_card(card: Card, *, destino: Tablero, actor) -> Card:
     card.save()
     permitidos = {p.pk for p in destino.personas_asignables()}
     card.asignaciones.exclude(usuario_id__in=permitidos).delete()
+    # Etiquetas y campos: se conservan los que el destino tiene con el mismo nombre.
+    card.etiquetas.set([e for e in destino.etiquetas.all() if e.nombre.lower() in nombres_etiquetas])
     _compactar(origen_columna)
     actividad.registrar(card, actor, Actividad.Accion.TRASLADO, desde=origen.nombre, hacia=destino.nombre)
     vencimientos.sincronizar(card)

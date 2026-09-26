@@ -70,6 +70,7 @@ INSTALLED_APPS = [
     "tableros",
     "gantt",
     "exportacion",
+    "plantillas",
 ]
 
 MIDDLEWARE = [

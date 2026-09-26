@@ -1,6 +1,6 @@
 # Módulo `frontend` (SPA React)
 
-> Leer antes de modificar `frontend/`. Revisado: 2026-09-25.
+> Leer antes de modificar `frontend/`. Revisado: 2026-09-26.
 
 ## Stack
 
@@ -18,13 +18,13 @@ que Django sirve en producción (`WHITENOISE_ROOT` + `spa_shell`).
 
 | Carpeta | Contenido |
 |---|---|
-| `api/` | `client.ts` (`apiFetch`: `credentials: "include"`, `X-CSRFToken`, `ApiError`, `mensajeError`), `queries.ts` (todos los hooks de TanStack Query y las claves `claves.*`), `tipos.ts` (formas de la API `/api/v1/`) |
+| `api/` | `client.ts` (`apiFetch`: `credentials: "include"`, `X-CSRFToken`, `ApiError`, `mensajeError`), `queries.ts` (hooks de TanStack Query y las claves `claves.*`), `configuracion.ts` (etiquetas y campos del tablero), `plantillas.ts` (plantillas de tablero), `tipos.ts` (formas de la API `/api/v1/`). Los módulos nuevos de hooks van en su propio archivo (A-11) y reutilizan `avisarError`/`claves` de `queries.ts`. |
 | `auth/` | `useIdentity` (llama `GET /api/auth/me/` → loading / ok / unauthorized / forbidden / unavailable), `IdentidadProvider` / `useIdentidad`, `redirectToPortalLogin`, `StatusScreen` |
 | `embed/` | `protocol.ts` (contrato `paldaca-embed` v1, espejo del parser del Portal), `usePaldacaEmbed` (avisa `ready`/`navigate`/`session-expired`/`forbidden` al shell), `usePaldacaNav` (barra de la Suite al abrirse suelta; menú propio de respaldo a los 8 s) |
 | `pages/` | Una por ruta, cargadas con `lazy()`: `MisTareasPage`, `TablerosPage`, `TableroPage` (+ `TarjetaAbierta`), `EquiposPage`, `EquipoPage`, `InvitacionesPage` |
 | `components/ui/` | Primitivas propias: `Boton`, `Campos`, `Dialogo`, `Menu`, `Avatar`, `Estados` (`Vacio`, `Esqueleto`) |
-| `components/<dominio>/` | `tablero/` (Kanban, columnas, tarjeta, filtros, alta rápida, importar), `card/` (diálogo de la tarjeta, checklist, comentarios, menciones, historial), `vistas/` (Lista, Calendario, calendario laboral), `gantt/`, `equipos/`, `invitaciones/`, `layout/` (Shell, Encabezado) |
-| `hooks/` | `useVista` (`?vista=` + última usada por tablero), `usePreferencia` (localStorage con prefijo `planificacion:`), `useTitulo`, `useAlAbrir` |
+| `components/<dominio>/` | `tablero/` (Kanban, columnas, tarjeta, filtros, alta rápida, importar, `ConfiguracionDialogo` de etiquetas y campos, `LimiteColumnaDialogo`), `card/` (diálogo de la tarjeta, checklist, comentarios, menciones, historial, `EtiquetasYCampos`), `vistas/` (Lista, Calendario, calendario laboral), `gantt/`, `plantillas/` (guardar y listar plantillas), `equipos/` (incluye `TableroDialogo` con el selector «Empezar con»), `invitaciones/`, `layout/` (Shell, Encabezado) |
+| `hooks/` | `useVista` (`?vista=` + última usada por tablero), `usePreferencia` (localStorage con prefijo `planificacion:`), `useTitulo`, `useAlAbrir`, `useConfigTablero` (contexto con las etiquetas y los campos del tablero para dibujar tarjetas; lo provee `TableroPage`, fuera de un tablero queda vacío) |
 | `lib/` | Lógica pura, sin React: `fechas`, `dias`, `calendarioMes`, `gantt` (geometría), `filtros`, `vencimiento`, `estilos` (colores de dominio), `actividadUsuario` (refresco vivo), `cn` |
 
 ## Rutas
@@ -70,6 +70,13 @@ Mismo del Portal: Poppins (títulos) + Geist Sans (texto); tokens
   no se repiten ítems.
 - `embed/protocol.ts` es un contrato Suite-wide: cambiarlo exige cambiar
   `Portal-Paldaca/frontend/src/components/module-frame/protocol.ts`.
+- Filtros (`lib/filtros.ts`, incluidas las etiquetas) = los de
+  `exportacion/services/datos.py::Filtros`. Un filtro de etiqueta que ya no
+  existe se descarta en `TableroPage` (`vigentes`) para no dejar el tablero
+  vacío sin chip que quitar.
+- Límite de tarjetas por columna: se cuenta sobre **todas** las tarjetas de la
+  columna (no las filtradas) y solo avisa (toast + contador ámbar/rojo); la
+  regla es suave (D-13).
 
 ## Variables de entorno (`.env.development` / `.env.production`)
 

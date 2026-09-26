@@ -26,6 +26,7 @@ from integracion_portal.services.personas import nombre as nombre_persona
 from tableros import permisos
 from tableros.models import Columna, Tablero, Urgencia
 from tableros.services import tarjetas
+from tableros.services.campos import valor_valido
 
 from . import excel, mspdi
 from .datos import normalizar, referencia_texto
@@ -45,6 +46,9 @@ class FilaResuelta:
     columna: Columna | None = None
     urgencia: str = Urgencia.MEDIA
     responsables: list = field(default_factory=list)
+    etiquetas: list = field(default_factory=list)
+    #: {"<id del campo>": valor} ya validado.
+    campos: dict = field(default_factory=dict)
 
     @property
     def valida(self) -> bool:
@@ -83,6 +87,8 @@ def resolver(tablero: Tablero, entradas: list[FilaEntrada]) -> list[FilaResuelta
             if clave:
                 personas.setdefault(normalizar(clave), p)
 
+    etiquetas = {normalizar(e.nombre): e for e in tablero.etiquetas.all()}
+    campos = {normalizar(c.nombre): c for c in tablero.campos.filter(archivado=False)}
     refs_vistas: set[int] = set()
     resueltas = []
     for e in entradas:
@@ -117,6 +123,25 @@ def resolver(tablero: Tablero, entradas: list[FilaEntrada]) -> list[FilaResuelta
                 e.avisos.append(f"«{nombre}» no está en este tablero: no se asigna.")
             elif persona not in r.responsables:
                 r.responsables.append(persona)
+
+        for nombre in e.etiquetas:
+            etiqueta = etiquetas.get(normalizar(nombre))
+            if etiqueta is None:
+                e.avisos.append(f"No hay etiqueta «{nombre}» en este tablero: no se asigna.")
+            elif etiqueta not in r.etiquetas:
+                r.etiquetas.append(etiqueta)
+
+        for nombre, valor in e.campos.items():
+            campo = campos.get(normalizar(nombre))
+            if campo is None:
+                continue  # columna que el tablero no conoce: se ignora
+            try:
+                normalizado = valor_valido(campo, valor)
+            except ReglaDeNegocio as exc:
+                e.avisos.append(f"{exc} Se deja vacío.")
+                continue
+            if normalizado is not None:
+                r.campos[str(campo.pk)] = normalizado
         resueltas.append(r)
 
     # Referencias a filas que no existen (o que no se importarán).
@@ -139,6 +164,7 @@ def _serializar(r: FilaResuelta) -> dict:
         "inicio": e.inicio.isoformat() if e.inicio else None,
         "fin": e.fin.isoformat() if e.fin else None,
         "responsables": [nombre_persona(p) for p in r.responsables],
+        "etiquetas": [et.nombre for et in r.etiquetas],
         "depende": [referencia_texto(ref, tipo, d) for ref, tipo, d in e.depende],
         "errores": e.errores,
         "avisos": e.avisos,
@@ -180,6 +206,8 @@ def importar(tablero: Tablero, nombre: str, contenido: bytes, *, actor) -> dict:
                 fecha_inicio=e.inicio,
                 fecha_fin=e.fin,
                 responsables=r.responsables,
+                etiquetas=r.etiquetas,
+                valores_campos=r.campos,
                 actor=actor,
                 avisar=False,
             )

@@ -5,6 +5,7 @@ import { memo, type CSSProperties } from "react";
 
 import type { CardResumen } from "@/api/tipos";
 import { PilaAvatares } from "@/components/ui/Avatar";
+import { textoValor, useConfigTablero } from "@/hooks/useConfigTablero";
 import { cn } from "@/lib/cn";
 import { URGENCIAS, VENCIMIENTOS } from "@/lib/estilos";
 import { rangoCorto } from "@/lib/fechas";
@@ -63,6 +64,9 @@ export function CuerpoTarjeta({
   const venc = VENCIMIENTOS[card.vencimiento];
   const terminada = card.vencimiento === "terminada";
   const fechas = rangoCorto(card.fecha_inicio, card.fecha_fin);
+  const config = useConfigTablero();
+  const etiquetas = card.etiquetas.map((id) => config.etiquetas.get(id)).filter((e) => e !== undefined);
+  const campos = config.camposVisibles.filter((c) => card.campos[String(c.id)] !== undefined);
 
   return (
     <article
@@ -79,6 +83,20 @@ export function CuerpoTarjeta({
         style={{ background: urgencia.color, opacity: terminada ? 0.35 : 1 }}
         aria-hidden
       />
+
+      {etiquetas.length > 0 && (
+        <div className="mb-1.5 flex flex-wrap gap-1">
+          {etiquetas.map((e) => (
+            <span
+              key={e.id}
+              className="max-w-full truncate rounded-md px-1.5 py-px text-[0.64rem] font-bold tracking-wide text-white"
+              style={{ background: e.color, opacity: terminada ? 0.55 : 1 }}
+            >
+              {e.nombre}
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="flex items-start gap-2">
         {terminada && <CircleCheck className="check-burst mt-0.5 size-4 shrink-0 text-[#059669]" />}
@@ -106,6 +124,17 @@ export function CuerpoTarjeta({
           </button>
         )}
       </div>
+
+      {campos.length > 0 && (
+        <dl className="mt-1.5 flex flex-wrap gap-x-2.5 gap-y-0.5 text-[0.7rem]">
+          {campos.map((c) => (
+            <div key={c.id} className="flex min-w-0 gap-1">
+              <dt className="text-tenue/80">{c.nombre}:</dt>
+              <dd className="truncate font-semibold text-texto">{textoValor(c, card.campos[String(c.id)])}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
 
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
         {(card.urgencia === "alta" || card.urgencia === "critica") && !terminada && (

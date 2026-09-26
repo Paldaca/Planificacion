@@ -15,11 +15,15 @@ Llevar un tablero a las herramientas de la empresa y traerlo de vuelta:
   ignora) y hoja *Gantt* (días pintados con el color de la urgencia; fines de
   semana y feriados atenuados; más de un año, o más de 120 000 celdas, → una
   columna por semana). La hoja *Tarjetas* abre con un bloque de
-  identificación (tablero, fecha, resumen, filtros aplicados).
+  identificación (tablero, fecha, resumen, filtros aplicados). Desde la fase 5
+  lleva también la columna *Etiquetas* (nombres separados por coma) y una
+  columna por cada campo personalizado activo, todas importables.
 - **MS Project**: XML de Project (**MSPDI**). El `.mpp` es cerrado y no se
-  genera.
+  genera. Etiquetas y campos personalizados **no** viajan al XML.
 - **Plantilla** de importación: hoja *Tarjetas* vacía con listas desplegables
-  (columnas del tablero, urgencias) + hoja de instrucciones.
+  (columnas del tablero, urgencias y campos de tipo lista) + columnas
+  *Etiquetas* y de campos + hoja de instrucciones. (No confundir con las
+  plantillas de tablero de la app `plantillas`.)
 - **Importación** desde Excel o MSPDI en dos pasos: vista previa y
   confirmación.
 
@@ -27,11 +31,11 @@ Llevar un tablero a las herramientas de la empresa y traerlo de vuelta:
 
 | Archivo | Qué hace |
 |---|---|
-| `services/datos.py` | Qué se exporta y cómo se nombra, compartido por los tres formatos. `Filtros` = los mismos del tablero en pantalla (`frontend/src/lib/filtros.ts`) para exportar exactamente lo que se ve. Dependencias en texto estilo Project en español: `3`, `3CC+2`, `3FF-1`. |
+| `services/datos.py` | Qué se exporta y cómo se nombra, compartido por los tres formatos. `Filtros` = los mismos del tablero en pantalla (`frontend/src/lib/filtros.ts`, incluidas las etiquetas) para exportar exactamente lo que se ve. Dependencias en texto estilo Project en español: `3`, `3CC+2`, `3FF-1`. `Contenido.campos`: campos activos del tablero. |
 | `services/excel.py` | `exportar`, `plantilla`, `leer`. Antes de guardar, toda celda que openpyxl tomó por fórmula pasa a texto (`_sin_formulas`): un título que empieza por `=` no se ejecuta en el Excel de quien descarga. `leer` busca la fila de encabezados (título + otro conocido) en las 15 primeras y recorre bajo demanda con tope (`FILAS_MAXIMAS_LEIDAS`). |
 | `services/mspdi.py` | `exportar`, `leer`. Proyecto = tablero; tareas resumen = columnas; tareas = tarjetas del Gantt con inicio y fin; tareas **programadas manualmente**; calendario «Planificación» lun–vie 8–12 y 13–17 con feriados como excepciones; vínculos FC=1, CC=3, FF=0 con desfase; responsables → recursos; urgencia ↔ prioridad (baja 300, media 500, alta 700, crítica 900); avance = checklist; descripción → notas. Elementos en el orden del esquema MSPDI; sin caracteres de control. `leer` rechaza XML con `DOCTYPE`/`ENTITY`. |
-| `services/modelo.py` | `FilaEntrada`: una fila leída antes de validar. |
-| `services/importacion.py` | `vista_previa` (valida sin tocar la BD: errores y avisos por fila) e `importar` (revalida y crea en **una** transacción las filas válidas y sus dependencias). Límites: 5 MB y 1000 filas. Los responsables reciben **un** aviso agrupado en vez de uno por tarjeta (`crear_card(avisar=False)`). |
+| `services/modelo.py` | `FilaEntrada`: una fila leída antes de validar (incluye `etiquetas` y `campos` por nombre de encabezado). |
+| `services/importacion.py` | `vista_previa` (valida sin tocar la BD: errores y avisos por fila) e `importar` (revalida y crea en **una** transacción las filas válidas y sus dependencias). Límites: 5 MB y 1000 filas. Los responsables reciben **un** aviso agrupado en vez de uno por tarjeta (`crear_card(avisar=False)`). Etiquetas desconocidas y valores de campo inválidos se ignoran **con aviso** (no son error); las columnas que no son campos del tablero se ignoran sin más. |
 
 No se guarda nada entre vista previa y confirmación: el navegador reenvía el
 archivo.
@@ -40,7 +44,7 @@ archivo.
 
 | Ruta | Operaciones |
 |---|---|
-| `tableros/<id>/exportar/?formato=xlsx\|xml` (+ `q`, `urgencia`, `responsable`, `vencidas`) | descarga (requiere ver el tablero) |
+| `tableros/<id>/exportar/?formato=xlsx\|xml` (+ `q`, `urgencia`, `responsable`, `etiqueta`, `vencidas`) | descarga (requiere ver el tablero) |
 | `tableros/<id>/importar/plantilla/` | descarga la plantilla |
 | `tableros/<id>/importar/` (multipart `archivo`, `confirmar`) | sin `confirmar`: vista previa · con `confirmar=true`: crea (requiere editar) |
 
@@ -52,7 +56,7 @@ archivo.
 
 ## Pruebas
 
-`tests/test_exportacion.py` (incluye la ida y vuelta). Criterios de aceptación
+`tests/test_exportacion.py` (incluye la ida y vuelta y `EtiquetasYCamposTests`). Criterios de aceptación
 de la fase 4: un tablero exportado a XML e importado de nuevo conserva
 tarjetas, fechas y dependencias; el XML abre en MS Project sin advertencias
 (pendiente de probar con Project).

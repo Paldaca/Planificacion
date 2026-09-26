@@ -226,6 +226,11 @@ function FilaPrevia({ fila }: { fila: FilaVistaPrevia }) {
             <span className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: URGENCIAS[fila.urgencia].color }} />
             <span className={cn("font-medium", error ? "text-tenue" : "text-texto")}>{fila.titulo || "(sin título)"}</span>
             {fila.depende.length > 0 && <span className="text-xs text-tenue">después de {fila.depende.join(", ")}</span>}
+            {fila.etiquetas.map((e) => (
+              <span key={e} className="shrink-0 rounded-md bg-morado/10 px-1.5 py-px text-[0.66rem] font-semibold text-morado">
+                {e}
+              </span>
+            ))}
           </span>
         </td>
         <td className="px-2 py-2 text-xs text-tenue">{fila.columna}</td>

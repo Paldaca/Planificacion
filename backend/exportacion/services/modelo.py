@@ -23,5 +23,9 @@ class FilaEntrada:
     depende: list[tuple[int, str, int]] = field(default_factory=list)
     #: Terminada en el origen (Project al 100 %): va a la columna final.
     completada: bool = False
+    #: Nombres de etiquetas del tablero (fase 5).
+    etiquetas: list[str] = field(default_factory=list)
+    #: Valores de campos personalizados por nombre del campo (fase 5).
+    campos: dict[str, object] = field(default_factory=dict)
     errores: list[str] = field(default_factory=list)
     avisos: list[str] = field(default_factory=list)

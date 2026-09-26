@@ -67,7 +67,7 @@ export const claves = {
   feriados: (desde: string, hasta: string) => ["feriados", desde, hasta] as const,
 };
 
-function avisarError(error: unknown) {
+export function avisarError(error: unknown) {
   toast.error(mensajeError(error));
 }
 
@@ -199,7 +199,7 @@ export const useFeriados = (desde: string, hasta: string) =>
 
 // --- Utilidades de caché del tablero ------------------------------------------------
 
-function editarTablero(qc: QueryClient, id: number, cambio: (t: TableroDetalle) => TableroDetalle) {
+export function editarTablero(qc: QueryClient, id: number, cambio: (t: TableroDetalle) => TableroDetalle) {
   qc.setQueryData<TableroDetalle>(claves.tablero(id), (t) => (t ? cambio(t) : t));
 }
 
@@ -335,7 +335,7 @@ export function useEditarColumna(tableroId: number) {
       cambios,
     }: {
       id: number;
-      cambios: Partial<Pick<Columna, "nombre" | "es_final" | "incluir_en_gantt">>;
+      cambios: Partial<Pick<Columna, "nombre" | "es_final" | "incluir_en_gantt" | "limite_cards">>;
     }) => {
       const version = qc.getQueryData<TableroDetalle>(claves.tablero(tableroId))?.columnas.find((c) => c.id === id)?.version;
       return api.patch<Columna>(`${V1}/columnas/${id}/`, { ...cambios, version });
@@ -403,6 +403,9 @@ export type CambiosCard = {
   responsables?: number[];
   columna?: number;
   en_gantt?: EnGantt;
+  etiquetas?: number[];
+  /** Solo los campos que cambian; `null` borra el valor. */
+  campos?: Record<string, string | number | null>;
 };
 
 export function useCrearCard(tableroId: number) {
@@ -450,8 +453,17 @@ export function usePatchCard(tableroId: number) {
     },
     onMutate: ({ card, cambios }) => {
       const tablero = qc.getQueryData<TableroDetalle>(claves.tablero(tableroId));
-      const { responsables, columna, ...simples } = cambios;
+      const { responsables, columna, campos, ...simples } = cambios;
       const extra: Partial<CardResumen> = { ...simples };
+      const actualCampos = tablero?.cards.find((c) => c.id === card.id)?.campos;
+      if (campos) {
+        const nuevos = { ...(actualCampos ?? {}) };
+        for (const [id, valor] of Object.entries(campos)) {
+          if (valor === null || valor === "") delete nuevos[id];
+          else nuevos[id] = valor;
+        }
+        extra.campos = nuevos;
+      }
       if (responsables && tablero) {
         extra.responsables = responsables
           .map((id) => tablero.personas.find((p) => p.id === id))
@@ -937,7 +949,13 @@ export function useEliminarFeriado() {
 // --- Exportación e importación (fase 4) ------------------------------------------------
 
 /** Filtros del tablero en la forma que entiende `exportar/` (los mismos de la pantalla). */
-export type FiltrosExportacion = { texto: string; urgencias: string[]; responsables: number[]; soloVencidas: boolean };
+export type FiltrosExportacion = {
+  texto: string;
+  urgencias: string[];
+  responsables: number[];
+  etiquetas: number[];
+  soloVencidas: boolean;
+};
 
 export function useExportar(tableroId: number) {
   return useMutation({
@@ -946,6 +964,7 @@ export function useExportar(tableroId: number) {
       if (filtros?.texto.trim()) params.set("q", filtros.texto.trim());
       filtros?.urgencias.forEach((u) => params.append("urgencia", u));
       filtros?.responsables.forEach((r) => params.append("responsable", String(r)));
+      filtros?.etiquetas.forEach((e) => params.append("etiqueta", String(e)));
       if (filtros?.soloVencidas) params.set("vencidas", "1");
       return descargar(`${V1}/tableros/${tableroId}/exportar/?${params}`, `tablero.${formato}`);
     },

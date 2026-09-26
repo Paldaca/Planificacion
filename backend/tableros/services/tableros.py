@@ -12,7 +12,18 @@ NOMBRE_TABLERO_PERSONAL = "Mi tablero"
 
 
 @transaction.atomic
-def crear_tablero(*, nombre: str, creado_por, tipo: str, propietario=None, equipo=None, descripcion: str = "") -> Tablero:
+def crear_tablero(
+    *,
+    nombre: str,
+    creado_por,
+    tipo: str,
+    propietario=None,
+    equipo=None,
+    descripcion: str = "",
+    columnas: list[dict] | None = None,
+) -> Tablero:
+    """Con `columnas` (p. ej. desde una plantilla: nombre, es_final,
+    incluir_en_gantt, limite_cards) en vez de Tareas / En curso / Hecho."""
     tablero = Tablero.objects.create(
         nombre=nombre,
         descripcion=descripcion,
@@ -21,10 +32,18 @@ def crear_tablero(*, nombre: str, creado_por, tipo: str, propietario=None, equip
         equipo=equipo,
         creado_por=creado_por,
     )
+    definicion = columnas or [{"nombre": n, "es_final": f} for n, f in COLUMNAS_PREDETERMINADAS]
     Columna.objects.bulk_create(
         [
-            Columna(tablero=tablero, nombre=nombre_col, orden=i, es_final=es_final)
-            for i, (nombre_col, es_final) in enumerate(COLUMNAS_PREDETERMINADAS)
+            Columna(
+                tablero=tablero,
+                nombre=str(c["nombre"])[:60],
+                orden=i,
+                es_final=bool(c.get("es_final")),
+                incluir_en_gantt=c.get("incluir_en_gantt", True),
+                limite_cards=c.get("limite_cards"),
+            )
+            for i, c in enumerate(definicion)
         ]
     )
     return tablero

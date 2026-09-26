@@ -11,6 +11,8 @@ import {
   LayoutGrid,
   MessageSquare,
   Plus,
+  Settings2,
+  Tag,
   TextAlignStart,
   UsersRound,
   X,
@@ -42,6 +44,7 @@ import { haceCuanto, relativoFin } from "@/lib/fechas";
 
 import { Checklist } from "./Checklist";
 import { Comentarios } from "./Comentarios";
+import { CamposTarjeta, EtiquetasTarjeta } from "./EtiquetasYCampos";
 import { Historial } from "./Historial";
 
 type Props = {
@@ -138,6 +141,7 @@ function Detalle({
   const puede = card.permisos.editar && !card.archivada;
   const urgencia = URGENCIAS[card.urgencia];
   const columnaActual = tablero.columnas.find((c) => c.id === card.columna);
+  const camposActivos = tablero.campos.filter((c) => !c.archivado);
 
   const yo: Persona = {
     id: identidad.id,
@@ -272,9 +276,19 @@ function Detalle({
             </div>
           </Seccion>
 
+          <Seccion titulo="Etiquetas" icono={Tag}>
+            <EtiquetasTarjeta card={card} tablero={tablero} puede={puede} onGuardar={guardar} />
+          </Seccion>
+
           <Seccion titulo="Fechas" icono={CalendarDays}>
             <Fechas card={card} puede={puede} onGuardar={guardar} />
           </Seccion>
+
+          {camposActivos.length > 0 && (
+            <Seccion titulo="Campos" icono={Settings2}>
+              <CamposTarjeta card={card} campos={camposActivos} puede={puede} onGuardar={guardar} />
+            </Seccion>
+          )}
 
           <Seccion titulo="Gantt" icono={ChartGantt}>
             <OpcionGantt card={card} tablero={tablero} puede={puede} onGuardar={(en_gantt) => guardar({ en_gantt })} />

@@ -3,8 +3,9 @@
 > Estado (septiembre 2026): **fases 0–3 implementadas** y auditadas (tableros,
 > cards, equipos por invitación, avisos en el Portal, checklist, historial,
 > menciones, vistas Lista / Calendario / Gantt, dependencias, calendario
-> laboral) y **fase 4 implementada** (Excel y MS Project de ida y vuelta).
-> Fase 5: propuesta.
+> laboral), **fase 4 implementada** (Excel y MS Project de ida y vuelta) y
+> **fase 5 implementada** en el alcance elegido (plantillas, etiquetas, campos
+> personalizados y límite por columna).
 > El detalle de lo hecho y lo pendiente está en §7 («Estado del plan»).
 > Stack: **Django + DRF** (`backend/`) y **React + Vite + TypeScript** (`frontend/`).
 > Integración: satélite **federado** del Portal Paldaca — ver
@@ -91,7 +92,7 @@ depende de `equipos`, nunca al revés):
 | `integracion_portal` | ÚNICO punto que habla con el Portal: notificaciones firmadas con bandeja de salida, directorio de personas, traducción usuario local ↔ `portal_user_id` |
 | `equipos` | Equipos, membresías con roles, invitaciones y quién puede qué en un equipo |
 | `calendario` | Calendario laboral: feriados nacionales, puntuales y móviles (Carnaval, Semana Santa); días hábiles para duraciones, vencimientos y Gantt |
-| `tableros` | Tableros, columnas, cards, responsables, comentarios, checklist, historial, vencimientos |
+| `tableros` | Tableros, columnas (con límite suave), cards, responsables, etiquetas y campos personalizados (fase 5), comentarios, checklist, historial, vencimientos |
 | `gantt` | Vista Gantt (fase 3): qué tarjetas entran, dependencias entre tarjetas y reprogramación de sucesoras en días hábiles. Las vistas Lista y Calendario no necesitan app propia: leen las tarjetas de `tableros` |
 | `exportacion` | Fase 4: exportar a Excel (.xlsx) y a MS Project (XML MSPDI) e importar desde ambos, con vista previa. Sin modelos propios: `services/datos.py` arma el contenido, `excel.py` y `mspdi.py` lo presentan o lo leen, `importacion.py` valida y crea |
 | `plantillas` | Fase 5: tableros modelo (columnas + cards con duraciones relativas en días hábiles) para crear un tablero nuevo con un clic, y guardar un tablero existente como plantilla |
@@ -455,8 +456,8 @@ crece a mitad de camino: lo nuevo va a la siguiente.
 | 1 — Tableros y cards | ✅ implementada | `6d7034c`, `6f8f9fa`, `d7de71c` |
 | 2 — Colaboración y avisos | ✅ implementada; §6.6 (estado del módulo suelto) sigue opcional | `6aa1a61` |
 | 3 — Gantt y vistas | ✅ implementada y auditada | `644c063`, `594fde4` |
-| 4 — Exportación e importación | ✅ implementada; falta abrir el XML en un MS Project real (aquí no hay Project) | ver `git log` |
-| 5 — Flexibilidad avanzada | Propuesta | — |
+| 4 — Exportación e importación | ✅ implementada; falta abrir el XML en un MS Project real (aquí no hay Project) | `6e9157a`, `e81f239` |
+| 5 — Flexibilidad avanzada | ✅ implementada en el alcance elegido: plantillas, etiquetas, campos personalizados y límite por columna. El resto de candidatos sigue propuesto | ver `git log` |
 
 **Hecho fuera de las fases** (mejoras pedidas por el camino):
 - **Reorganización del backend** por capas (`services/`, `api/`, QuerySet
@@ -678,20 +679,46 @@ Cómo quedó:
   archivo se arma en milisegundos; la «descarga cuando está listo» queda para
   cuando haga falta (D-11).
 
-### Fase 5 — Flexibilidad avanzada
+### Fase 5 — Flexibilidad avanzada — ✅ implementada (alcance elegido)
 
-Se prioriza con lo aprendido en las fases anteriores. Candidatos:
+Se prioriza con lo aprendido en las fases anteriores. Candidatos (✅ = hecho
+en esta fase):
 
-- **Plantillas de tablero:** crear un tablero desde una plantilla (columnas y
-  cards con duraciones relativas) y **guardar un tablero como plantilla**.
+- ✅ **Plantillas de tablero:** crear un tablero desde una plantilla (columnas
+  y cards con duraciones relativas) y **guardar un tablero como plantilla**.
 - **Adjuntos** en las cards (requiere almacenamiento de archivos y límites).
-- **Campos personalizados** por tablero (texto, número, lista).
-- **Etiquetas** por tablero (por ejemplo, disciplina o cliente).
-- **Límite de cards por columna** (estilo Kanban).
+- ✅ **Campos personalizados** por tablero (texto, número, lista).
+- ✅ **Etiquetas** por tablero (por ejemplo, disciplina o cliente).
+- ✅ **Límite de cards por columna** (estilo Kanban).
 - **Tiempo real** con websockets, respetando §6.5.
 - **Métricas:** cards terminadas por semana, vencidas por equipo.
 - **Vínculo con Hoja de Tiempo** (cargar horas contra una card), si el negocio
   lo pide.
+
+Cómo quedó:
+- **Etiquetas** por tablero (nombre + color, máx. 30): se crean, renombran,
+  recolorean y borran en *«…» → Etiquetas y campos…* (quien gestiona el
+  tablero); se marcan con un clic en la tarjeta, se ven como píldoras en el
+  Kanban y la Lista, filtran el tablero (y la exportación) y quedan en el
+  historial («puso la etiqueta «Cliente»»).
+- **Campos personalizados** (texto, número, lista; máx. 20 activos): valores
+  en la tarjeta, columna propia en la Lista (ordenable), visibles en el Kanban
+  si se marca «En la tarjeta». No se borran: se archivan y conservan sus
+  valores (D-14). Números aceptan coma o punto.
+- **Límite por columna** (1–999, en el menú de la columna): contador `n/límite`
+  ámbar al llegar y rojo al pasarse, y un aviso al sumar una tarjeta de más;
+  no bloquea (D-13).
+- **Plantillas** (app `plantillas`): *«…» → Guardar como plantilla…* (solo
+  para mí, para el equipo si lo administro, o para todo el módulo si soy su
+  administrador); botón *Plantillas* en Tableros para usarlas, renombrarlas o
+  borrarlas; y el selector *Empezar con* al crear un tablero, con fecha de
+  inicio. Las fechas viajan en días hábiles relativos y se recalculan con el
+  calendario laboral (D-15). No viajan personas, comentarios ni historial.
+- **Excel:** columnas *Etiquetas* y una por campo, importables (la plantilla
+  de importación trae listas desplegables para los campos de tipo lista).
+  El XML de Project no lleva etiquetas ni campos.
+- Al **trasladar** una tarjeta se conservan las etiquetas y campos que existan
+  con el mismo nombre en el tablero destino.
 
 ---
 
@@ -723,8 +750,12 @@ cabecera `X-CSRFToken`.
 | `tableros/:id/dependencias/` · `dependencias/:id/` | listar (con `incumplida`), crear · cambiar tipo o desfase, quitar |
 | `cards/:id/programar/` | nuevas fechas y, con `mover_sucesoras`, empujar la cadena (devuelve las tarjetas cambiadas) |
 | `calendario/feriados/?desde&hasta` · `calendario/feriados/:id/` | feriados del rango (fijos, puntuales y móviles) · alta y baja (admin del módulo) |
-| `tableros/:id/exportar/?formato=xlsx|xml` | descarga (con los filtros del tablero: `q`, `urgencia`, `responsable`, `vencidas`) |
+| `tableros/:id/exportar/?formato=xlsx|xml` | descarga (con los filtros del tablero: `q`, `urgencia`, `responsable`, `etiqueta`, `vencidas`) |
 | `tableros/:id/importar/` · `importar/plantilla/` | multipart `archivo` (.xlsx o .xml): vista previa; con `confirmar=true`, crea · plantilla Excel |
+| `tableros/:id/etiquetas/` · `etiquetas/:id/` | crear · editar, borrar (quien gestiona el tablero) |
+| `tableros/:id/campos/` · `campos/:id/` | crear · editar (nombre, opciones, visible, archivar; el tipo no cambia) |
+| `plantillas/` · `plantillas/:id/` | listar las visibles, guardar un tablero como plantilla · ver, renombrar, borrar |
+| `plantillas/:id/usar/` | crear un tablero desde la plantilla (`nombre`, `equipo`, `fecha_inicio`) |
 
 ---
 
@@ -744,6 +775,9 @@ cabecera `X-CSRFToken`.
 | D-10 | Menú al abrir la app suelta | `paldaca-nav` del Portal; el propio solo de respaldo (**decidido**) |
 | D-11 | ¿Exportación en segundo plano? | No por ahora: síncrona (tableros de cientos de tarjetas); revisar si un tablero pasa de ~5000 (**decidido**) |
 | D-12 | Tareas en MS Project | Programadas manualmente, para conservar las fechas del tablero (**decidido**) |
+| D-13 | ¿El límite por columna bloquea? | No: es suave, marca y avisa; el trabajo real no se frena por una regla del tablero (**decidido**) |
+| D-14 | ¿Dónde viven los valores de campos personalizados? | En `Card.campos` (JSON por id de campo), validados en el servicio; los campos se archivan, no se borran (**decidido**) |
+| D-15 | ¿Qué guarda una plantilla? | Una foto JSON con fechas relativas en días hábiles, etiquetas y campos por nombre; sin personas, comentarios ni historial (**decidido**) |
 
 ---
 

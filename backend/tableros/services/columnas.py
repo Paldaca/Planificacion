@@ -31,7 +31,8 @@ def reordenar_columnas(tablero, *, ids: list[int]) -> list[Columna]:
 
 @transaction.atomic
 def editar_columna(columna: Columna, *, version: int, **cambios) -> Columna:
-    """`cambios`: nombre, es_final, incluir_en_gantt. Lanza ConflictoDeVersion."""
+    """`cambios`: nombre, es_final, incluir_en_gantt, limite_cards (None =
+    sin límite). Lanza ConflictoDeVersion."""
     columna = Columna.objects.select_for_update().get(pk=columna.pk)
     if version != columna.version:
         raise ConflictoDeVersion(columna)
@@ -43,7 +44,7 @@ def editar_columna(columna: Columna, *, version: int, **cambios) -> Columna:
             cards.filter(completada_en__isnull=True).update(completada_en=timezone.now())
         else:
             cards.update(completada_en=None)
-    for campo in ("nombre", "incluir_en_gantt"):
+    for campo in ("nombre", "incluir_en_gantt", "limite_cards"):
         if campo in cambios:
             setattr(columna, campo, cambios[campo])
     columna.version += 1

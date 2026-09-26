@@ -21,6 +21,7 @@
 | `backend/tableros` | [`modulos/tableros.md`](modulos/tableros.md) |
 | `backend/gantt` | [`modulos/gantt.md`](modulos/gantt.md) |
 | `backend/exportacion` | [`modulos/exportacion.md`](modulos/exportacion.md) |
+| `backend/plantillas` | [`modulos/plantillas.md`](modulos/plantillas.md) |
 | `frontend` | [`modulos/frontend.md`](modulos/frontend.md) |
 
 ## Mantenimiento

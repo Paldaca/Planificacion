@@ -68,7 +68,7 @@ class ExcelTests(Base):
         self.assertEqual(por_titulo["Planos"][4], "Beto")
         self.assertEqual(por_titulo["Levantamiento"][5].date(), datetime.date(2026, 3, 30))
         # Días hábiles: 6 al 8 de abril = 3 (el 2 y 3 son Semana Santa, no cuentan aquí).
-        self.assertEqual(por_titulo["Planos"][10], 3)
+        self.assertEqual(por_titulo["Planos"][filas[5].index("Días hábiles")], 3)
 
     def test_respeta_los_filtros_y_los_anota(self):
         libro = load_workbook(io.BytesIO(self.exportar("xlsx", urgencia="alta").content))
@@ -257,3 +257,47 @@ class SeguridadTests(Base):
             importacion.MAX_FILAS = original
         self.assertEqual(r.status_code, 400)
         self.assertIn("hasta 5", r.json()["detail"])
+
+
+class EtiquetasYCamposTests(Base):
+    """Fase 5: las etiquetas y los campos personalizados van y vuelven por Excel."""
+
+    def test_ida_y_vuelta_con_etiquetas_y_campos(self):
+        url = f"/api/v1/tableros/{self.tablero['id']}"
+        civil = self.cliente(self.ana).post(f"{url}/etiquetas/", {"nombre": "Civil"}, format="json").json()
+        horas = self.cliente(self.ana).post(f"{url}/campos/", {"nombre": "Horas", "tipo": "numero"}, format="json").json()
+        fase = self.cliente(self.ana).post(
+            f"{url}/campos/", {"nombre": "Fase", "tipo": "lista", "opciones": ["Básica", "Detalle"]}, format="json"
+        ).json()
+        version = Card.objects.get(pk=self.b["id"]).version
+        self.cliente(self.ana).patch(
+            f"/api/v1/cards/{self.b['id']}/",
+            {"etiquetas": [civil["id"]], "campos": {horas["id"]: 16, fase["id"]: "Detalle"}, "version": version},
+            format="json",
+        )
+        libro = load_workbook(io.BytesIO(self.exportar("xlsx").content))
+        encabezados = [c.value for c in libro["Tarjetas"][6]]
+        self.assertEqual(encabezados[9:12], ["Etiquetas", "Horas", "Fase"])
+
+        destino = self.otro_tablero()
+        durl = f"/api/v1/tableros/{destino['id']}"
+        self.cliente(self.ana).post(f"{durl}/etiquetas/", {"nombre": "civil"}, format="json")
+        self.cliente(self.ana).post(f"{durl}/campos/", {"nombre": "horas", "tipo": "numero"}, format="json")
+        self.cliente(self.ana).post(
+            f"{durl}/campos/", {"nombre": "Fase", "tipo": "lista", "opciones": ["Básica"]}, format="json"
+        )
+        previa = self.importar(destino["id"], "plan.xlsx", self.exportar("xlsx").content).json()
+        planos = next(f for f in previa["filas"] if f["titulo"] == "Planos")
+        self.assertEqual(planos["etiquetas"], ["civil"])
+        self.assertTrue(any("Detalle" in a for a in planos["avisos"]))  # opción que el destino no tiene
+        self.importar(destino["id"], "plan.xlsx", self.exportar("xlsx").content, confirmar=True)
+        copia = self.cards_de(destino["id"])["Planos"]
+        self.assertEqual([e.nombre for e in copia.etiquetas.all()], ["civil"])
+        self.assertEqual(list(copia.campos.values()), [16])
+
+    def test_plantilla_con_campos_y_su_lista(self):
+        url = f"/api/v1/tableros/{self.tablero['id']}"
+        self.cliente(self.ana).post(f"{url}/campos/", {"nombre": "Fase", "tipo": "lista", "opciones": ["Básica", "Detalle"]}, format="json")
+        libro = load_workbook(io.BytesIO(self.cliente(self.ana).get(f"{url}/importar/plantilla/").content))
+        self.assertEqual([c.value for c in libro["Tarjetas"][1]][-2:], ["Etiquetas", "Fase"])
+        self.assertEqual(len(libro["Tarjetas"].data_validations.dataValidation), 3)

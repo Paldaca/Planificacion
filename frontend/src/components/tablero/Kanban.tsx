@@ -22,6 +22,7 @@ import { arrayMove, horizontalListSortingStrategy, SortableContext, sortableKeyb
 import { Plus } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 import {
   moverEnCache,
@@ -37,6 +38,7 @@ import { Boton } from "@/components/ui/Boton";
 
 import { ArchivarColumnaDialogo } from "./ArchivarColumnaDialogo";
 import { ColumnaKanban } from "./ColumnaKanban";
+import { LimiteColumnaDialogo } from "./LimiteColumnaDialogo";
 import { CuerpoTarjeta } from "./Tarjeta";
 
 type Activo = { tipo: "card"; card: CardResumen } | { tipo: "columna"; columna: Columna } | null;
@@ -100,7 +102,27 @@ export function Kanban({
   const [ordenCols, setOrdenCols] = useState<number[]>([]);
   const [nuevas, setNuevas] = useState<Set<number>>(new Set());
   const [archivando, setArchivando] = useState<Columna | null>(null);
+  const [limitando, setLimitando] = useState<Columna | null>(null);
   const ultimoArrastre = useRef(0);
+
+  /** Tarjetas por columna sin filtros: el límite (fase 5) cuenta todas. */
+  const totales = useMemo(() => {
+    const cuenta = new Map<number, number>();
+    for (const c of tablero.cards) cuenta.set(c.columna, (cuenta.get(c.columna) ?? 0) + 1);
+    return cuenta;
+  }, [tablero.cards]);
+
+  /** Límite suave (D-13): avisa si con una tarjeta más se pasa, no bloquea. */
+  function avisarSiSePasa(columnaId: number) {
+    const columna = columnas.find((c) => c.id === columnaId);
+    const limite = columna?.limite_cards;
+    if (!columna || !limite) return;
+    if ((totales.get(columnaId) ?? 0) + 1 > limite) {
+      toast.warning(`«${columna.nombre}» pasó su límite de ${limite} tarjetas`, {
+        description: "Conviene terminar alguna antes de sumar más.",
+      });
+    }
+  }
 
   // Mientras se arrastra manda el estado local; en reposo, la caché del servidor.
   const vista = activo?.tipo === "card" ? items : agrupadas;
@@ -200,6 +222,7 @@ export function Kanban({
         .indexOf(cardId);
       if (antes === posicion) return;
     }
+    if (original && original.columna !== hacia) avisarSiSePasa(hacia);
     // Síncrono: la tarjeta queda donde se soltó sin un fotograma de rebote.
     moverEnCache(qc, tablero.id, cardId, hacia, posicion);
     mover.mutate({ cardId, columna: hacia, posicion });
@@ -215,6 +238,7 @@ export function Kanban({
 
   async function crear(columnaId: number, titulo: string) {
     const card = await crearCard.mutateAsync({ titulo, columna: columnaId });
+    avisarSiSePasa(columnaId);
     setNuevas((s) => new Set(s).add(card.id));
     window.setTimeout(
       () =>
@@ -286,6 +310,8 @@ export function Kanban({
                   onAlternarGantt={(col) =>
                     editarColumna.mutate({ id: col.id, cambios: { incluir_en_gantt: !col.incluir_en_gantt } })
                   }
+                  onLimite={setLimitando}
+                  total={totales.get(id) ?? 0}
                   onArchivar={setArchivando}
                 />
               );
@@ -316,6 +342,13 @@ export function Kanban({
           Hay filtros activos: al mover una tarjeta se ubica junto a las que ves.
         </p>
       )}
+
+      <LimiteColumnaDialogo
+        tableroId={tablero.id}
+        columna={limitando}
+        total={limitando ? (totales.get(limitando.id) ?? 0) : 0}
+        onCerrar={() => setLimitando(null)}
+      />
 
       <ArchivarColumnaDialogo
         tablero={tablero}

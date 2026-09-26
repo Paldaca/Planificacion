@@ -1,7 +1,7 @@
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Archive, ChartGantt, CircleCheck, CircleDot, Ellipsis, EyeOff, GripVertical, Pencil } from "lucide-react";
+import { Archive, ChartGantt, CircleCheck, CircleDot, Ellipsis, EyeOff, Gauge, GripVertical, Pencil } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 import type { CardResumen, Columna } from "@/api/tipos";
@@ -25,6 +25,9 @@ type Props = {
   onRenombrar: (columna: Columna, nombre: string) => void;
   onAlternarFinal: (columna: Columna) => void;
   onAlternarGantt: (columna: Columna) => void;
+  onLimite: (columna: Columna) => void;
+  /** Tarjetas de la columna sin filtros (para el límite). */
+  total: number;
   onArchivar: (columna: Columna) => void;
   indice: number;
 };
@@ -42,6 +45,8 @@ export function ColumnaKanban({
   onRenombrar,
   onAlternarFinal,
   onAlternarGantt,
+  onLimite,
+  total,
   onArchivar,
   indice,
 }: Props) {
@@ -139,9 +144,30 @@ export function ColumnaKanban({
             <title>Sus tarjetas no aparecen en el Gantt</title>
           </EyeOff>
         )}
-        <span className="rounded-full bg-white px-2 py-0.5 text-[0.72rem] font-bold text-tenue tabular-nums">
-          {cards.length}
-        </span>
+        {columna.limite_cards ? (
+          <span
+            className={cn(
+              "rounded-full px-2 py-0.5 text-[0.72rem] font-bold tabular-nums transition-colors",
+              total > columna.limite_cards
+                ? "bg-[#fef2f2] text-[#dc2626]"
+                : total === columna.limite_cards
+                  ? "bg-[#fffbeb] text-[#b45309]"
+                  : "bg-white text-tenue",
+            )}
+            title={
+              total > columna.limite_cards
+                ? `Pasó su límite de ${columna.limite_cards} tarjetas`
+                : `Límite: ${columna.limite_cards} tarjetas`
+            }
+          >
+            {cards.length !== total ? `${cards.length} · ` : ""}
+            {total}/{columna.limite_cards}
+          </span>
+        ) : (
+          <span className="rounded-full bg-white px-2 py-0.5 text-[0.72rem] font-bold text-tenue tabular-nums">
+            {cards.length}
+          </span>
+        )}
         {puedeGestionar && (
           <Menu
             disparador={
@@ -155,6 +181,9 @@ export function ColumnaKanban({
             </ItemMenu>
             <ItemMenu icono={CircleCheck} onSelect={() => onAlternarFinal(columna)}>
               {columna.es_final ? "Quitar como columna final" : "Marcar como columna final"}
+            </ItemMenu>
+            <ItemMenu icono={Gauge} onSelect={() => onLimite(columna)}>
+              {columna.limite_cards ? `Límite: ${columna.limite_cards} tarjetas…` : "Límite de tarjetas…"}
             </ItemMenu>
             <ItemMenu icono={columna.incluir_en_gantt ? EyeOff : ChartGantt} onSelect={() => onAlternarGantt(columna)}>
               {columna.incluir_en_gantt ? "Sacar del Gantt" : "Incluir en el Gantt"}

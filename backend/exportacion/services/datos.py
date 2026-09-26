@@ -13,7 +13,7 @@ from __future__ import annotations
 import datetime
 import re
 import unicodedata
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from django.utils import timezone
 
@@ -37,6 +37,7 @@ class Filtros:
     texto: str = ""
     urgencias: tuple[str, ...] = ()
     responsables: tuple[int, ...] = ()
+    etiquetas: tuple[int, ...] = ()
     solo_vencidas: bool = False
 
     @classmethod
@@ -48,6 +49,7 @@ class Filtros:
             texto=(params.get("q") or "").strip().lower(),
             urgencias=tuple(params.getlist("urgencia")),
             responsables=enteros("responsable"),
+            etiquetas=enteros("etiqueta"),
             solo_vencidas=params.get("vencidas") in ("1", "true"),
         )
 
@@ -62,6 +64,9 @@ class Filtros:
         if self.responsables:
             nombres = [nombre_persona(p) for p in tablero.personas_asignables() if p.pk in self.responsables]
             partes.append("Responsable: " + ", ".join(nombres or ["(ninguno del tablero)"]))
+        if self.etiquetas:
+            nombres = [e.nombre for e in tablero.etiquetas.all() if e.pk in self.etiquetas]
+            partes.append("Etiqueta: " + ", ".join(nombres or ["(ninguna del tablero)"]))
         if self.solo_vencidas:
             partes.append("Solo vencidas o por vencer")
         return " · ".join(partes)
@@ -74,6 +79,8 @@ class Filtros:
             if self.urgencias and c.urgencia not in self.urgencias:
                 continue
             if self.responsables and not {a.usuario_id for a in c.asignaciones.all()} & set(self.responsables):
+                continue
+            if self.etiquetas and not {e.pk for e in c.etiquetas.all()} & set(self.etiquetas):
                 continue
             if self.solo_vencidas and vencimiento(c, hoy, umbral) not in ("vencida", "vence_pronto"):
                 continue
@@ -92,6 +99,8 @@ class Contenido:
     umbral: int
     #: Filtros aplicados en palabras («» = todas las tarjetas activas).
     filtros: str = ""
+    #: Campos personalizados activos del tablero (una columna cada uno).
+    campos: list = field(default_factory=list)
 
     def vencimiento(self, card: Card) -> str:
         return vencimiento(card, self.hoy, self.umbral)
@@ -104,7 +113,7 @@ def contenido(tablero: Tablero, filtros: Filtros | None = None) -> Contenido:
         Card.objects.filter(tablero=tablero)
         .activas()
         .select_related("columna")
-        .prefetch_related("asignaciones__usuario", "checklist")
+        .prefetch_related("asignaciones__usuario", "checklist", "etiquetas")
         .order_by("columna__orden", "orden", "id")
     )
     if filtros:
@@ -122,10 +131,15 @@ def contenido(tablero: Tablero, filtros: Filtros | None = None) -> Contenido:
         hoy=hoy,
         umbral=umbral,
         filtros=filtros.describir(tablero) if filtros else "",
+        campos=list(tablero.campos.filter(archivado=False)),
     )
 
 
 # --- Texto compartido -------------------------------------------------------------------
+
+
+def etiquetas_texto(card: Card) -> str:
+    return ", ".join(e.nombre for e in card.etiquetas.all())
 
 
 def responsables_texto(card: Card) -> str:

@@ -3,6 +3,7 @@ import { useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+import { usePlantillas, useUsarPlantilla } from "@/api/plantillas";
 import { useCrearEquipo, useCrearTablero, useEditarEquipo } from "@/api/queries";
 import type { Equipo } from "@/api/tipos";
 import { Boton } from "@/components/ui/Boton";
@@ -10,9 +11,11 @@ import { AreaTexto, Campo, Entrada } from "@/components/ui/Campos";
 import { Dialogo } from "@/components/ui/Dialogo";
 import { useAlAbrir } from "@/hooks/useAlAbrir";
 import { cn } from "@/lib/cn";
+import { aISO } from "@/lib/dias";
 import { COLORES_EQUIPO } from "@/lib/estilos";
+import { hoy } from "@/lib/fechas";
 
-function SelectorColor({ valor, onCambio }: { valor: string; onCambio: (c: string) => void }) {
+export function SelectorColor({ valor, onCambio }: { valor: string; onCambio: (c: string) => void }) {
   return (
     <div className="flex flex-wrap gap-2.5">
       {COLORES_EQUIPO.map((color) => {
@@ -135,28 +138,44 @@ export function TableroDialogo({
   onCerrar,
   equipos,
   equipoInicial = null,
+  plantillaInicial = null,
 }: {
   abierto: boolean;
   onCerrar: () => void;
   equipos: Equipo[];
   /** Equipo preseleccionado (desde la sección de un equipo); `null` = personal. */
   equipoInicial?: number | null;
+  /** Plantilla preseleccionada (desde el diálogo de plantillas). */
+  plantillaInicial?: number | null;
 }) {
   const navigate = useNavigate();
   const crear = useCrearTablero();
+  const usar = useUsarPlantilla();
+  const { data: plantillas = [] } = usePlantillas(abierto);
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [equipo, setEquipo] = useState<number | null>(equipoInicial);
+  const [plantilla, setPlantilla] = useState<number | null>(plantillaInicial);
+  const [inicio, setInicio] = useState(() => aISO(hoy()));
 
   useAlAbrir(abierto, () => {
     setNombre("");
     setDescripcion("");
     setEquipo(equipoInicial);
+    setPlantilla(plantillaInicial);
+    setInicio(aISO(hoy()));
   });
 
   const elegido = equipos.find((e) => e.id === equipo);
+  const molde = plantillas.find((p) => p.id === plantilla);
 
   async function guardar() {
+    if (molde) {
+      const r = await usar.mutateAsync({ id: molde.id, nombre: nombre.trim(), equipo, fecha_inicio: inicio });
+      onCerrar();
+      navigate(`/tableros/${r.tablero}`);
+      return;
+    }
     const t = await crear.mutateAsync({ nombre: nombre.trim(), descripcion, equipo });
     onCerrar();
     navigate(`/tableros/${t.id}`);
@@ -173,7 +192,11 @@ export function TableroDialogo({
       abierto={abierto}
       onCambio={(v) => !v && onCerrar()}
       titulo="Nuevo tablero"
-      descripcion="Empieza con las columnas Tareas, En curso y Hecho; podrás cambiarlas."
+      descripcion={
+        molde
+          ? "Con la estructura y las tarjetas de la plantilla; las fechas empiezan el día que elijas."
+          : "Empieza con las columnas Tareas, En curso y Hecho; podrás cambiarlas."
+      }
       icono={LayoutGrid}
       color={elegido?.color}
       pie={
@@ -181,7 +204,11 @@ export function TableroDialogo({
           <Boton variante="secundario" onClick={onCerrar}>
             Cancelar
           </Boton>
-          <Boton onClick={() => void guardar()} cargando={crear.isPending} disabled={!nombre.trim()}>
+          <Boton
+            onClick={() => void guardar()}
+            cargando={crear.isPending || usar.isPending}
+            disabled={!nombre.trim() || (molde !== undefined && !inicio)}
+          >
             Crear tablero
           </Boton>
         </>
@@ -234,9 +261,40 @@ export function TableroDialogo({
             onKeyDown={(e) => e.key === "Enter" && nombre.trim() && void guardar()}
           />
         </Campo>
-        <Campo etiqueta="Descripción" ayuda="Opcional.">
-          <AreaTexto value={descripcion} rows={3} maxLength={2000} onChange={(e) => setDescripcion(e.target.value)} />
-        </Campo>
+        {plantillas.length > 0 && (
+          <Campo
+            etiqueta="Empezar con"
+            ayuda={
+              molde
+                ? `${molde.resumen.columnas} columnas · ${molde.resumen.tarjetas} tarjetas` +
+                  (molde.resumen.duracion ? ` · ${molde.resumen.duracion} días hábiles` : "") +
+                  (molde.descripcion ? ` — ${molde.descripcion}` : "")
+                : undefined
+            }
+          >
+            <select
+              value={plantilla ?? ""}
+              onChange={(e) => setPlantilla(e.target.value ? Number(e.target.value) : null)}
+              className="h-10 w-full rounded-xl border border-linea bg-white px-3 text-sm text-texto outline-none focus:border-morado/50"
+            >
+              <option value="">Columnas por defecto (Tareas · En curso · Hecho)</option>
+              {plantillas.map((p) => (
+                <option key={p.id} value={p.id}>
+                  Plantilla: {p.nombre}
+                </option>
+              ))}
+            </select>
+          </Campo>
+        )}
+        {molde ? (
+          <Campo etiqueta="Fecha de inicio" ayuda="Si cae en un día no hábil, empieza el siguiente hábil.">
+            <Entrada type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} />
+          </Campo>
+        ) : (
+          <Campo etiqueta="Descripción" ayuda="Opcional.">
+            <AreaTexto value={descripcion} rows={3} maxLength={2000} onChange={(e) => setDescripcion(e.target.value)} />
+          </Campo>
+        )}
       </div>
     </Dialogo>
   );
