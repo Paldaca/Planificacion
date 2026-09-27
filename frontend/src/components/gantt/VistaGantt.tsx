@@ -2,6 +2,7 @@ import { ChartGantt, ChevronDown, CircleCheck, EyeOff, Link2, Locate, Minus, Plu
 import { Popover } from "radix-ui";
 import {
   memo,
+  useEffect,
   useEffectEvent,
   useLayoutEffect,
   useMemo,
@@ -19,6 +20,7 @@ import {
   useProgramarCard,
 } from "@/api/queries";
 import type { CardResumen, Dependencia, TableroDetalle, TipoDependencia } from "@/api/tipos";
+import { NuevaTareaDialogo } from "@/components/gantt/NuevaTareaDialogo";
 import { PilaAvatares } from "@/components/ui/Avatar";
 import { Boton } from "@/components/ui/Boton";
 import { Pildora } from "@/components/ui/Estados";
@@ -27,7 +29,7 @@ import { useEstable } from "@/hooks/useEstable";
 import { usePreferencia } from "@/hooks/usePreferencia";
 import { cn } from "@/lib/cn";
 import { MESES_LARGOS, aISO, diferencia, esFinDeSemana, inicioMes, sumarDias, sumarDiasISO } from "@/lib/dias";
-import { URGENCIAS } from "@/lib/estilos";
+import { URGENCIAS, VENCIMIENTOS } from "@/lib/estilos";
 import { hoy as hoyLocal, parsearDia, rangoCorto } from "@/lib/fechas";
 import {
   ALTO_BARRA,
@@ -35,6 +37,7 @@ import {
   ALTO_GRUPO,
   ETIQUETAS_TIPO,
   PX_POR_DIA,
+  avanceDe,
   cajas,
   calcularRango,
   construirFilas,
@@ -42,6 +45,7 @@ import {
   rutaFlecha,
   xDeFecha,
   type Agrupacion,
+  type Avance,
   type Fila,
   type Zoom,
 } from "@/lib/gantt";
@@ -130,10 +134,13 @@ export function VistaGantt({
   tablero,
   visibles,
   onAbrir,
+  onVerAtrasadas,
 }: {
   tablero: TableroDetalle;
   visibles: CardResumen[];
   onAbrir: (card: CardResumen) => void;
+  /** Filtra el tablero a lo vencido o por vencer (desde el resumen). */
+  onVerAtrasadas?: () => void;
 }) {
   const [zoom, setZoom] = usePreferencia<Zoom>("gantt:zoom", "dia", ["dia", "semana", "mes"]);
   const [agrupar, setAgrupar] = usePreferencia<Agrupacion>("gantt:agrupar", "columna", [
@@ -149,6 +156,10 @@ export function VistaGantt({
   const [colocando, setColocando] = useState<Colocando | null>(null);
   const [seleccion, setSeleccion] = useState<Seleccion | null>(null);
   const [resaltada, setResaltada] = useState<number | null>(null);
+  const [creando, setCreando] = useState(false);
+  /** Tarjeta recién creada: se lleva a la vista en cuanto tiene barra. */
+  const [enfocar, setEnfocar] = useState<number | null>(null);
+  const temporizadorResalte = useRef<number | undefined>(undefined);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const etiquetasRef = useRef<HTMLDivElement>(null);
@@ -215,12 +226,49 @@ export function VistaGantt({
     const vigente = vertical
       ? filas.find((f) => f.tipo === "card" && f.card.fecha_fin !== null && f.card.fecha_fin >= hoyISO)
       : undefined;
+    // La columna de títulos es fija y tapa la izquierda: cuenta solo lo visible.
+    const visible = el.clientWidth - (etiquetasRef.current?.offsetWidth ?? 0);
     el.scrollTo({
-      left: Math.max(0, x - el.clientWidth * 0.3),
+      left: Math.max(0, x - visible * 0.3),
       top: vigente ? Math.max(0, vigente.y - ALTO_FILA) : el.scrollTop,
       behavior: comportamiento,
     });
   }
+
+  useLayoutEffect(() => {
+    if (enfocar === null) return;
+    const caja = posiciones.get(enfocar);
+    const el = scrollRef.current;
+    if (!caja || !el) return;
+    const visible = el.clientWidth - (etiquetasRef.current?.offsetWidth ?? 0);
+    el.scrollTo({ left: Math.max(0, caja.x1 - visible * 0.25), top: Math.max(0, caja.y - ALTO_FILA * 2), behavior: "smooth" });
+    const id = enfocar;
+    setResaltada(id);
+    setEnfocar(null);
+    // En una ref: si el temporizador dependiera del efecto, al poner `enfocar`
+    // a null se cancelaría y la fila quedaría resaltada.
+    window.clearTimeout(temporizadorResalte.current);
+    temporizadorResalte.current = window.setTimeout(() => setResaltada((r) => (r === id ? null : r)), 2500);
+  }, [enfocar, posiciones]);
+  useEffect(() => () => window.clearTimeout(temporizadorResalte.current), []);
+
+  const avance = useMemo(() => avanceDe(incluidas), [incluidas]);
+  const porVencer = useMemo(() => incluidas.filter((c) => c.vencimiento === "vence_pronto").length, [incluidas]);
+
+  const dialogoNueva = puede && (
+    <NuevaTareaDialogo
+      tablero={tablero}
+      abierto={creando}
+      onCerrar={() => setCreando(false)}
+      onCreada={(card) => setEnfocar(card.id)}
+    />
+  );
+  const botonNueva = puede && (
+    <Boton tamano="sm" onClick={() => setCreando(true)}>
+      <Plus />
+      Tarea
+    </Boton>
+  );
 
   function alternarGrupo(clave: string) {
     setPlegados((p) => {
@@ -362,8 +410,10 @@ export function VistaGantt({
             ? "Las tarjetas visibles están fuera del Gantt. Actívalo desde el menú de una columna («Incluir en el Gantt») o desde cada tarjeta."
             : tablero.cards.length
               ? "Ninguna tarjeta coincide con los filtros."
-              : "Crea tarjetas con fecha de inicio y fin para verlas en la línea de tiempo."}
+              : "Crea tareas con fecha de inicio y fin para verlas en la línea de tiempo."}
         </p>
+        {botonNueva && <div className="mt-4 flex justify-center">{botonNueva}</div>}
+        {dialogoNueva}
       </div>
     );
   }
@@ -376,6 +426,7 @@ export function VistaGantt({
       <div className="min-w-0 overflow-hidden rounded-2xl border border-linea bg-white shadow-[0_18px_40px_-32px_rgba(20,22,68,0.45)]">
         {/* Barra de herramientas */}
         <div className="flex flex-wrap items-center gap-2 border-b border-linea px-3 py-2.5">
+          {botonNueva}
           <div className="flex items-center gap-0.5 rounded-lg bg-fondo p-0.5" role="radiogroup" aria-label="Zoom">
             {ZOOMS.map((z) => (
               <button
@@ -439,6 +490,8 @@ export function VistaGantt({
           </div>
         </div>
 
+        <ResumenAvance avance={avance} porVencer={porVencer} sinFechas={sinFechas.length} onVerAtrasadas={onVerAtrasadas} />
+
         {/* Cuerpo desplazable: etiquetas fijas a la izquierda, escala fija arriba */}
         <div
           ref={scrollRef}
@@ -467,7 +520,20 @@ export function VistaGantt({
                       <ChevronDown className={cn("size-3.5 text-tenue transition-transform", plegados.has(f.clave) && "-rotate-90")} />
                       <span className="size-2 rounded-full" style={{ background: f.color }} />
                       <span className="truncate">{f.titulo}</span>
-                      <span className="ml-auto font-semibold text-tenue tabular-nums">{f.total}</span>
+                      {f.vencidas > 0 && (
+                        <span
+                          className="ml-auto rounded-full bg-[#fef2f2] px-1.5 text-[0.68rem] font-bold text-[#dc2626] tabular-nums"
+                          title={f.vencidas === 1 ? "1 vencida" : `${f.vencidas} vencidas`}
+                        >
+                          {f.vencidas}
+                        </span>
+                      )}
+                      <span
+                        className={cn("font-semibold text-tenue tabular-nums", !f.vencidas && "ml-auto")}
+                        title={`${f.hechas} de ${f.total} terminadas`}
+                      >
+                        {f.hechas}/{f.total}
+                      </span>
                     </button>
                   ) : (
                     <EtiquetaCard key={f.card.id} fila={f} onAbrir={alAbrir} resaltada={resaltada === f.card.id} onResaltar={setResaltada} />
@@ -486,6 +552,9 @@ export function VistaGantt({
                 onPointerDown={() => setSeleccion(null)}
               >
                 <Fondo rango={r} px={px} feriados={feriadosPorDia} filas={filas} alto={altoCuerpo} />
+                {filas.map((f) =>
+                  f.tipo === "grupo" && f.desde && f.hasta ? <ResumenGrupo key={`r-${f.clave}`} fila={f} rango={r} px={px} /> : null,
+                )}
                 {diaColocando && (
                   <div
                     className="pointer-events-none absolute inset-y-0 z-[2] bg-morado/12 ring-1 ring-morado/40 ring-inset"
@@ -570,6 +639,7 @@ export function VistaGantt({
         </div>
       </div>
 
+      {dialogoNueva}
       {sinFechas.length > 0 && (
         <Bandeja
           cards={sinFechas}
@@ -581,6 +651,82 @@ export function VistaGantt({
           onPointerCancel={() => setColocando(null)}
         />
       )}
+    </div>
+  );
+}
+
+// --- Avance (para quien sigue al equipo) -----------------------------------------------------
+
+/** Una línea: cuánto va terminado del Gantt visible y qué está atrasado. */
+function ResumenAvance({
+  avance,
+  porVencer,
+  sinFechas,
+  onVerAtrasadas,
+}: {
+  avance: Avance;
+  porVencer: number;
+  sinFechas: number;
+  onVerAtrasadas?: () => void;
+}) {
+  const pct = avance.total ? Math.round((avance.hechas / avance.total) * 100) : 0;
+  const atrasos = [
+    avance.vencidas > 0 && { n: avance.vencidas, texto: avance.vencidas === 1 ? "vencida" : "vencidas", color: VENCIMIENTOS.vencida!.color },
+    porVencer > 0 && { n: porVencer, texto: porVencer === 1 ? "vence pronto" : "vencen pronto", color: VENCIMIENTOS.vence_pronto!.color },
+  ].filter((a): a is { n: number; texto: string; color: string } => Boolean(a));
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-linea/70 bg-fondo/40 px-3 py-2 text-xs">
+      <div className="flex min-w-48 flex-1 items-center gap-2.5">
+        <span className="font-semibold text-marino tabular-nums">{pct}% terminado</span>
+        <span className="h-1.5 max-w-56 flex-1 overflow-hidden rounded-full bg-linea/70">
+          <span className="block h-full rounded-full bg-[#059669] transition-[width] duration-500" style={{ width: `${pct}%` }} />
+        </span>
+        <span className="text-tenue tabular-nums">
+          {avance.hechas} de {avance.total}
+        </span>
+      </div>
+      {atrasos.map((a) =>
+        onVerAtrasadas ? (
+          <button
+            key={a.texto}
+            type="button"
+            onClick={onVerAtrasadas}
+            className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 font-semibold hover:bg-white pointer-coarse:py-2"
+            style={{ color: a.color }}
+            title="Ver solo lo vencido o por vencer"
+          >
+            <span className="size-2 rounded-full" style={{ background: a.color }} />
+            {a.n} {a.texto}
+          </button>
+        ) : (
+          <span key={a.texto} className="inline-flex items-center gap-1.5 font-semibold" style={{ color: a.color }}>
+            <span className="size-2 rounded-full" style={{ background: a.color }} />
+            {a.n} {a.texto}
+          </span>
+        ),
+      )}
+      {sinFechas > 0 && <span className="text-tenue">{sinFechas} sin fechas</span>}
+    </div>
+  );
+}
+
+/** Barra resumen del grupo (como una tarea resumen de Project): su tramo y cuánto va hecho. */
+function ResumenGrupo({ fila, rango, px }: { fila: Extract<Fila, { tipo: "grupo" }>; rango: Rango; px: number }) {
+  const x1 = xDeFecha(fila.desde!, rango, px);
+  const x2 = xDeFecha(fila.hasta!, rango, px) + px;
+  const pct = fila.total ? (fila.hechas / fila.total) * 100 : 0;
+  return (
+    <div
+      className="absolute z-[4] h-1.5 overflow-hidden rounded-full"
+      style={{
+        left: x1,
+        width: Math.max(x2 - x1, 6),
+        top: fila.y + ALTO_GRUPO / 2 - 3,
+        background: `color-mix(in srgb, ${fila.color} 22%, #fff)`,
+      }}
+      title={`${fila.titulo}: ${fila.hechas} de ${fila.total} terminadas${fila.vencidas ? ` · ${fila.vencidas} ${fila.vencidas === 1 ? "vencida" : "vencidas"}` : ""} · ${rangoCorto(fila.desde, fila.hasta)}`}
+    >
+      <div className="h-full" style={{ width: `${pct}%`, background: fila.color }} />
     </div>
   );
 }

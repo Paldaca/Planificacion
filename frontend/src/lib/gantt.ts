@@ -42,9 +42,27 @@ export function calcularRango(cards: CardResumen[], zoom: Zoom, hoy: Date, diasV
 
 // --- Filas ------------------------------------------------------------------------------
 
+/** Avance de un grupo: lo que ve el jefe de un vistazo (y la barra resumen). */
+export type Avance = { total: number; hechas: number; vencidas: number; desde: string | null; hasta: string | null };
+
 export type Fila =
-  | { tipo: "grupo"; clave: string; titulo: string; color: string; total: number; y: number }
+  | ({ tipo: "grupo"; clave: string; titulo: string; color: string; y: number } & Avance)
   | { tipo: "card"; card: CardResumen; y: number };
+
+/** Terminadas, vencidas y tramo (primer inicio – último fin) de unas tarjetas. */
+export function avanceDe(cards: CardResumen[]): Avance {
+  let desde: string | null = null;
+  let hasta: string | null = null;
+  let hechas = 0;
+  let vencidas = 0;
+  for (const c of cards) {
+    if (c.vencimiento === "terminada") hechas += 1;
+    else if (c.vencimiento === "vencida") vencidas += 1;
+    if (c.fecha_inicio && (desde === null || c.fecha_inicio < desde)) desde = c.fecha_inicio;
+    if (c.fecha_fin && (hasta === null || c.fecha_fin > hasta)) hasta = c.fecha_fin;
+  }
+  return { total: cards.length, hechas, vencidas, desde, hasta };
+}
 
 function grupoDe(card: CardResumen, agrupar: Agrupacion, columnas: Map<number, Columna>) {
   switch (agrupar) {
@@ -97,7 +115,7 @@ export function construirFilas(
     ([, a], [, b]) => a.orden - b.orden || a.titulo.localeCompare(b.titulo, "es"),
   );
   for (const [clave, g] of ordenados) {
-    filas.push({ tipo: "grupo", clave, titulo: g.titulo, color: g.color, total: g.cards.length, y });
+    filas.push({ tipo: "grupo", clave, titulo: g.titulo, color: g.color, ...avanceDe(g.cards), y });
     y += ALTO_GRUPO;
     if (plegados.has(clave)) continue;
     for (const card of g.cards.sort(porInicio)) {

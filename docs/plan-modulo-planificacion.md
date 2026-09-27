@@ -487,6 +487,12 @@ crece a mitad de camino: lo nuevo va a la siguiente.
   del backend (con el build de producción el Portal local no recibía `ready` y
   mostraba «¿No ves el contenido?»), la ruta informada ya no lleva
   `paldaca_embed`, y en el Portal ese aviso se puede cerrar.
+- **Gantt para seguir al equipo** (el módulo central: el equipo carga tareas,
+  quien lo dirige sigue el avance y lo exporta): «+ Tarea» en el propio Gantt
+  (un paso en vez de 8–10 cambiando de vista, con «Crear y añadir otra» en
+  secuencia), resumen de avance (% terminado, vencidas, por vencer, sin fechas)
+  con atajo a lo atrasado, y avance por grupo (hechas/total, vencidas y barra
+  resumen por persona, columna o urgencia).
 - Correcciones: `frontend/src/lib/` no se versionaba por un patrón del
   `.gitignore` (`c116d13`); la lista de *Archivadas* mostraba la caché vacía
   al reabrirla (`e8d521c`).

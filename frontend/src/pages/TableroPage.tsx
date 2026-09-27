@@ -273,7 +273,14 @@ export default function TableroPage() {
       {vista === "tablero" && <Kanban tablero={tablero} visibles={visibles} filtrando={hayFiltros(vigentes)} onAbrir={abrir} />}
       {vista === "lista" && <VistaLista tablero={tablero} visibles={visibles} onAbrir={abrir} />}
       {calendario.modulo && <calendario.modulo.VistaCalendario tablero={tablero} visibles={visibles} onAbrir={abrir} />}
-      {gantt.modulo && <gantt.modulo.VistaGantt tablero={tablero} visibles={visibles} onAbrir={abrir} />}
+      {gantt.modulo && (
+        <gantt.modulo.VistaGantt
+          tablero={tablero}
+          visibles={visibles}
+          onAbrir={abrir}
+          onVerAtrasadas={() => setFiltros((f) => ({ ...f, soloVencidas: true }))}
+        />
+      )}
       {(vista === "gantt" || vista === "calendario") &&
         !diferida.modulo &&
         (diferida.error ? (

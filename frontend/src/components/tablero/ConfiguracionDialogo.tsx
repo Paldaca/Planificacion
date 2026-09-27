@@ -56,10 +56,11 @@ export function ConfiguracionDialogo({
       <div className="mb-4 flex gap-1 rounded-xl bg-fondo p-1" role="tablist">
         {(
           [
-            ["etiquetas", "Etiquetas", Tag, tablero.etiquetas.length],
-            ["campos", "Campos personalizados", Settings2, tablero.campos.filter((c) => !c.archivado).length],
+            ["etiquetas", "Etiquetas", "", Tag, tablero.etiquetas.length],
+            // En el teléfono no cabe el nombre largo junto a «Etiquetas».
+            ["campos", "Campos", " personalizados", Settings2, tablero.campos.filter((c) => !c.archivado).length],
           ] as const
-        ).map(([id, texto, Icono, cantidad]) => (
+        ).map(([id, texto, resto, Icono, cantidad]) => (
           <button
             key={id}
             type="button"
@@ -75,7 +76,10 @@ export function ConfiguracionDialogo({
               <motion.span layoutId="pestana-config" className="absolute inset-0 rounded-lg bg-white shadow-sm" />
             )}
             <Icono className="relative size-4" />
-            <span className="relative">{texto}</span>
+            <span className="relative">
+              {texto}
+              {resto && <span className="max-sm:hidden">{resto}</span>}
+            </span>
             <span className="relative rounded-full bg-columna px-1.5 text-[0.7rem] tabular-nums">{cantidad}</span>
           </button>
         ))}

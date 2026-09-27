@@ -105,6 +105,9 @@ Reglas:
   arrastre. Gantt: deslizar sobre las barras desplaza (tocar abre la tarjeta);
   no se arrastran barras ni se enlazan en táctil.
 - La búsqueda usa 16 px en el teléfono (iOS no hace zoom al enfocarla).
+- `lib/dias.ts` tiene `siguienteLaborableISO`, `sumarLaborablesISO` y
+  `laborablesEntre` (lunes a viernes, **sin feriados**): solo para proponer
+  fechas en formularios; lo que cuenta lo calcula el servidor.
 
 ## Variables de entorno (`.env.development` / `.env.production`)
 

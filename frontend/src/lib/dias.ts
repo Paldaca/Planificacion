@@ -79,3 +79,37 @@ export function nombreMes(fecha: Date): string {
 export function diasIncluidos(inicio: string, fin: string): number {
   return diferencia(inicio, fin) + 1;
 }
+
+// --- Lunes a viernes (propuestas en formularios) ------------------------------
+// Espejo SIN feriados: solo para proponer fechas al crear una tarea. Al
+// guardar, el servidor valida y los vencimientos usan el calendario laboral.
+
+/** El mismo día si es de lunes a viernes; si no, el lunes siguiente. */
+export function siguienteLaborableISO(iso: string): string {
+  let dia = parsearDia(iso);
+  while (esFinDeSemana(dia)) dia = sumarDias(dia, 1);
+  return aISO(dia);
+}
+
+/** Avanza `n` días de lunes a viernes desde `iso` (que se supone laborable). */
+export function sumarLaborablesISO(iso: string, n: number): string {
+  let dia = parsearDia(iso);
+  let restantes = n;
+  while (restantes > 0) {
+    dia = sumarDias(dia, 1);
+    if (!esFinDeSemana(dia)) restantes -= 1;
+  }
+  return aISO(dia);
+}
+
+/** Días de lunes a viernes entre dos fechas, ambas incluidas (0 si fin < inicio). */
+export function laborablesEntre(inicio: string, fin: string): number {
+  let dia = parsearDia(inicio);
+  const hasta = parsearDia(fin);
+  let n = 0;
+  while (dia <= hasta) {
+    if (!esFinDeSemana(dia)) n += 1;
+    dia = sumarDias(dia, 1);
+  }
+  return n;
+}

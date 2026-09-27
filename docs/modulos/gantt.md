@@ -67,6 +67,25 @@ día/semana/mes, bandeja «Sin fechas» (solo si hay tarjetas sin fechas; si no,
 la línea de tiempo usa todo el ancho), flechas incumplidas en rojo punteado,
 interruptor «Mover sucesoras».
 
+Pensado para que un equipo cargue su plan y quien lo dirige siga el avance
+sin esfuerzo:
+
+- **«+ Tarea»** (`NuevaTareaDialogo`, también en el estado vacío): título,
+  responsable (tú por defecto), inicio, fin y urgencia en un paso; la columna
+  es la primera que entra en el Gantt. «Crear y añadir otra» deja la
+  siguiente empezando el día hábil después, con la misma duración. Las
+  fechas propuestas cuentan de lunes a viernes (`lib/dias.ts`, sin feriados);
+  la tarea nueva se lleva a la vista y se resalta 2,5 s.
+- **Resumen de avance** (`ResumenAvance`): % terminado, vencidas, por vencer y
+  sin fechas del Gantt visible; «vencidas / vencen pronto» filtra el tablero a
+  lo atrasado (`onVerAtrasadas`).
+- **Avance por grupo** (`avanceDe` en `lib/gantt.ts`): cada cabecera muestra
+  «hechas/total» y las vencidas, y en la línea de tiempo una barra resumen
+  (primer inicio – último fin, rellena por lo terminado). Agrupado por
+  responsable es la vista del jefe: cómo va cada persona.
+- Desplazamientos (`irAHoy`, tarea nueva): descuentan la columna fija de
+  títulos, que tapa la izquierda de la línea de tiempo.
+
 Carga (medida con un tablero de 400 tarjetas y 200 dependencias):
 
 - El código del Gantt se pide al montar `TableroPage` (en paralelo con los
