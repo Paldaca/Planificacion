@@ -472,6 +472,14 @@ crece a mitad de camino: lo nuevo va a la siguiente.
   del Portal (menú propio solo de respaldo); icono del módulo = Gantt (§6.4) —
   `594fde4` y Portal `d27c0de`.
 - **Gantt adaptable** al espacio de la ventana — `594fde4`.
+- **Recorrido completo con *force login*** (administradora, miembro, lectora,
+  ajena) tras la fase 5, con foco en la carga del Gantt: el detalle de un
+  tablero de 400 tarjetas pasó de 1,6 s a ~0,3 s (días hábiles sin recorrer
+  día a día), el Gantt se pinta en cuanto llegan los datos (sin el retraso de
+  `Suspense`, código y dependencias en paralelo), abre sobre las tarjetas en
+  curso y resaltar o arrastrar ya no repinta las 400 filas. Corregidos: el
+  panel de una dependencia no respondía al ratón, «Añadir tarjeta» no daba el
+  foco al campo y las pestañas del equipo desbordaban en el celular.
 - Correcciones: `frontend/src/lib/` no se versionaba por un patrón del
   `.gitignore` (`c116d13`); la lista de *Archivadas* mostraba la caché vacía
   al reabrirla (`e8d521c`).

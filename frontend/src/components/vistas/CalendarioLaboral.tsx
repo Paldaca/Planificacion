@@ -38,7 +38,7 @@ export function BotonCalendarioLaboral() {
 
 function CalendarioLaboralDialogo({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => void }) {
   const [anio, setAnio] = useState(() => new Date().getFullYear());
-  const { data, isLoading } = useFeriados(`${anio}-01-01`, `${anio}-12-31`);
+  const { data, isLoading } = useFeriados(`${anio}-01-01`, `${anio}-12-31`, abierto);
   const crear = useCrearFeriado();
   const eliminar = useEliminarFeriado();
   const [nuevo, setNuevo] = useState({ fecha: "", nombre: "", recurrente: false });

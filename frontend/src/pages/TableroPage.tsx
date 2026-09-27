@@ -9,10 +9,11 @@ import {
   LayoutTemplate,
   Lock,
   Pencil,
+  RefreshCw,
   Settings2,
   UsersRound,
 } from "lucide-react";
-import { lazy, Suspense, useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -21,11 +22,12 @@ import {
   useArchivadas,
   useArchivarCard,
   useArchivarTablero,
+  useDependencias,
   useEditarTablero,
   useExportar,
   useTablero,
 } from "@/api/queries";
-import type { CardResumen } from "@/api/tipos";
+import type { CardResumen, Vista } from "@/api/tipos";
 import { CardDialogo } from "@/components/card/CardDialogo";
 import { Encabezado } from "@/components/layout/Encabezado";
 import { GuardarPlantillaDialogo } from "@/components/plantillas/GuardarPlantillaDialogo";
@@ -43,15 +45,23 @@ import { Entrada, Campo, AreaTexto } from "@/components/ui/Campos";
 import { Esqueleto, Pildora, Vacio } from "@/components/ui/Estados";
 import { ItemMenu, Menu, SeparadorMenu } from "@/components/ui/Menu";
 import { useAlAbrir } from "@/hooks/useAlAbrir";
+import { moduloDiferido, useModuloDiferido } from "@/hooks/useModuloDiferido";
 import { ContextoConfigTablero, useValorConfigTablero } from "@/hooks/useConfigTablero";
 import { useTitulo } from "@/hooks/useTitulo";
 import { useVista } from "@/hooks/useVista";
 import { VistaLista } from "@/components/vistas/VistaLista";
 import { ROLES } from "@/lib/estilos";
 
-// Calendario y Gantt se cargan al elegirlos: el Kanban abre sin su peso.
-const VistaCalendario = lazy(() => import("@/components/vistas/VistaCalendario").then((m) => ({ default: m.VistaCalendario })));
-const VistaGantt = lazy(() => import("@/components/gantt/VistaGantt").then((m) => ({ default: m.VistaGantt })));
+// Calendario y Gantt se cargan al elegirlos: el Kanban abre sin su peso. Su
+// código se pide al montar la página (en paralelo con los datos, no en
+// cascada) y al acercarse a su botón.
+const moduloCalendario = moduloDiferido(() => import("@/components/vistas/VistaCalendario"));
+const moduloGantt = moduloDiferido(() => import("@/components/gantt/VistaGantt"));
+
+function precargarVista(vista: Vista) {
+  const modulo = vista === "gantt" ? moduloGantt : vista === "calendario" ? moduloCalendario : null;
+  modulo?.cargar().catch(() => {}); // si falla, la vista lo muestra al abrirse
+}
 
 export default function TableroPage() {
   const { tableroId } = useParams();
@@ -72,6 +82,11 @@ export default function TableroPage() {
   const config = useValorConfigTablero(tablero);
 
   useTitulo(tablero?.nombre);
+  const calendario = useModuloDiferido(moduloCalendario, vista === "calendario");
+  const gantt = useModuloDiferido(moduloGantt, vista === "gantt");
+  // Las dependencias del Gantt se piden junto con el tablero, no tras su primer render.
+  useDependencias(id, vista === "gantt");
+  const diferida = vista === "gantt" ? gantt : calendario;
 
   // Una etiqueta eliminada deja de filtrar (si no, el tablero quedaría vacío sin chip que quitar).
   const vigentes = useMemo(
@@ -151,7 +166,7 @@ export default function TableroPage() {
         }
         acciones={
           <>
-            <SelectorVista vista={vista} onCambio={setVista} />
+            <SelectorVista vista={vista} onCambio={setVista} onPrecargar={precargarVista} />
             <Menu
               disparador={
                 <Boton variante="secundario" tamano="sm" cargando={exportar.isPending}>
@@ -233,10 +248,25 @@ export default function TableroPage() {
 
       {vista === "tablero" && <Kanban tablero={tablero} visibles={visibles} filtrando={hayFiltros(vigentes)} onAbrir={abrir} />}
       {vista === "lista" && <VistaLista tablero={tablero} visibles={visibles} onAbrir={abrir} />}
-      <Suspense fallback={<Esqueleto className="h-[60vh] rounded-2xl" />}>
-        {vista === "calendario" && <VistaCalendario tablero={tablero} visibles={visibles} onAbrir={abrir} />}
-        {vista === "gantt" && <VistaGantt tablero={tablero} visibles={visibles} onAbrir={abrir} />}
-      </Suspense>
+      {calendario.modulo && <calendario.modulo.VistaCalendario tablero={tablero} visibles={visibles} onAbrir={abrir} />}
+      {gantt.modulo && <gantt.modulo.VistaGantt tablero={tablero} visibles={visibles} onAbrir={abrir} />}
+      {(vista === "gantt" || vista === "calendario") &&
+        !diferida.modulo &&
+        (diferida.error ? (
+          <Vacio
+            icono={RefreshCw}
+            titulo="No se pudo cargar esta vista"
+            texto="Puede que la conexión haya fallado o que haya una versión nueva del programa."
+            accion={
+              <Boton variante="secundario" onClick={diferida.reintentar}>
+                <RefreshCw />
+                Reintentar
+              </Boton>
+            }
+          />
+        ) : (
+          <Esqueleto className="h-[60vh] rounded-2xl" />
+        ))}
 
       <ImportarDialogo tableroId={id} abierto={importando} onCerrar={() => setImportando(false)} />
       <ConfiguracionDialogo tablero={tablero} abierto={configurando} onCerrar={() => setConfigurando(false)} />

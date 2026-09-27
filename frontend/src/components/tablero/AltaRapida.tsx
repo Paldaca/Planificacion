@@ -1,6 +1,6 @@
 import { Plus } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import { Boton } from "@/components/ui/Boton";
 
@@ -19,10 +19,6 @@ export function AltaRapida({
   const [abierto, setAbierto] = useState(false);
   const [titulo, setTitulo] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    if (abierto) ref.current?.focus();
-  }, [abierto]);
 
   async function enviar() {
     const limpio = titulo.trim();
@@ -44,8 +40,11 @@ export function AltaRapida({
           className="overflow-hidden"
         >
           <div className="space-y-2 pt-1">
+            {/* autoFocus y no un efecto: con mode="wait" el campo se monta cuando
+                termina la salida del botón, y el efecto llegaba antes (sin campo). */}
             <textarea
               ref={ref}
+              autoFocus
               value={titulo}
               rows={2}
               maxLength={200}

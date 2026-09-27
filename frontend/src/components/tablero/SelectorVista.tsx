@@ -12,7 +12,16 @@ const VISTAS = [
 ] as const;
 
 /** Las cuatro formas de ver el MISMO tablero (mismos datos, mismos permisos). */
-export function SelectorVista({ vista, onCambio }: { vista: Vista; onCambio: (vista: Vista) => void }) {
+export function SelectorVista({
+  vista,
+  onCambio,
+  onPrecargar,
+}: {
+  vista: Vista;
+  onCambio: (vista: Vista) => void;
+  /** Al acercar el puntero o el foco: adelanta la descarga de la vista. */
+  onPrecargar?: (vista: Vista) => void;
+}) {
   return (
     <div className="flex items-center gap-1 rounded-xl border border-linea bg-white p-1" role="tablist" aria-label="Vista del tablero">
       {VISTAS.map(({ id, etiqueta, icono: Icono }) => {
@@ -25,6 +34,8 @@ export function SelectorVista({ vista, onCambio }: { vista: Vista; onCambio: (vi
             aria-selected={activa}
             title={etiqueta}
             onClick={() => !activa && onCambio(id)}
+            onPointerEnter={() => onPrecargar?.(id)}
+            onFocus={() => onPrecargar?.(id)}
             className={cn(
               "relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
               activa ? "text-white" : "text-tenue hover:text-morado",

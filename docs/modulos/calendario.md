@@ -1,6 +1,6 @@
 # Módulo `calendario` (calendario laboral)
 
-> Leer antes de modificar `backend/calendario/`. Revisado: 2026-09-25.
+> Leer antes de modificar `backend/calendario/`. Revisado: 2026-09-26.
 
 ## Responsabilidad
 
@@ -47,7 +47,8 @@ por dos caminos (API y admin).
 
 ## Pruebas
 
-`tests/test_dias_habiles.py` (Pascua, móviles, suma/duración hábil, caché).
+`tests/test_dias_habiles.py` (Pascua, móviles, suma/duración hábil, caché y
+conteo sin recorrer = conteo día a día, cruzando años y feriados).
 
 ## Cuidado al modificar
 
@@ -56,6 +57,13 @@ por dos caminos (API y admin).
   para dibujar y para actualizaciones optimistas.)
 - La caché es por proceso si no hay `CACHES` compartida (auditoría A-04).
 - El calendario es de toda la instalación, no por equipo.
+- Rendimiento: `dias_habiles_hasta` cuenta lunes a viernes aritméticamente y
+  resta los feriados del rango (lo llama `vencimiento()` por **cada** tarjeta
+  al serializar un tablero; recorrer día a día hacía que 400 tarjetas
+  tardaran 1,6 s). Los bucles (`siguiente_habil`, `sumar_habiles`) leen los
+  feriados de cada año una sola vez por llamada (`_Habiles`): cada lectura de
+  la caché local deserializa la lista entera. No volver a llamar a
+  `es_habil` día a día en caminos que se ejecutan por tarjeta.
 
 ## Relacionado
 

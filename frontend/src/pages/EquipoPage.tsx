@@ -164,7 +164,11 @@ export default function EquipoPage() {
         }
       />
 
-      <div className="mb-6 flex animate-rise gap-1 border-b border-linea [animation-delay:80ms]" role="tablist">
+      {/* En el celular las pestañas no caben: sin iconos y, si hace falta, se desplazan en su fila. */}
+      <div
+        className="mb-6 flex animate-rise gap-1 overflow-x-auto border-b border-linea [scrollbar-width:none] [animation-delay:80ms]"
+        role="tablist"
+      >
         {pestanas.map((p) => (
           <button
             key={p.id}
@@ -173,11 +177,11 @@ export default function EquipoPage() {
             aria-selected={pestana === p.id}
             onClick={() => setPestana(p.id)}
             className={cn(
-              "relative flex items-center gap-2 px-4 pb-3 text-sm font-semibold transition-colors",
+              "relative flex shrink-0 items-center gap-1.5 px-3 pb-3 text-sm font-semibold whitespace-nowrap transition-colors sm:gap-2 sm:px-4",
               pestana === p.id ? "text-marino" : "text-tenue hover:text-morado",
             )}
           >
-            <p.icono className="size-4" />
+            <p.icono className="hidden size-4 sm:block" />
             {p.etiqueta}
             {p.contador ? (
               <span className="rounded-full bg-columna px-1.5 py-0.5 text-[0.68rem] text-tenue">{p.contador}</span>
@@ -185,7 +189,7 @@ export default function EquipoPage() {
             {pestana === p.id && (
               <motion.span
                 layoutId="pestana-equipo"
-                className="absolute inset-x-2 -bottom-px h-[3px] rounded-full"
+                className="absolute inset-x-2 bottom-0 h-[3px] rounded-full"
                 style={{ background: equipo.color }}
                 transition={{ type: "spring", stiffness: 420, damping: 34 }}
               />

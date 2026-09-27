@@ -31,7 +31,9 @@ interfaz y en los mensajes al usuario es **tarjeta**.
 Lecturas reutilizables en QuerySet: `Tablero.objects.activos()`,
 `.visibles_para(u)`; `Columna.objects.activas()`; `Card.objects.activas()`,
 `.abiertas()`, `.visibles_para(u)`, `.asignadas_a(u)`, `.con_detalle()`,
-`.por_fecha_fin()`. Reglas de una instancia en métodos: `Card.clean()`,
+`.por_fecha_fin()` (`con_detalle` cuenta comentarios e ítems con
+subconsultas, no con JOIN + COUNT DISTINCT, que multiplicaba filas). Reglas de
+una instancia en métodos: `Card.clean()`,
 `Card.entra_en_gantt()`, `Card.alinear_con_columna()`,
 `Tablero.personas_asignables()`.
 

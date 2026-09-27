@@ -107,15 +107,44 @@ def es_habil(fecha: datetime.date) -> bool:
     return fecha.weekday() < 5 and fecha not in _fechas_feriado(fecha.year)
 
 
+class _Habiles:
+    """`es_habil` para bucles: lee los feriados de cada año una sola vez por
+    llamada (cada lectura de la caché local deserializa la lista entera)."""
+
+    def __init__(self) -> None:
+        self._por_anio: dict[int, frozenset[datetime.date]] = {}
+
+    def __call__(self, fecha: datetime.date) -> bool:
+        if fecha.weekday() >= 5:
+            return False
+        feriados = self._por_anio.get(fecha.year)
+        if feriados is None:
+            feriados = self._por_anio[fecha.year] = _fechas_feriado(fecha.year)
+        return fecha not in feriados
+
+
+def _lunes_a_viernes(desde: datetime.date, hasta: datetime.date) -> int:
+    """Días de lunes a viernes entre `desde` y `hasta`, ambos incluidos."""
+    semanas, resto = divmod((hasta - desde).days + 1, 7)
+    dia = desde.weekday()
+    return semanas * 5 + sum(1 for i in range(resto) if (dia + i) % 7 < 5)
+
+
 def dias_habiles_hasta(desde: datetime.date, hasta: datetime.date) -> int:
-    """Días hábiles DESPUÉS de `desde` hasta `hasta` inclusive (0 si hasta <= desde)."""
-    dias = 0
-    actual = desde
-    while actual < hasta:
-        actual += UN_DIA
-        if es_habil(actual):
-            dias += 1
-    return dias
+    """Días hábiles DESPUÉS de `desde` hasta `hasta` inclusive (0 si hasta <= desde).
+
+    Sin recorrer día a día: lo llama `vencimiento()` por cada tarjeta al
+    serializar un tablero, con fechas a meses vista."""
+    if hasta <= desde:
+        return 0
+    inicio = desde + UN_DIA
+    feriados = sum(
+        1
+        for anio in range(inicio.year, hasta.year + 1)
+        for fecha in _fechas_feriado(anio)
+        if inicio <= fecha <= hasta and fecha.weekday() < 5
+    )
+    return _lunes_a_viernes(inicio, hasta) - feriados
 
 
 def duracion_habil(inicio: datetime.date, fin: datetime.date) -> int:
@@ -125,18 +154,20 @@ def duracion_habil(inicio: datetime.date, fin: datetime.date) -> int:
 
 def siguiente_habil(fecha: datetime.date) -> datetime.date:
     """El mismo día si es hábil; si no, el siguiente hábil."""
-    while not es_habil(fecha):
+    habil = _Habiles()
+    while not habil(fecha):
         fecha += UN_DIA
     return fecha
 
 
 def sumar_habiles(fecha: datetime.date, dias: int) -> datetime.date:
     """Avanza (o retrocede con `dias` negativo) contando solo días hábiles."""
+    habil = _Habiles()
     paso = UN_DIA if dias >= 0 else -UN_DIA
     restantes = abs(dias)
     while restantes:
         fecha += paso
-        if es_habil(fecha):
+        if habil(fecha):
             restantes -= 1
     return fecha
 

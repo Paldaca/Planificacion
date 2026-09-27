@@ -48,7 +48,7 @@ function comparar(a: CardResumen, b: CardResumen, orden: Orden, columnas: Map<nu
     case "numero":
       return signo * (a.numero - b.numero);
     case "titulo":
-      return signo * a.titulo.localeCompare(b.titulo, "es");
+      return signo * a.titulo.localeCompare(b.titulo, "es", { numeric: true });
     case "columna":
       return signo * ((columnas.get(a.columna)?.orden ?? 0) - (columnas.get(b.columna)?.orden ?? 0) || a.orden - b.orden);
     case "responsables":

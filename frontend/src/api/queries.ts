@@ -189,9 +189,10 @@ export const useDependencias = (tableroId: number, habilitado = true) =>
   });
 
 /** Feriados entre dos fechas "YYYY-MM-DD" (fijos, puntuales y móviles). */
-export const useFeriados = (desde: string, hasta: string) =>
+export const useFeriados = (desde: string, hasta: string, habilitado = true) =>
   useQuery({
     queryKey: claves.feriados(desde, hasta),
+    enabled: habilitado,
     queryFn: () => api.get<Feriado[]>(`${V1}/calendario/feriados/?desde=${desde}&hasta=${hasta}`),
     staleTime: 10 * 60_000,
     placeholderData: (previo) => previo,

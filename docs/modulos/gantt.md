@@ -1,7 +1,7 @@
 # Módulo `gantt`
 
 > Leer antes de modificar `backend/gantt/` o `frontend/src/components/gantt/`.
-> Revisado: 2026-09-25.
+> Revisado: 2026-09-26.
 
 ## Responsabilidad
 
@@ -63,8 +63,28 @@ Kanban: un cambio en una vista se ve de inmediato en la otra.
 `components/gantt/VistaGantt.tsx` (Gantt propio en HTML + SVG, sin librería,
 decisión D-05) y `lib/gantt.ts` (geometría pura: rango, filas agrupadas,
 rutas de flechas). Agrupar por columna/responsable/urgencia, zoom
-día/semana/mes, bandeja «Sin fechas», flechas incumplidas en rojo punteado,
+día/semana/mes, bandeja «Sin fechas» (solo si hay tarjetas sin fechas; si no,
+la línea de tiempo usa todo el ancho), flechas incumplidas en rojo punteado,
 interruptor «Mover sucesoras».
+
+Carga (medida con un tablero de 400 tarjetas y 200 dependencias):
+
+- El código del Gantt se pide al montar `TableroPage` (en paralelo con los
+  datos) y al acercarse al botón «Gantt», con `hooks/useModuloDiferido`, **no**
+  con `lazy()` + `Suspense`: React 19 retrasa hasta 300 ms el contenido que
+  suspendió aunque el código ya esté descargado.
+- Las dependencias se piden junto con el tablero (`useDependencias` en
+  `TableroPage` con `vista === "gantt"`), no tras el primer render.
+- Al entrar se centra hoy en horizontal y se baja hasta la primera tarjeta que
+  sigue abierta hoy (también con el botón «Hoy»); al cambiar el zoom solo se
+  recoloca en horizontal.
+- `Barra`, `EtiquetaCard`, `Escala` y `Fondo` están memoizados y reciben
+  manejadores estables (`hooks/useEstable`): resaltar una fila o arrastrar una
+  barra no vuelve a pintar las demás. Al añadir props a esas filas, añadirlas
+  también a su comparación en `memo`.
+- El panel de una dependencia va en un portal, pero sus eventos suben en React
+  hasta el área del Gantt (que cierra la selección): por eso detiene
+  `pointerdown`.
 
 ## Dependencias
 

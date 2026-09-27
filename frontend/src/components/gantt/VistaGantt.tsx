@@ -1,6 +1,7 @@
 import { ChartGantt, ChevronDown, CircleCheck, EyeOff, Link2, Locate, Minus, Plus, Trash2, Waypoints } from "lucide-react";
 import { Popover } from "radix-ui";
 import {
+  memo,
   useEffectEvent,
   useLayoutEffect,
   useMemo,
@@ -22,6 +23,7 @@ import { PilaAvatares } from "@/components/ui/Avatar";
 import { Boton } from "@/components/ui/Boton";
 import { Pildora } from "@/components/ui/Estados";
 import { BotonCalendarioLaboral } from "@/components/vistas/CalendarioLaboral";
+import { useEstable } from "@/hooks/useEstable";
 import { usePreferencia } from "@/hooks/usePreferencia";
 import { cn } from "@/lib/cn";
 import { MESES_LARGOS, aISO, diferencia, esFinDeSemana, inicioMes, sumarDias, sumarDiasISO } from "@/lib/dias";
@@ -191,18 +193,33 @@ export function VistaGantt({
   const posiciones = useMemo(() => cajas(filas, r, px), [filas, r, px]);
   const altoCuerpo = Math.max(alto, ALTO_FILA * 3);
 
-  // Al entrar (y al cambiar el zoom), la línea de hoy queda a la vista.
+  // Al entrar, la línea de hoy y las tarjetas en curso quedan a la vista; al
+  // cambiar el zoom solo se recoloca en horizontal (no se pierde la fila).
   const hayBarras = conFechas.length > 0;
-  const centrarHoy = useEffectEvent(() => irAHoy("auto"));
+  const centradoVertical = useRef(false);
+  const centrarHoy = useEffectEvent(() => {
+    irAHoy("auto", !centradoVertical.current);
+    centradoVertical.current = true;
+  });
   useLayoutEffect(() => {
     centrarHoy();
   }, [zoom, hayBarras]);
 
-  function irAHoy(comportamiento: ScrollBehavior = "smooth") {
+  /** Hoy en horizontal y, con `vertical`, la primera tarjeta que sigue abierta
+   * hoy: sin esto, en un tablero largo se abría sobre filas ya terminadas y
+   * sin ninguna barra a la vista. */
+  function irAHoy(comportamiento: ScrollBehavior = "smooth", vertical = true) {
     const el = scrollRef.current;
     if (!el) return;
     const x = xDeFecha(hoyISO, r, px);
-    el.scrollTo({ left: Math.max(0, x - el.clientWidth * 0.3), behavior: comportamiento });
+    const vigente = vertical
+      ? filas.find((f) => f.tipo === "card" && f.card.fecha_fin !== null && f.card.fecha_fin >= hoyISO)
+      : undefined;
+    el.scrollTo({
+      left: Math.max(0, x - el.clientWidth * 0.3),
+      top: vigente ? Math.max(0, vigente.y - ALTO_FILA) : el.scrollTop,
+      behavior: comportamiento,
+    });
   }
 
   function alternarGrupo(clave: string) {
@@ -308,6 +325,16 @@ export function VistaGantt({
     programar.mutate({ card: c.card, inicio: dia, fin, moverSucesoras });
   }
 
+  // Identidad estable: así resaltar una fila o arrastrar una barra no vuelve a
+  // pintar las demás (con cientos de tarjetas, cada render completo se notaba).
+  const alEmpezarArrastre = useEstable(empezarArrastre);
+  const alMoverArrastre = useEstable(moverArrastre);
+  const alSoltarArrastre = useEstable(soltarArrastre);
+  const alEmpezarEnlace = useEstable(empezarEnlace);
+  const alMoverEnlace = useEstable(moverEnlace);
+  const alSoltarEnlace = useEstable(soltarEnlace);
+  const alAbrir = useEstable(onAbrir);
+
   const diaColocando = useMemo(() => {
     if (!colocando?.movido || !areaRef.current) return null;
     const p = puntoEnArea(colocando.x, colocando.y);
@@ -337,7 +364,8 @@ export function VistaGantt({
   const xHoy = xDeFecha(hoyISO, r, px) + px / 2;
 
   return (
-    <div className="animate-rise grid gap-4 lg:grid-cols-[minmax(0,1fr)_248px]">
+    // La bandeja «Sin fechas» solo ocupa sitio si hay tarjetas que colocar.
+    <div className={cn("animate-rise grid gap-4", sinFechas.length > 0 && "lg:grid-cols-[minmax(0,1fr)_248px]")}>
       <div className="min-w-0 overflow-hidden rounded-2xl border border-linea bg-white shadow-[0_18px_40px_-32px_rgba(20,22,68,0.45)]">
         {/* Barra de herramientas */}
         <div className="flex flex-wrap items-center gap-2 border-b border-linea px-3 py-2.5">
@@ -435,7 +463,7 @@ export function VistaGantt({
                       <span className="ml-auto font-semibold text-tenue tabular-nums">{f.total}</span>
                     </button>
                   ) : (
-                    <EtiquetaCard key={f.card.id} fila={f} onAbrir={onAbrir} resaltada={resaltada === f.card.id} onResaltar={setResaltada} />
+                    <EtiquetaCard key={f.card.id} fila={f} onAbrir={alAbrir} resaltada={resaltada === f.card.id} onResaltar={setResaltada} />
                   ),
                 )}
               </div>
@@ -483,14 +511,14 @@ export function VistaGantt({
                       puede={puede}
                       arrastrando={arrastre?.movido === true && arrastre.card.id === f.card.id}
                       destinoEnlace={enlace !== null && enlace.desde !== f.card.id}
-                      onPointerDown={empezarArrastre}
-                      onPointerMove={moverArrastre}
-                      onPointerUp={soltarArrastre}
-                      onConector={empezarEnlace}
-                      onConectorMove={moverEnlace}
-                      onConectorUp={soltarEnlace}
+                      onPointerDown={alEmpezarArrastre}
+                      onPointerMove={alMoverArrastre}
+                      onPointerUp={alSoltarArrastre}
+                      onConector={alEmpezarEnlace}
+                      onConectorMove={alMoverEnlace}
+                      onConectorUp={alSoltarEnlace}
                       onResaltar={setResaltada}
-                      onAbrir={onAbrir}
+                      onAbrir={alAbrir}
                     />
                   ) : null,
                 )}
@@ -534,21 +562,23 @@ export function VistaGantt({
         </div>
       </div>
 
-      <Bandeja
-        cards={sinFechas}
-        puede={puede}
-        colocando={colocando}
-        onPointerDown={empezarColocar}
-        onPointerMove={moverColocar}
-        onPointerUp={soltarColocar}
-      />
+      {sinFechas.length > 0 && (
+        <Bandeja
+          cards={sinFechas}
+          puede={puede}
+          colocando={colocando}
+          onPointerDown={empezarColocar}
+          onPointerMove={moverColocar}
+          onPointerUp={soltarColocar}
+        />
+      )}
     </div>
   );
 }
 
 // --- Escala y fondo -------------------------------------------------------------------------
 
-function Escala({
+const Escala = memo(function Escala({
   rango,
   px,
   zoom,
@@ -632,9 +662,9 @@ function Escala({
       </div>
     </div>
   );
-}
+});
 
-function Fondo({
+const Fondo = memo(function Fondo({
   rango,
   px,
   feriados,
@@ -671,11 +701,16 @@ function Fondo({
       )}
     </div>
   );
-}
+});
 
 // --- Filas y barras -------------------------------------------------------------------------
 
-function EtiquetaCard({
+type FilaCard = Extract<Fila, { tipo: "card" }>;
+
+/** Misma tarjeta (mismo objeto: no cambió) en la misma altura. */
+const mismaFila = (a: FilaCard, b: FilaCard) => a.card === b.card && a.y === b.y;
+
+const EtiquetaCard = memo(function EtiquetaCard({
   fila,
   onAbrir,
   resaltada,
@@ -710,9 +745,10 @@ function EtiquetaCard({
       </span>
     </button>
   );
-}
+},
+(a, b) => mismaFila(a.fila, b.fila) && a.resaltada === b.resaltada && a.onAbrir === b.onAbrir && a.onResaltar === b.onResaltar);
 
-function Barra({
+const Barra = memo(function Barra({
   fila,
   caja,
   puede,
@@ -833,7 +869,23 @@ function Barra({
       )}
     </div>
   );
-}
+},
+(a, b) =>
+  mismaFila(a.fila, b.fila) &&
+  a.caja.x1 === b.caja.x1 &&
+  a.caja.x2 === b.caja.x2 &&
+  a.caja.y === b.caja.y &&
+  a.puede === b.puede &&
+  a.arrastrando === b.arrastrando &&
+  a.destinoEnlace === b.destinoEnlace &&
+  a.onPointerDown === b.onPointerDown &&
+  a.onPointerMove === b.onPointerMove &&
+  a.onPointerUp === b.onPointerUp &&
+  a.onConector === b.onConector &&
+  a.onConectorMove === b.onConectorMove &&
+  a.onConectorUp === b.onConectorUp &&
+  a.onResaltar === b.onResaltar &&
+  a.onAbrir === b.onAbrir);
 
 // --- Flechas de dependencias --------------------------------------------------------------
 
@@ -959,6 +1011,10 @@ function PanelDependencia({
           side="bottom"
           sideOffset={8}
           collisionPadding={12}
+          // Aunque va en un portal, en React el evento sube hasta el área del
+          // Gantt, que cierra la selección al tocarla: sin esto el panel se
+          // cerraba antes del clic y sus botones no respondían.
+          onPointerDown={(e) => e.stopPropagation()}
           className="flotante z-50 w-72 rounded-2xl border border-linea bg-white p-4 shadow-[0_24px_48px_-20px_rgba(20,22,68,0.5)]"
         >
           <div className="mb-3 flex items-start gap-2">
@@ -1053,11 +1109,7 @@ function Bandeja({
         <span className="ml-auto rounded-full bg-columna px-1.5 text-[0.68rem] tabular-nums">{cards.length}</span>
       </h4>
       <p className="mb-3 text-xs text-tenue">
-        {cards.length
-          ? puede
-            ? "Arrastra una tarjeta a la línea de tiempo para darle fecha."
-            : "Estas tarjetas aún no tienen inicio y fin."
-          : "Todas las tarjetas del Gantt tienen fechas."}
+        {puede ? "Arrastra una tarjeta a la línea de tiempo para darle fecha." : "Estas tarjetas aún no tienen inicio y fin."}
       </p>
       <ul className="max-h-[50vh] space-y-1.5 overflow-y-auto">
         {cards.map((card) => {

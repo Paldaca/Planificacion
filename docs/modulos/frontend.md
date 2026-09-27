@@ -24,7 +24,7 @@ que Django sirve en producción (`WHITENOISE_ROOT` + `spa_shell`).
 | `pages/` | Una por ruta, cargadas con `lazy()`: `MisTareasPage`, `TablerosPage`, `TableroPage` (+ `TarjetaAbierta`), `EquiposPage`, `EquipoPage`, `InvitacionesPage` |
 | `components/ui/` | Primitivas propias: `Boton`, `Campos`, `Dialogo`, `Menu`, `Avatar`, `Estados` (`Vacio`, `Esqueleto`) |
 | `components/<dominio>/` | `tablero/` (Kanban, columnas, tarjeta, filtros, alta rápida, importar, `ConfiguracionDialogo` de etiquetas y campos, `LimiteColumnaDialogo`), `card/` (diálogo de la tarjeta, checklist, comentarios, menciones, historial, `EtiquetasYCampos`), `vistas/` (Lista, Calendario, calendario laboral), `gantt/`, `plantillas/` (guardar y listar plantillas), `equipos/` (incluye `TableroDialogo` con el selector «Empezar con»), `invitaciones/`, `layout/` (Shell, Encabezado) |
-| `hooks/` | `useVista` (`?vista=` + última usada por tablero), `usePreferencia` (localStorage con prefijo `planificacion:`), `useTitulo`, `useAlAbrir`, `useConfigTablero` (contexto con las etiquetas y los campos del tablero para dibujar tarjetas; lo provee `TableroPage`, fuera de un tablero queda vacío) |
+| `hooks/` | `useVista` (`?vista=` + última usada por tablero), `usePreferencia` (localStorage con prefijo `planificacion:`), `useTitulo`, `useAlAbrir`, `useModuloDiferido` (vistas pesadas sin `Suspense`), `useEstable` (manejadores con identidad estable para filas memoizadas), `useConfigTablero` (contexto con las etiquetas y los campos del tablero para dibujar tarjetas; lo provee `TableroPage`, fuera de un tablero queda vacío) |
 | `lib/` | Lógica pura, sin React: `fechas`, `dias`, `calendarioMes`, `gantt` (geometría), `filtros`, `vencimiento`, `estilos` (colores de dominio), `actividadUsuario` (refresco vivo), `cn` |
 
 ## Rutas
@@ -74,6 +74,11 @@ Mismo del Portal: Poppins (títulos) + Geist Sans (texto); tokens
   `exportacion/services/datos.py::Filtros`. Un filtro de etiqueta que ya no
   existe se descarta en `TableroPage` (`vigentes`) para no dejar el tablero
   vacío sin chip que quitar.
+- Vistas pesadas (Gantt, Calendario): cargarlas con `moduloDiferido` /
+  `useModuloDiferido`, no con `lazy()` + `Suspense` (React 19 retrasa hasta
+  300 ms el contenido que suspendió). Ver `docs/modulos/gantt.md` §Carga.
+- Campos que aparecen con una animación (`AnimatePresence mode="wait"`): dar
+  el foco con `autoFocus`, no con un efecto (el campo se monta después).
 - Límite de tarjetas por columna: se cuenta sobre **todas** las tarjetas de la
   columna (no las filtradas) y solo avisa (toast + contador ámbar/rojo); la
   regla es suave (D-13).

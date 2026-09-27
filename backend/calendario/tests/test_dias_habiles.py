@@ -65,6 +65,26 @@ class DiasHabilesTests(ApiTestCase):
         self.assertEqual(dh.fin_desde_inicio(D(2026, 4, 4), 1), D(2026, 4, 6))
         self.assertEqual(dh.duracion_habil(D(2026, 4, 4), D(2026, 4, 4)), 1)
 
+    def test_conteo_sin_recorrer_coincide_con_contar_dia_a_dia(self):
+        # El conteo aritmético (lunes a viernes menos feriados) debe dar lo
+        # mismo que recorrer los días, cruzando años, Carnaval y Semana Santa.
+        Feriado.objects.create(fecha=D(2026, 12, 28), nombre="Puente", recurrente=False)
+
+        def dia_a_dia(desde, hasta):
+            n, d = 0, desde
+            while d < hasta:
+                d += datetime.timedelta(days=1)
+                n += dh.es_habil(d)
+            return n
+
+        base = D(2025, 12, 20)
+        for inicio in range(0, 90, 7):
+            for largo in (-3, 0, 1, 4, 6, 13, 45, 120, 400):
+                desde = base + datetime.timedelta(days=inicio)
+                hasta = desde + datetime.timedelta(days=largo)
+                with self.subTest(desde=desde, hasta=hasta):
+                    self.assertEqual(dh.dias_habiles_hasta(desde, hasta), dia_a_dia(desde, hasta))
+
 
 class FeriadosApiTests(ApiTestCase):
     URL = "/api/v1/calendario/feriados/"

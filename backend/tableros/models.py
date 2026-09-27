@@ -19,7 +19,8 @@ Ver docs/plan-modulo-planificacion.md §4.
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import Count, F, Q
+from django.db.models import Count, F, OuterRef, Q, Subquery, Value
+from django.db.models.functions import Coalesce
 
 
 class TipoTablero(models.TextChoices):
@@ -243,13 +244,22 @@ class CardQuerySet(models.QuerySet):
         return self.filter(asignaciones__usuario=usuario)
 
     def con_detalle(self):
-        """Todo lo que pinta una tarjeta, sin consultas por card."""
+        """Todo lo que pinta una tarjeta, sin consultas por card.
+
+        Los conteos van en subconsultas: con JOIN + COUNT DISTINCT, una
+        tarjeta con muchos comentarios y muchos ítems multiplicaba las filas
+        (comentarios × ítems) antes de agrupar."""
+
+        def contar(consulta):
+            por_card = consulta.filter(card=OuterRef("pk")).order_by().values("card").annotate(n=Count("id")).values("n")
+            return Coalesce(Subquery(por_card[:1], output_field=models.IntegerField()), Value(0))
+
         return self.select_related("columna", "creada_por", "tablero__equipo", "tablero__propietario").prefetch_related(
             "asignaciones__usuario__disciplina", "etiquetas"
         ).annotate(
-            num_comentarios=Count("comentarios", filter=Q(comentarios__eliminado=False), distinct=True),
-            num_items=Count("checklist", distinct=True),
-            num_items_hechos=Count("checklist", filter=Q(checklist__hecho=True), distinct=True),
+            num_comentarios=contar(Comentario.objects.filter(eliminado=False)),
+            num_items=contar(ItemChecklist.objects.all()),
+            num_items_hechos=contar(ItemChecklist.objects.filter(hecho=True)),
         )
 
     def por_fecha_fin(self):
