@@ -13,7 +13,7 @@ export function Encabezado({
   acciones?: ReactNode;
 }) {
   return (
-    <header className="mb-7 flex animate-rise flex-wrap items-end justify-between gap-4">
+    <header className="mb-5 flex animate-rise flex-wrap items-end justify-between gap-4 sm:mb-7">
       <div className="min-w-0">
         {antetitulo && (
           <p className="mb-1.5 text-[0.74rem] font-semibold tracking-[0.1em] text-tenue uppercase">{antetitulo}</p>
@@ -23,7 +23,7 @@ export function Encabezado({
         </h1>
         {subtitulo && <div className="mt-1.5 text-sm text-tenue">{subtitulo}</div>}
       </div>
-      {acciones && <div className="flex flex-wrap items-center gap-2">{acciones}</div>}
+      {acciones && <div className="flex flex-wrap items-center gap-2 max-sm:w-full">{acciones}</div>}
     </header>
   );
 }

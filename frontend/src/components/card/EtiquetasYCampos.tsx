@@ -43,7 +43,7 @@ export function EtiquetasTarjeta({
               })
             }
             className={cn(
-              "rounded-lg border px-2 py-1 text-xs font-semibold transition-all duration-200 active:scale-95",
+              "rounded-lg border px-2 py-1 text-xs font-semibold transition-all duration-200 active:scale-95 pointer-coarse:px-3 pointer-coarse:py-2",
               activa ? "border-transparent text-white shadow-sm" : "border-linea bg-white hover:border-current",
               !puede && "cursor-default active:scale-100",
             )}

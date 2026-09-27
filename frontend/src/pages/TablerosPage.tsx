@@ -107,7 +107,7 @@ export default function TablerosPage() {
                   <span className="size-3 rounded-full" style={{ background: grupo.color }} />
                   <Link
                     to={`/equipos/${equipoId}`}
-                    className="font-display text-base font-semibold text-marino transition-colors hover:text-morado"
+                    className="font-display text-base font-semibold text-marino transition-colors hover:text-morado pointer-coarse:-my-2 pointer-coarse:py-2"
                   >
                     {grupo.nombre}
                   </Link>
@@ -189,7 +189,7 @@ function PersonalesArchivados() {
         type="button"
         onClick={() => setAbierto((v) => !v)}
         aria-expanded={abierto}
-        className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-tenue transition-colors hover:bg-morado/8 hover:text-morado"
+        className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-tenue transition-colors hover:bg-morado/8 hover:text-morado pointer-coarse:py-2.5"
       >
         <Archive className="size-3.5" />
         Archivados

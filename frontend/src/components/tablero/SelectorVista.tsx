@@ -23,7 +23,11 @@ export function SelectorVista({
   onPrecargar?: (vista: Vista) => void;
 }) {
   return (
-    <div className="flex items-center gap-1 rounded-xl border border-linea bg-white p-1" role="tablist" aria-label="Vista del tablero">
+    <div
+      className="flex items-center gap-1 rounded-xl border border-linea bg-white p-1 max-sm:flex-1"
+      role="tablist"
+      aria-label="Vista del tablero"
+    >
       {VISTAS.map(({ id, etiqueta, icono: Icono }) => {
         const activa = id === vista;
         return (
@@ -37,7 +41,8 @@ export function SelectorVista({
             onPointerEnter={() => onPrecargar?.(id)}
             onFocus={() => onPrecargar?.(id)}
             className={cn(
-              "relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+              // En el teléfono: botones repartidos a lo ancho y de 36 px de alto (dedo).
+              "relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors max-sm:flex-1 max-sm:justify-center max-sm:py-2.5",
               activa ? "text-white" : "text-tenue hover:text-morado",
             )}
           >
@@ -50,6 +55,7 @@ export function SelectorVista({
             )}
             <Icono className="relative size-3.5" />
             <span className="relative hidden sm:inline">{etiqueta}</span>
+            <span className="sr-only sm:hidden">{etiqueta}</span>
           </button>
         );
       })}

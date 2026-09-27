@@ -254,6 +254,12 @@ export function VistaGantt({
     if (delta !== arrastre.delta || movido !== arrastre.movido) setArrastre({ ...arrastre, movido, delta });
   }
 
+  /** En táctil deslizar sobre una barra desplaza el Gantt: el navegador cancela
+   * el puntero y no debe quedar un arrastre a medias (ni abrirse la tarjeta). */
+  function cancelarArrastre() {
+    setArrastre(null);
+  }
+
   function soltarArrastre() {
     const a = arrastre;
     setArrastre(null);
@@ -330,6 +336,7 @@ export function VistaGantt({
   const alEmpezarArrastre = useEstable(empezarArrastre);
   const alMoverArrastre = useEstable(moverArrastre);
   const alSoltarArrastre = useEstable(soltarArrastre);
+  const alCancelarArrastre = useEstable(cancelarArrastre);
   const alEmpezarEnlace = useEstable(empezarEnlace);
   const alMoverEnlace = useEstable(moverEnlace);
   const alSoltarEnlace = useEstable(soltarEnlace);
@@ -365,7 +372,7 @@ export function VistaGantt({
 
   return (
     // La bandeja «Sin fechas» solo ocupa sitio si hay tarjetas que colocar.
-    <div className={cn("animate-rise grid gap-4", sinFechas.length > 0 && "lg:grid-cols-[minmax(0,1fr)_248px]")}>
+    <div className={cn("animate-rise grid grid-cols-1 gap-4", sinFechas.length > 0 && "lg:grid-cols-[minmax(0,1fr)_248px]")}>
       <div className="min-w-0 overflow-hidden rounded-2xl border border-linea bg-white shadow-[0_18px_40px_-32px_rgba(20,22,68,0.45)]">
         {/* Barra de herramientas */}
         <div className="flex flex-wrap items-center gap-2 border-b border-linea px-3 py-2.5">
@@ -410,7 +417,7 @@ export function VistaGantt({
               aria-checked={moverSucesoras}
               onClick={() => setMoverSucesoras(!moverSucesoras)}
               title="Al retrasar una tarjeta, empuja las que dependen de ella (en días hábiles)"
-              className="flex items-center gap-2 rounded-lg px-2 py-1 text-xs font-medium text-tenue transition-colors hover:bg-fondo"
+              className="flex items-center gap-2 rounded-lg px-2 py-1 text-xs font-medium text-tenue transition-colors hover:bg-fondo pointer-coarse:hidden"
             >
               <span className={cn("relative inline-flex h-4.5 w-8 items-center rounded-full transition-colors", moverSucesoras ? "bg-morado" : "bg-linea")}>
                 <span className={cn("absolute size-3.5 rounded-full bg-white shadow transition-transform duration-200", moverSucesoras ? "translate-x-4" : "translate-x-0.5")} />
@@ -440,7 +447,7 @@ export function VistaGantt({
         >
           <div className="flex min-w-max">
             {/* Columna de etiquetas */}
-            <div ref={etiquetasRef} className="sticky left-0 z-30 w-40 shrink-0 border-r border-linea bg-white sm:w-60 2xl:w-72">
+            <div ref={etiquetasRef} className="sticky left-0 z-30 w-32 shrink-0 border-r border-linea bg-white sm:w-60 2xl:w-72">
               <div
                 className="sticky top-0 z-10 flex items-end border-b border-linea bg-fondo px-3 pb-2 text-[0.7rem] font-bold tracking-[0.08em] text-tenue uppercase"
                 style={{ height: ALTO_ESCALA }}
@@ -514,6 +521,7 @@ export function VistaGantt({
                       onPointerDown={alEmpezarArrastre}
                       onPointerMove={alMoverArrastre}
                       onPointerUp={alSoltarArrastre}
+                      onPointerCancel={alCancelarArrastre}
                       onConector={alEmpezarEnlace}
                       onConectorMove={alMoverEnlace}
                       onConectorUp={alSoltarEnlace}
@@ -555,7 +563,7 @@ export function VistaGantt({
             Dependencia incumplida
           </span>
           {puede && (
-            <span className="inline-flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1.5 pointer-coarse:hidden">
               <Link2 className="size-3.5" /> Arrastra desde el punto al final de una barra hasta otra para enlazarlas
             </span>
           )}
@@ -570,6 +578,7 @@ export function VistaGantt({
           onPointerDown={empezarColocar}
           onPointerMove={moverColocar}
           onPointerUp={soltarColocar}
+          onPointerCancel={() => setColocando(null)}
         />
       )}
     </div>
@@ -611,7 +620,7 @@ const Escala = memo(function Escala({
             className="absolute top-0 flex h-full items-center overflow-clip border-l border-linea/80 px-2 text-[0.7rem] font-bold text-marino capitalize"
             style={{ left: mes.x, width: mes.ancho }}
           >
-            <span className="sticky left-[168px] truncate sm:left-[248px] 2xl:left-[296px]">{mes.etiqueta}</span>
+            <span className="sticky left-[136px] truncate sm:left-[248px] 2xl:left-[296px]">{mes.etiqueta}</span>
           </div>
         ))}
       </div>
@@ -757,6 +766,7 @@ const Barra = memo(function Barra({
   onPointerDown,
   onPointerMove,
   onPointerUp,
+  onPointerCancel,
   onConector,
   onConectorMove,
   onConectorUp,
@@ -771,6 +781,7 @@ const Barra = memo(function Barra({
   onPointerDown: (e: ReactPointerEvent, card: CardResumen, modo: Modo) => void;
   onPointerMove: (e: ReactPointerEvent) => void;
   onPointerUp: () => void;
+  onPointerCancel: () => void;
   onConector: (e: ReactPointerEvent, card: CardResumen) => void;
   onConectorMove: (e: ReactPointerEvent) => void;
   onConectorUp: (e: ReactPointerEvent) => void;
@@ -808,8 +819,9 @@ const Barra = memo(function Barra({
         onPointerDown={(e) => onPointerDown(e, card, "mover")}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
         className={cn(
-          "relative flex h-full touch-none items-center overflow-hidden rounded-lg border text-[0.72rem] font-semibold whitespace-nowrap shadow-[0_3px_8px_-5px_rgba(20,22,68,0.55)] transition-shadow",
+          "relative flex h-full touch-none items-center overflow-hidden rounded-lg border pointer-coarse:touch-auto text-[0.72rem] font-semibold whitespace-nowrap shadow-[0_3px_8px_-5px_rgba(20,22,68,0.55)] transition-shadow",
           puede ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
           "hover:shadow-[0_8px_18px_-10px_rgba(20,22,68,0.7)] focus-visible:ring-2 focus-visible:ring-morado/50 focus-visible:outline-none",
           arrastrando && "shadow-[0_14px_28px_-12px_rgba(20,22,68,0.75)] ring-2 ring-morado/40",
@@ -826,13 +838,13 @@ const Barra = memo(function Barra({
         {puede && (
           <>
             <span
-              className="absolute inset-y-0 left-0 w-2 cursor-ew-resize opacity-0 transition-opacity group-hover:opacity-100"
+              className="absolute inset-y-0 left-0 w-2 cursor-ew-resize opacity-0 transition-opacity group-hover:opacity-100 pointer-coarse:hidden"
               onPointerDown={(e) => onPointerDown(e, card, "inicio")}
             >
               <span className="absolute inset-y-1.5 left-0.5 w-0.5 rounded-full bg-marino/40" />
             </span>
             <span
-              className="absolute inset-y-0 right-0 w-2 cursor-ew-resize opacity-0 transition-opacity group-hover:opacity-100"
+              className="absolute inset-y-0 right-0 w-2 cursor-ew-resize opacity-0 transition-opacity group-hover:opacity-100 pointer-coarse:hidden"
               onPointerDown={(e) => onPointerDown(e, card, "fin")}
             >
               <span className="absolute inset-y-1.5 right-0.5 w-0.5 rounded-full bg-marino/40" />
@@ -862,7 +874,7 @@ const Barra = memo(function Barra({
           onPointerMove={onConectorMove}
           onPointerUp={onConectorUp}
           className={cn(
-            "absolute top-1/2 -right-3.5 size-3 -translate-y-1/2 cursor-crosshair touch-none rounded-full border-2 border-white bg-morado shadow",
+            "absolute top-1/2 -right-3.5 size-3 -translate-y-1/2 cursor-crosshair touch-none rounded-full border-2 border-white bg-morado shadow pointer-coarse:hidden",
             "opacity-0 transition-[opacity,transform] group-hover:opacity-100 hover:scale-125",
           )}
         />
@@ -881,6 +893,7 @@ const Barra = memo(function Barra({
   a.onPointerDown === b.onPointerDown &&
   a.onPointerMove === b.onPointerMove &&
   a.onPointerUp === b.onPointerUp &&
+  a.onPointerCancel === b.onPointerCancel &&
   a.onConector === b.onConector &&
   a.onConectorMove === b.onConectorMove &&
   a.onConectorUp === b.onConectorUp &&
@@ -1094,6 +1107,7 @@ function Bandeja({
   onPointerDown,
   onPointerMove,
   onPointerUp,
+  onPointerCancel,
 }: {
   cards: CardResumen[];
   puede: boolean;
@@ -1101,6 +1115,7 @@ function Bandeja({
   onPointerDown: (e: ReactPointerEvent, card: CardResumen) => void;
   onPointerMove: (e: ReactPointerEvent) => void;
   onPointerUp: (e: ReactPointerEvent) => void;
+  onPointerCancel: () => void;
 }) {
   return (
     <aside className="self-start rounded-2xl border border-linea bg-white p-3 shadow-[0_18px_40px_-32px_rgba(20,22,68,0.45)] lg:sticky lg:top-4">
@@ -1109,7 +1124,14 @@ function Bandeja({
         <span className="ml-auto rounded-full bg-columna px-1.5 text-[0.68rem] tabular-nums">{cards.length}</span>
       </h4>
       <p className="mb-3 text-xs text-tenue">
-        {puede ? "Arrastra una tarjeta a la línea de tiempo para darle fecha." : "Estas tarjetas aún no tienen inicio y fin."}
+        {puede ? (
+          <>
+            <span className="pointer-coarse:hidden">Arrastra una tarjeta a la línea de tiempo para darle fecha.</span>
+            <span className="hidden pointer-coarse:inline">Toca una tarjeta para ponerle fechas.</span>
+          </>
+        ) : (
+          "Estas tarjetas aún no tienen inicio y fin."
+        )}
       </p>
       <ul className="max-h-[50vh] space-y-1.5 overflow-y-auto">
         {cards.map((card) => {
@@ -1122,8 +1144,9 @@ function Bandeja({
               onPointerDown={(e) => onPointerDown(e, card)}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
+              onPointerCancel={onPointerCancel}
               className={cn(
-                "flex touch-none items-center gap-2 rounded-xl border border-linea bg-white px-2.5 py-2 text-[0.8rem] font-medium text-texto transition-all select-none",
+                "flex touch-none items-center gap-2 rounded-xl pointer-coarse:touch-auto border border-linea bg-white px-2.5 py-2 text-[0.8rem] font-medium text-texto transition-all select-none",
                 puede ? "cursor-grab hover:border-morado/40 hover:shadow-sm" : "cursor-pointer hover:border-morado/40",
                 activa && "opacity-40",
               )}

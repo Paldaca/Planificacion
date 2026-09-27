@@ -55,7 +55,9 @@ export function Comentarios({
               className={ESTILO_EDITOR}
             />
             <div className="flex items-center justify-between px-3 pb-2.5">
-              <span className="text-[0.7rem] text-tenue/70">@ menciona · Ctrl + Enter envía</span>
+              <span className="text-[0.7rem] text-tenue/70">
+                @ menciona<span className="pointer-coarse:hidden"> · Ctrl + Enter envía</span>
+              </span>
               <Boton tamano="sm" onClick={() => void enviar()} cargando={crear.isPending} disabled={!texto.trim()}>
                 <Send />
                 Comentar
@@ -133,7 +135,7 @@ function ItemComentario({
           </span>
           {comentario.editado_en && <span className="text-[0.7rem] text-tenue/60">(editado)</span>}
           {comentario.es_mio && !editando && (
-            <span className="ml-auto opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+            <span className="ml-auto opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100">
               <Menu
                 disparador={
                   <Boton variante="fantasma" tamano="icono-sm" aria-label="Opciones del comentario">

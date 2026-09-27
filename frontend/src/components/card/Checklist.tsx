@@ -126,7 +126,7 @@ function Fila({
         disabled={!puede}
         onClick={onAlternar}
         className={cn(
-          "flex size-5 shrink-0 items-center justify-center rounded-md border-2 transition-all duration-200 active:scale-90",
+          "relative flex size-5 shrink-0 items-center justify-center rounded-md border-2 transition-all duration-200 active:scale-90 pointer-coarse:before:absolute pointer-coarse:before:-inset-2.5",
           item.hecho ? "border-[#059669] bg-[#059669] text-white" : "border-linea bg-white hover:border-morado/50",
         )}
       >
@@ -167,7 +167,7 @@ function Fila({
         <button
           type="button"
           onClick={onBorrar}
-          className="rounded-md p-1 text-tenue opacity-0 transition-opacity group-hover:opacity-100 hover:text-[#dc2626] focus-visible:opacity-100"
+          className="rounded-md p-1 text-tenue opacity-0 transition-opacity group-hover:opacity-100 hover:text-[#dc2626] focus-visible:opacity-100 pointer-coarse:p-2 pointer-coarse:opacity-100"
           aria-label={`Eliminar «${item.texto}»`}
         >
           <X className="size-3.5" />

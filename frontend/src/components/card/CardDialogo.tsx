@@ -631,7 +631,7 @@ function Responsables({
               <button
                 type="button"
                 onClick={() => alternar(p.id)}
-                className="rounded-md p-1 text-tenue opacity-0 transition-opacity group-hover:opacity-100 hover:text-[#dc2626] focus-visible:opacity-100"
+                className="rounded-md p-1 text-tenue opacity-0 transition-opacity group-hover:opacity-100 hover:text-[#dc2626] focus-visible:opacity-100 pointer-coarse:p-2 pointer-coarse:opacity-100"
                 aria-label={`Quitar a ${p.nombre}`}
               >
                 <X className="size-3.5" />

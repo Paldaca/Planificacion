@@ -286,7 +286,7 @@ export function Kanban({
           },
         }}
       >
-        <div className="kanban-scroll -mx-1 flex h-[calc(100vh-15.5rem)] min-h-[420px] snap-x items-start gap-3.5 overflow-x-auto px-1 pb-4">
+        <div className="kanban-scroll -mx-1 flex h-[calc(100dvh-15.5rem)] min-h-[420px] snap-x items-start gap-3.5 overflow-x-auto scroll-px-1 px-1 pb-4 max-sm:snap-mandatory">
           <SortableContext items={idsColumnas.map((id) => `k:${id}`)} strategy={horizontalListSortingStrategy}>
             {idsColumnas.map((id, indice) => {
               const columna = mapaColumnas.get(id);

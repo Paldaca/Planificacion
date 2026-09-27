@@ -82,6 +82,11 @@ Carga (medida con un tablero de 400 tarjetas y 200 dependencias):
   manejadores estables (`hooks/useEstable`): resaltar una fila o arrastrar una
   barra no vuelve a pintar las demás. Al añadir props a esas filas, añadirlas
   también a su comparación en `memo`.
+- En táctil (`pointer-coarse`) las barras y la bandeja usan `touch-action:
+  auto`: deslizar desplaza el Gantt y tocar abre la tarjeta. Si el navegador
+  toma el gesto, llega `pointercancel` y el arrastre se descarta
+  (`cancelarArrastre`), sin abrir la tarjeta. Tiradores, conector y «Mover
+  sucesoras» se ocultan.
 - El panel de una dependencia va en un portal, pero sus eventos suben en React
   hasta el área del Gantt (que cierra la selección): por eso detiene
   `pointerdown`.

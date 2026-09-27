@@ -18,6 +18,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.http import HttpResponse
+from django.utils.html import escape
 
 _DIST_INDEX = Path(settings.BASE_DIR).parent / "frontend" / "dist" / "index.html"
 
@@ -34,7 +35,19 @@ aparece porque <code>frontend/dist/index.html</code> todavía no existe.</p>
 </body></html>"""
 
 
+def con_config(html: str) -> str:
+    """Escribe en el documento la URL del Portal de ESTE despliegue.
+
+    El build de Vite trae la de `.env.production` (https://cpaldaca.com); si
+    la SPA la usara como `targetOrigin` en la Suite local, el navegador
+    descartaría los `postMessage` y el Portal nunca recibiría `ready`. Con la
+    meta, el origen sale de `settings.PALDACA_PORTAL_URL` —el mismo de
+    `frame-ancestors`—, como en los satélites Django (CONTRATO_EMBED.md)."""
+    meta = f'<meta name="paldaca-portal-url" content="{escape(settings.PALDACA_PORTAL_URL)}">'
+    return html.replace("</head>", f"{meta}</head>", 1)
+
+
 def spa_shell(request, *args, **kwargs):
     if _DIST_INDEX.exists():
-        return HttpResponse(_DIST_INDEX.read_text(encoding="utf-8"))
+        return HttpResponse(con_config(_DIST_INDEX.read_text(encoding="utf-8")))
     return HttpResponse(_DEV_PLACEHOLDER, status=200 if settings.DEBUG else 501)

@@ -132,13 +132,13 @@ export default function TableroPage() {
       <Encabezado
         antetitulo={
           <span className="inline-flex items-center gap-2">
-            <Link to="/tableros" className="inline-flex items-center gap-1 transition-colors hover:text-morado">
+            <Link to="/tableros" className="-my-1.5 inline-flex items-center gap-1 py-1.5 transition-colors hover:text-morado">
               <ArrowLeft className="size-3.5" />
               Tableros
             </Link>
             <span className="text-tenue/40">/</span>
             {tablero.equipo ? (
-              <Link to={`/equipos/${tablero.equipo.id}`}>
+              <Link to={`/equipos/${tablero.equipo.id}`} className="inline-flex pointer-coarse:-my-2 pointer-coarse:py-2">
                 <Pildora color={tablero.equipo.color} icono={UsersRound}>
                   {tablero.equipo.nombre}
                 </Pildora>
@@ -169,7 +169,7 @@ export default function TableroPage() {
             <SelectorVista vista={vista} onCambio={setVista} onPrecargar={precargarVista} />
             <Menu
               disparador={
-                <Boton variante="secundario" tamano="sm" cargando={exportar.isPending}>
+                <Boton variante="secundario" tamano="sm" cargando={exportar.isPending} className="max-sm:hidden">
                   <FileSpreadsheet />
                   Excel / Project
                 </Boton>
@@ -190,17 +190,41 @@ export default function TableroPage() {
                 </>
               )}
             </Menu>
-            <Boton variante="secundario" tamano="sm" onClick={() => setVerArchivadas(true)}>
+            <Boton variante="secundario" tamano="sm" onClick={() => setVerArchivadas(true)} className="max-sm:hidden">
               <Archive />
               Archivadas
             </Boton>
             <Menu
               disparador={
-                <Boton variante="secundario" tamano="icono" aria-label="Opciones del tablero">
+                <Boton variante="secundario" tamano="icono" aria-label="Opciones del tablero" className="max-sm:size-11">
                   <Ellipsis />
                 </Boton>
               }
             >
+              {/* En el teléfono «Archivadas» y «Excel / Project» no tienen botón propio: van aquí. */}
+              <ItemMenu icono={Archive} onSelect={() => setVerArchivadas(true)} className="sm:hidden">
+                Tarjetas archivadas
+              </ItemMenu>
+              <ItemMenu
+                icono={FileSpreadsheet}
+                onSelect={() => exportar.mutate({ formato: "xlsx", filtros: vigentes })}
+                className="sm:hidden"
+              >
+                {hayFiltros(vigentes) ? "Exportar lo filtrado a Excel" : "Exportar a Excel"}
+              </ItemMenu>
+              <ItemMenu
+                icono={ChartGantt}
+                onSelect={() => exportar.mutate({ formato: "xml", filtros: vigentes })}
+                className="sm:hidden"
+              >
+                {hayFiltros(vigentes) ? "Exportar lo filtrado a MS Project" : "Exportar a MS Project"}
+              </ItemMenu>
+              {permisos.editar && (
+                <ItemMenu icono={FileUp} onSelect={() => setImportando(true)} className="sm:hidden">
+                  Importar tarjetas…
+                </ItemMenu>
+              )}
+              <SeparadorMenu className="sm:hidden" />
               {permisos.gestionar && (
                 <>
                   <ItemMenu icono={Pencil} onSelect={() => setEditando(true)}>

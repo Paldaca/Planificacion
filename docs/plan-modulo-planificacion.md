@@ -480,6 +480,13 @@ crece a mitad de camino: lo nuevo va a la siguiente.
   curso y resaltar o arrastrar ya no repinta las 400 filas. Corregidos: el
   panel de una dependencia no respondía al ratón, «Añadir tarjeta» no daba el
   foco al campo y las pestañas del equipo desbordaban en el celular.
+- **Uso en el teléfono** verificado dentro del Portal (375 px): cabecera y
+  filtros compactos, zonas táctiles de ~40 px, acciones visibles sin hover,
+  Kanban por columnas, Lista sin desborde, calendario propio del teléfono y
+  Gantt que se desplaza con el dedo. De paso: el origen del `postMessage` sale
+  del backend (con el build de producción el Portal local no recibía `ready` y
+  mostraba «¿No ves el contenido?»), la ruta informada ya no lleva
+  `paldaca_embed`, y en el Portal ese aviso se puede cerrar.
 - Correcciones: `frontend/src/lib/` no se versionaba por un patrón del
   `.gitignore` (`c116d13`); la lista de *Archivadas* mostraba la caché vacía
   al reabrirla (`e8d521c`).

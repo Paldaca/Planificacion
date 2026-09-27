@@ -1,4 +1,4 @@
-const PORTAL_URL = (import.meta.env.VITE_PALDACA_PORTAL_URL as string) ?? "";
+import { PORTAL_URL } from "@/embed/portal";
 
 export function redirectToPortalLogin(loginUrl: string | null) {
   const target = loginUrl || (PORTAL_URL ? `${PORTAL_URL}/login` : "/");

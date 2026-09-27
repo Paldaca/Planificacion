@@ -101,7 +101,7 @@ export function ColumnaKanban({
             ref={setActivatorNodeRef}
             {...attributes}
             {...listeners}
-            className="-ml-1 cursor-grab rounded p-0.5 text-tenue/50 transition-colors hover:text-morado active:cursor-grabbing"
+            className="-ml-1 cursor-grab rounded p-0.5 text-tenue/50 transition-colors hover:text-morado active:cursor-grabbing pointer-coarse:-my-2 pointer-coarse:-ml-2 pointer-coarse:p-2.5"
             aria-label={`Mover columna ${columna.nombre}`}
           >
             <GripVertical className="size-4" />

@@ -25,13 +25,13 @@ type Clave =
 type Orden = { clave: Clave; asc: boolean };
 
 const COLUMNAS: { clave: Clave; etiqueta: string; className?: string }[] = [
-  { clave: "numero", etiqueta: "#", className: "w-14" },
+  { clave: "numero", etiqueta: "#", className: "hidden w-14 sm:table-cell" },
   { clave: "titulo", etiqueta: "Tarjeta" },
-  { clave: "columna", etiqueta: "Estado", className: "w-36" },
+  { clave: "columna", etiqueta: "Estado", className: "w-24 sm:w-36" },
   { clave: "responsables", etiqueta: "Responsables", className: "hidden w-32 md:table-cell" },
   { clave: "urgencia", etiqueta: "Urgencia", className: "hidden w-28 sm:table-cell" },
   { clave: "fecha_inicio", etiqueta: "Inicio", className: "hidden w-24 lg:table-cell" },
-  { clave: "fecha_fin", etiqueta: "Fin", className: "w-32" },
+  { clave: "fecha_fin", etiqueta: "Fin", className: "w-20 sm:w-32" },
   { clave: "avance", etiqueta: "Avance", className: "hidden w-24 lg:table-cell" },
 ];
 
@@ -117,7 +117,7 @@ export function VistaLista({
   return (
     <div className="animate-rise overflow-hidden rounded-2xl border border-linea bg-white shadow-[0_18px_40px_-32px_rgba(20,22,68,0.45)]">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] border-collapse text-sm">
+        <table className="w-full border-collapse text-sm sm:min-w-[640px]">
           <thead>
             <tr className="border-b border-linea bg-fondo/70 text-left">
               {encabezados.map(({ clave, etiqueta, className }) => {
@@ -129,7 +129,7 @@ export function VistaLista({
                       type="button"
                       onClick={() => ordenarPor(clave)}
                       className={cn(
-                        "inline-flex items-center gap-1 text-[0.7rem] tracking-[0.08em] uppercase transition-colors",
+                        "inline-flex items-center gap-1 text-[0.7rem] tracking-[0.08em] uppercase transition-colors pointer-coarse:-my-2.5 pointer-coarse:py-2.5",
                         activa ? "text-morado" : "text-tenue hover:text-morado",
                       )}
                     >
@@ -192,9 +192,9 @@ function Fila({
       onKeyDown={(e) => e.key === "Enter" && onAbrir(card)}
       className="group cursor-pointer border-b border-linea/60 transition-colors last:border-0 hover:bg-morado/[0.035] focus-visible:bg-morado/[0.05] focus-visible:outline-none"
     >
-      <td className="px-3 py-2.5 text-xs font-semibold text-tenue/70 tabular-nums">#{card.numero}</td>
+      <td className="hidden px-3 py-2.5 text-xs font-semibold text-tenue/70 tabular-nums sm:table-cell">#{card.numero}</td>
       <td className="px-3 py-2.5">
-        <span className="flex items-center gap-2">
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: urgencia.color }} />
           {terminada && <CircleCheck className="size-4 shrink-0 text-[#059669]" />}
           <span className={cn("font-medium text-texto group-hover:text-morado", terminada && "text-tenue line-through decoration-tenue/40")}>

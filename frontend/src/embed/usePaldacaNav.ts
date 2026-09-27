@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
+import { PORTAL_URL } from "./portal";
+
 /**
  * Barra de navegación unificada de la Suite (`paldaca-nav`, la publica el
  * Portal) para cuando Planificación se abre SUELTA en su subdominio. Embebida
@@ -15,7 +17,6 @@ import { useLocation, useNavigate } from "react-router-dom";
  *   menú de respaldo: la app nunca queda sin navegación.
  */
 
-const PORTAL_URL = import.meta.env.VITE_PALDACA_PORTAL_URL.replace(/\/+$/, "");
 const NAV_ASSETS = (import.meta.env.VITE_PALDACA_NAV_URL || `${PORTAL_URL}/static`).replace(/\/+$/, "");
 const PORTAL_API = import.meta.env.VITE_PALDACA_PORTAL_API_URL;
 

@@ -20,10 +20,10 @@ que Django sirve en producción (`WHITENOISE_ROOT` + `spa_shell`).
 |---|---|
 | `api/` | `client.ts` (`apiFetch`: `credentials: "include"`, `X-CSRFToken`, `ApiError`, `mensajeError`), `queries.ts` (hooks de TanStack Query y las claves `claves.*`), `configuracion.ts` (etiquetas y campos del tablero), `plantillas.ts` (plantillas de tablero), `tipos.ts` (formas de la API `/api/v1/`). Los módulos nuevos de hooks van en su propio archivo (A-11) y reutilizan `avisarError`/`claves` de `queries.ts`. |
 | `auth/` | `useIdentity` (llama `GET /api/auth/me/` → loading / ok / unauthorized / forbidden / unavailable), `IdentidadProvider` / `useIdentidad`, `redirectToPortalLogin`, `StatusScreen` |
-| `embed/` | `protocol.ts` (contrato `paldaca-embed` v1, espejo del parser del Portal), `usePaldacaEmbed` (avisa `ready`/`navigate`/`session-expired`/`forbidden` al shell), `usePaldacaNav` (barra de la Suite al abrirse suelta; menú propio de respaldo a los 8 s) |
+| `embed/` | `protocol.ts` (contrato `paldaca-embed` v1, espejo del parser del Portal), `portal.ts` (URL del Portal: la `<meta name="paldaca-portal-url">` que escribe Django, o `VITE_PALDACA_PORTAL_URL` con Vite), `usePaldacaEmbed` (avisa `ready`/`navigate`/`session-expired`/`forbidden` al shell, con la ruta sin `paldaca_embed`), `usePaldacaNav` (barra de la Suite al abrirse suelta; menú propio de respaldo a los 8 s) |
 | `pages/` | Una por ruta, cargadas con `lazy()`: `MisTareasPage`, `TablerosPage`, `TableroPage` (+ `TarjetaAbierta`), `EquiposPage`, `EquipoPage`, `InvitacionesPage` |
 | `components/ui/` | Primitivas propias: `Boton`, `Campos`, `Dialogo`, `Menu`, `Avatar`, `Estados` (`Vacio`, `Esqueleto`) |
-| `components/<dominio>/` | `tablero/` (Kanban, columnas, tarjeta, filtros, alta rápida, importar, `ConfiguracionDialogo` de etiquetas y campos, `LimiteColumnaDialogo`), `card/` (diálogo de la tarjeta, checklist, comentarios, menciones, historial, `EtiquetasYCampos`), `vistas/` (Lista, Calendario, calendario laboral), `gantt/`, `plantillas/` (guardar y listar plantillas), `equipos/` (incluye `TableroDialogo` con el selector «Empezar con»), `invitaciones/`, `layout/` (Shell, Encabezado) |
+| `components/<dominio>/` | `tablero/` (Kanban, columnas, tarjeta, filtros, alta rápida, importar, `ConfiguracionDialogo` de etiquetas y campos, `LimiteColumnaDialogo`), `card/` (diálogo de la tarjeta, checklist, comentarios, menciones, historial, `EtiquetasYCampos`), `vistas/` (Lista, Calendario, `CalendarioMovil`, calendario laboral), `gantt/`, `plantillas/` (guardar y listar plantillas), `equipos/` (incluye `TableroDialogo` con el selector «Empezar con»), `invitaciones/`, `layout/` (Shell, Encabezado) |
 | `hooks/` | `useVista` (`?vista=` + última usada por tablero), `usePreferencia` (localStorage con prefijo `planificacion:`), `useTitulo`, `useAlAbrir`, `useModuloDiferido` (vistas pesadas sin `Suspense`), `useEstable` (manejadores con identidad estable para filas memoizadas), `useConfigTablero` (contexto con las etiquetas y los campos del tablero para dibujar tarjetas; lo provee `TableroPage`, fuera de un tablero queda vacío) |
 | `lib/` | Lógica pura, sin React: `fechas`, `dias`, `calendarioMes`, `gantt` (geometría), `filtros`, `vencimiento`, `estilos` (colores de dominio), `actividadUsuario` (refresco vivo), `cn` |
 
@@ -83,9 +83,33 @@ Mismo del Portal: Poppins (títulos) + Geist Sans (texto); tokens
   columna (no las filtradas) y solo avisa (toast + contador ámbar/rojo); la
   regla es suave (D-13).
 
+## Teléfono
+
+Probado a 375 px dentro del Portal (`iniciar.ps1 -Modo planificacion`).
+Reglas:
+
+- Tamaño con `max-sm:` (ancho) y tacto con `pointer-coarse:` (Tailwind 4):
+  con pantalla táctil `Boton` crece a ~40 px; los controles propios que se
+  quedan por debajo de 32 px amplían su zona de toque (`pointer-coarse:p-*` o
+  un `before:` invisible, como la casilla del checklist).
+- Nada que solo aparezca con `group-hover`: en táctil no hay hover. Las
+  acciones (borrar un paso, quitar un responsable, editar un comentario) llevan
+  `pointer-coarse:opacity-100`; lo que no aplica en táctil se oculta con
+  `pointer-coarse:hidden`.
+- Cabecera del tablero: en el teléfono vista a todo el ancho y un único menú
+  «…» que también trae Archivadas, Exportar e Importar (`ItemMenu` con
+  `className="sm:hidden"`); los filtros se pliegan tras «Filtros» con contador.
+- Kanban: columnas que encajan al deslizar (`max-sm:snap-mandatory`) y alto
+  con `dvh`. Lista: sin la columna «#» y con el título que envuelve.
+  Calendario: `CalendarioMovil` (mes compacto + tarjetas del día elegido), sin
+  arrastre. Gantt: deslizar sobre las barras desplaza (tocar abre la tarjeta);
+  no se arrastran barras ni se enlazan en táctil.
+- La búsqueda usa 16 px en el teléfono (iOS no hace zoom al enfocarla).
+
 ## Variables de entorno (`.env.development` / `.env.production`)
 
-`VITE_API_BASE_URL` (vacía en producción: mismo origen), `VITE_PALDACA_PORTAL_URL`,
+`VITE_API_BASE_URL` (vacía en producción: mismo origen), `VITE_PALDACA_PORTAL_URL`
+(solo con Vite: en el build servido por Django manda la meta de `spa_shell`),
 `VITE_PALDACA_NAV_URL`, `VITE_PALDACA_PORTAL_API_URL`.
 
 ## Calidad

@@ -200,6 +200,12 @@ cron cada 5 min: manage.py procesar_avisos → reintenta pendientes en orden
 - La SPA emite `ready` / `navigate` / `session-expired` / `forbidden` por
   `postMessage` (`paldaca-embed` v1) para que la URL del Portal refleje
   tablero, vista y tarjeta.
+- El `targetOrigin` sale de `settings.PALDACA_PORTAL_URL` en tiempo de
+  ejecución: `spa_shell` escribe `<meta name="paldaca-portal-url">` en el
+  `index.html` (como los satélites Django con su context processor). Si saliera
+  del build (`.env.production`), en la Suite local los mensajes irían a
+  `https://cpaldaca.com`, el navegador los descartaría y el Portal mostraría
+  «¿No ves el contenido?».
 - Suelta, monta `paldaca-nav` del Portal (menú, campana, perfil).
 
 ## 5. Frontend

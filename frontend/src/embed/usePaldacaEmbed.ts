@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
+import { PORTAL_URL as PORTAL_ORIGIN } from "./portal";
 import { isEmbedded, postEmbedMessage } from "./protocol";
-
-const PORTAL_ORIGIN = import.meta.env.VITE_PALDACA_PORTAL_URL as string;
 const APP_CODE = "planificacion";
+
+/** Ruta que se informa al Portal, sin `paldaca_embed` (marca el arranque del
+ * iframe, no la navegación: si no, quedaba en la URL del Portal). */
+function rutaParaElPortal(pathname: string, search: string): string {
+  const params = new URLSearchParams(search);
+  params.delete("paldaca_embed");
+  const consulta = params.toString();
+  return consulta ? `${pathname}?${consulta}` : pathname;
+}
 
 /**
  * Mantiene sincronizado el shell del Portal con la navegación de esta SPA.
@@ -30,7 +38,7 @@ export function usePaldacaEmbed() {
       isFirstRender.current = false;
       return;
     }
-    const path = `${location.pathname}${location.search}`;
+    const path = rutaParaElPortal(location.pathname, location.search);
     const title = document.title || undefined;
     postEmbedMessage({ type: "navigate", path, title }, PORTAL_ORIGIN, APP_CODE);
     // Sin fetch de datos propio todavía: la ruta ya está pintada para cuando
@@ -45,7 +53,7 @@ export function usePaldacaEmbed() {
   }, []);
 
   const notifyReady = useCallback(() => {
-    const path = `${location.pathname}${location.search}`;
+    const path = rutaParaElPortal(location.pathname, location.search);
     postEmbedMessage({ type: "ready", path, title: document.title || undefined }, PORTAL_ORIGIN, APP_CODE);
   }, [location.pathname, location.search]);
 

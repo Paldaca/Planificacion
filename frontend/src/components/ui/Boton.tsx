@@ -15,11 +15,13 @@ const VARIANTES: Record<Variante, string> = {
   suave: "bg-morado/8 text-morado hover:bg-morado/14",
 };
 
+/** Con pantalla táctil (`pointer-coarse`) los botones crecen hasta ~40 px: el
+ * dedo no acierta en 28–32 px. Con ratón no cambia nada. */
 const TAMANOS: Record<Tamano, string> = {
-  sm: "h-8 px-3 text-[0.82rem] gap-1.5 rounded-lg",
-  md: "h-10 px-4 text-sm gap-2 rounded-xl",
-  icono: "size-9 rounded-xl",
-  "icono-sm": "size-7 rounded-lg",
+  sm: "h-8 px-3 text-[0.82rem] gap-1.5 rounded-lg pointer-coarse:h-10",
+  md: "h-10 px-4 text-sm gap-2 rounded-xl pointer-coarse:h-11",
+  icono: "size-9 rounded-xl pointer-coarse:size-10",
+  "icono-sm": "size-7 rounded-lg pointer-coarse:size-9",
 };
 
 type Props = ButtonHTMLAttributes<HTMLButtonElement> & {

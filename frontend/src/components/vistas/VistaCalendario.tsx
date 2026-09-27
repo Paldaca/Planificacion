@@ -14,6 +14,7 @@ import { URGENCIAS } from "@/lib/estilos";
 import { hoy as hoyLocal } from "@/lib/fechas";
 
 import { BotonCalendarioLaboral } from "./CalendarioLaboral";
+import { CalendarioMovil } from "./CalendarioMovil";
 
 const ALTO_CARRIL = 24;
 const ALTO_CABECERA = 28;
@@ -32,6 +33,8 @@ export function VistaCalendario({
   const [mes, setMes] = useState(() => inicioMes(hoyLocal()));
   const [direccion, setDireccion] = useState(0);
   const [arrastre, setArrastre] = useState<Arrastre | null>(null);
+  // Día elegido en el calendario del teléfono (su lista de tarjetas).
+  const [diaElegido, setDiaElegido] = useState(() => aISO(hoyLocal()));
   const programar = useProgramarCard(tablero.id);
   const puede = tablero.permisos.editar;
 
@@ -43,8 +46,11 @@ export function VistaCalendario({
   const sinFecha = visibles.filter((c) => !rangoDe(c)).length;
 
   function irA(delta: number) {
+    const nuevo = new Date(mes.getFullYear(), mes.getMonth() + delta, 1);
+    const hoyDia = hoyLocal();
     setDireccion(delta);
-    setMes((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1));
+    setMes(nuevo);
+    setDiaElegido(mismoDia(nuevo, inicioMes(hoyDia)) ? aISO(hoyDia) : aISO(nuevo));
   }
 
   // --- Arrastrar una tarjeta a otro día (conserva su duración) -----------------------
@@ -130,6 +136,7 @@ export function VistaCalendario({
           onClick={() => {
             setDireccion(0);
             setMes(inicioMes(hoy));
+            setDiaElegido(aISO(hoy));
           }}
         >
           Hoy
@@ -141,7 +148,7 @@ export function VistaCalendario({
             Feriado
           </span>
           {puede && (
-            <span className="hidden items-center gap-1 md:inline-flex">
+            <span className="hidden items-center gap-1 md:inline-flex pointer-coarse:hidden">
               <Move className="size-3.5" />
               Arrastra para cambiar la fecha
             </span>
@@ -150,7 +157,18 @@ export function VistaCalendario({
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      <CalendarioMovil
+        dias={semanas.flatMap((s) => s.dias)}
+        mes={mes}
+        hoy={hoy}
+        feriados={porFecha}
+        cards={visibles}
+        seleccionado={diaElegido}
+        onSeleccionar={setDiaElegido}
+        onAbrir={onAbrir}
+      />
+
+      <div className="overflow-x-auto max-sm:hidden">
         <div className="min-w-[720px]">
           <div className="grid grid-cols-7 border-b border-linea bg-fondo/70">
             {DIAS_SEMANA.map((d, i) => (
@@ -335,7 +353,7 @@ function BarraDia({
       // `detail === 0` es Enter/Espacio.
       onClick={(e) => e.detail === 0 && onTeclado()}
       className={cn(
-        "absolute flex h-[21px] touch-none items-center gap-1 overflow-hidden border px-1.5 text-left text-[0.72rem] font-semibold whitespace-nowrap shadow-[0_2px_6px_-4px_rgba(20,22,68,0.5)] transition-[opacity,box-shadow] hover:shadow-[0_6px_14px_-8px_rgba(20,22,68,0.6)]",
+        "absolute flex h-[21px] touch-none items-center gap-1 pointer-coarse:touch-auto overflow-hidden border px-1.5 text-left text-[0.72rem] font-semibold whitespace-nowrap shadow-[0_2px_6px_-4px_rgba(20,22,68,0.5)] transition-[opacity,box-shadow] hover:shadow-[0_6px_14px_-8px_rgba(20,22,68,0.6)]",
         sigueAntes ? "rounded-l-none border-l-0" : "rounded-l-md",
         sigueDespues ? "rounded-r-none border-r-0" : "rounded-r-md",
         arrastrando && "opacity-40",

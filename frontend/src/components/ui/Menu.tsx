@@ -35,12 +35,15 @@ export function ItemMenu({
   onSelect,
   peligro,
   deshabilitado,
+  className,
 }: {
   icono?: LucideIcon;
   children: ReactNode;
   onSelect: () => void;
   peligro?: boolean;
   deshabilitado?: boolean;
+  /** P. ej. `sm:hidden` para opciones que en pantallas anchas tienen su botón. */
+  className?: string;
 }) {
   return (
     <DropdownMenu.Item
@@ -52,6 +55,7 @@ export function ItemMenu({
         peligro
           ? "text-[#dc2626] data-[highlighted]:bg-[#fef2f2]"
           : "text-texto data-[highlighted]:bg-morado/8 data-[highlighted]:text-morado",
+        className,
       )}
     >
       {Icono && <Icono className="size-4 shrink-0" />}
@@ -60,6 +64,6 @@ export function ItemMenu({
   );
 }
 
-export function SeparadorMenu() {
-  return <DropdownMenu.Separator className="my-1 h-px bg-linea/70" />;
+export function SeparadorMenu({ className }: { className?: string }) {
+  return <DropdownMenu.Separator className={cn("my-1 h-px bg-linea/70", className)} />;
 }

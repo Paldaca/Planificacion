@@ -64,7 +64,7 @@ export function Dialogo({
               </div>
             </div>
             <Dialog.Close
-              className="rounded-lg p-1.5 text-tenue transition-colors hover:bg-morado/8 hover:text-morado"
+              className="rounded-lg p-1.5 text-tenue transition-colors hover:bg-morado/8 hover:text-morado pointer-coarse:p-2.5"
               aria-label="Cerrar"
             >
               <X className="size-4" />
