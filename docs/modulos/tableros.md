@@ -1,6 +1,6 @@
 # Módulo `tableros`
 
-> Leer antes de modificar `backend/tableros/`. Revisado: 2026-09-26.
+> Leer antes de modificar `backend/tableros/`. Revisado: 2026-09-28.
 >
 > Es el núcleo del dominio: casi todo cambio funcional pasa por aquí.
 
@@ -22,8 +22,8 @@ interfaz y en los mensajes al usuario es **tarjeta**.
 | `Columna` | `planificacion_columna` | `orden`, `es_final` (sus tarjetas cuentan como terminadas), `incluir_en_gantt`, `limite_cards` (límite **suave**, D-13: se avisa, no se bloquea; `null` = sin límite), `archivada`, `version`. |
 | `Card` | `planificacion_card` | `numero` correlativo por tablero (único), `titulo`, `descripcion`, `fecha_inicio`, `fecha_fin` (solo día, D-01), `urgencia` (baja/media/alta/critica), `orden`, `en_gantt` (heredar/si/no), `etiquetas` (M2M), `campos` (JSON), `completada_en`, `aviso_vencimiento`, `archivada`, `version`. `CheckConstraint` `fecha_fin ≥ fecha_inicio` + `clean()`. |
 | `ResponsableCard` | `planificacion_responsable_card` | Varios por tarjeta; único (card, usuario). |
-| `Etiqueta` | `planificacion_etiqueta` | Por tablero (`related_name="etiquetas"`): `nombre` (único en el tablero), `color`, `orden`. `Card.etiquetas` es M2M (`planificacion_card_etiqueta`). Borrar una etiqueta la quita de sus tarjetas. |
-| `CampoPersonalizado` | `planificacion_campo_personalizado` | Por tablero (`related_name="campos"`): `tipo` texto/numero/lista, `opciones` (lista), `orden`, `visible_en_tarjeta`, `archivado`. Nombre único entre los activos. No se borran: se archivan. Los valores viven en `Card.campos` (JSON `{"<id del campo>": valor}`, D-14). |
+| `Etiqueta` | `planificacion_etiqueta` | Por tablero (`related_name="etiquetas"`): `nombre` (único en el tablero sin distinguir mayúsculas ni acentos: `core.texto.clave_nombre`), `color`, `orden`. `Card.etiquetas` es M2M (`planificacion_card_etiqueta`). Borrar una etiqueta la quita de sus tarjetas. |
+| `CampoPersonalizado` | `planificacion_campo_personalizado` | Por tablero (`related_name="campos"`): `tipo` texto/numero/lista, `opciones` (lista), `orden`, `visible_en_tarjeta`, `archivado`. Nombre único entre los activos (sin mayúsculas ni acentos): lo cumple `campos._guardar` con el tablero bloqueado, porque MySQL no crea la restricción con condición `campo_activo_unico_por_tablero`. No se borran: se archivan. Los valores viven en `Card.campos` (JSON `{"<id del campo>": valor}`, D-14). |
 | `Comentario` | `planificacion_comentario` | `menciones` M2M, `editado_en`, `eliminado` (borrado lógico). |
 | `ItemChecklist` | `planificacion_item_checklist` | `texto`, `hecho`, `orden`. |
 | `Actividad` | `planificacion_actividad` | Historial inmutable: `accion` ∈ creo, movio, edito, asigno, desasigno, comento, checklist, archivo, restauro, traslado, dependencia; `detalle` (antes/después). Etiquetas: `edito` con `campo="etiquetas"` (nombres separados por coma); campos: `campo="personalizado"` con `nombre`, `antes`, `despues` en texto. |

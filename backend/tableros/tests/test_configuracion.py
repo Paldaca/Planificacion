@@ -42,6 +42,16 @@ class EtiquetasTests(Base):
         self.assertEqual(self.cliente(self.ana).delete(f"/api/v1/etiquetas/{civil['id']}/").status_code, 204)
         self.assertEqual(list(Card.objects.get(pk=card["id"]).etiquetas.all()), [])
 
+    def test_nombre_repetido_sin_distinguir_mayusculas(self):
+        # Igual en SQLite y en MySQL (que compara sin mayúsculas).
+        self.cliente(self.ana).post(self.url("etiquetas"), {"nombre": "Cliente"}, format="json")
+        self.assertEqual(self.cliente(self.ana).post(self.url("etiquetas"), {"nombre": "cliente"}, format="json").status_code, 400)
+        otra = self.cliente(self.ana).post(self.url("etiquetas"), {"nombre": "Planos"}, format="json").json()
+        r = self.cliente(self.ana).patch(f"/api/v1/etiquetas/{otra['id']}/", {"nombre": "CLIENTE"}, format="json")
+        self.assertEqual(r.status_code, 400)
+        r = self.cliente(self.ana).patch(f"/api/v1/etiquetas/{otra['id']}/", {"nombre": "planos"}, format="json")
+        self.assertEqual(r.status_code, 200, r.content)  # la propia no cuenta
+
     def test_no_se_asigna_una_etiqueta_de_otro_tablero(self):
         otro = self.cliente(self.ana).post("/api/v1/tableros/", {"nombre": "Otro", "equipo": self.equipo_id}, format="json").json()
         ajena = Etiqueta.objects.create(tablero_id=otro["id"], nombre="Ajena")
@@ -104,6 +114,14 @@ class CamposTests(Base):
         r = self.cliente(self.ana).patch(f"/api/v1/campos/{horas['id']}/", {"tipo": "texto"}, format="json")
         self.assertEqual(r.status_code, 400)
         self.assertEqual(self.cliente(self.beto).post(self.url("campos"), {"nombre": "X", "tipo": "texto"}, format="json").status_code, 403)
+
+    def test_nombre_activo_unico_sin_la_restriccion_de_la_base(self):
+        # MySQL ignora la restricción con condición: la regla la cumple el servicio.
+        self.crear_campo(nombre="Área", tipo="texto")
+        self.assertEqual(self.cliente(self.ana).post(self.url("campos"), {"nombre": "área", "tipo": "numero"}, format="json").status_code, 400)
+        otro = self.crear_campo(nombre="Horas", tipo="numero")
+        r = self.cliente(self.ana).patch(f"/api/v1/campos/{otro['id']}/", {"nombre": "ÁREA"}, format="json")
+        self.assertEqual(r.status_code, 400)
 
     def test_trasladar_conserva_etiquetas_y_campos_con_el_mismo_nombre(self):
         horas = self.crear_campo(nombre="Horas", tipo="numero")

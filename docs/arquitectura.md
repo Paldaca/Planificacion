@@ -1,6 +1,6 @@
 # Arquitectura de Planificación (tal como está construida)
 
-> Revisado: 2026-09-26 (rama `dev`, fases 0–4 implementadas, commit `6e9157a`).
+> Revisado: 2026-09-28 (fases 0–5 implementadas; empaquetado para Coolify).
 > El diseño funcional y el plan por fases están en
 > [`plan-modulo-planificacion.md`](plan-modulo-planificacion.md); este documento
 > describe el sistema **tal como está en el código**. La evaluación crítica está
@@ -27,7 +27,7 @@ Planificación
              cálculo de Gantt y días hábiles, exportaciones, avisos, crons
   frontend/  SPA React 19 + Vite — en dev en :5181; en producción su build
              (`frontend/dist`) lo sirve Django (WhiteNoise + `spa_shell`)
-  BD propia  SQLite hoy; MySQL propia antes de datos reales (D-06)
+  BD propia  MySQL propia en producción (`DATABASE_URL`, D-06); SQLite en desarrollo
 ```
 
 Principios (del plan, verificados en el código):
@@ -229,7 +229,10 @@ Todo por variables de entorno (`backend/.env`, plantilla en
 
 | Grupo | Variables |
 |---|---|
-| Núcleo | `DJANGO_SECRET_KEY` (≥ 40 caracteres y no `django-insecure-` si no hay DEBUG), `DJANGO_DEBUG` (por defecto **false**), `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `CORS_ALLOWED_ORIGINS` |
+| Base de datos | `DATABASE_URL` (`mysql://…/planificacion`, MySQL **propia**; sin ella, SQLite local). `RUNNING_IN_DOCKER=1` (lo pone la imagen) la vuelve obligatoria y acepta `127.0.0.1`/`localhost` para el healthcheck. Con `DATABASE_URL`, caché compartida `DatabaseCache` (`planificacion_cache`) |
+| Registro | `LOG_LEVEL` (INFO): `planificacion.*` y `paldaca.*` a la consola; el resto desde WARNING |
+| Servidor | `PORT` (8007), `GUNICORN_WORKERS` (3), `GUNICORN_TIMEOUT` (60) — los lee `entrypoint.sh` |
+| Núcleo | `DJANGO_SECRET_KEY` (≥ 40 caracteres y no `django-insecure-` si no hay DEBUG), `DJANGO_DEBUG` (por defecto **false**), `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `CORS_ALLOWED_ORIGINS` (los dos últimos solo traen orígenes de `localhost` por defecto con DEBUG) |
 | HTTPS | `DJANGO_SECURE_SSL_REDIRECT` y `DJANGO_SECURE_HSTS_SECONDS` (fuera de DEBUG: `true` y un año; `/api/health/` sin redirección). `SECURE_PROXY_SSL_HEADER` confía en `X-Forwarded-Proto` del proxy |
 | Sesión | `SESSION_COOKIE_NAME` (`planificacion_sessionid`), `SESSION_COOKIE_DOMAIN` (vacío), `SESSION_COOKIE_SECURE`, `SESSION_COOKIE_AGE` (8 h) |
 | SSO | `PALDACA_SSO_ENABLED` (false = deploy dark), `PALDACA_MODULO_CODIGO`, `PALDACA_PORTAL_URL`, `PALDACA_PORTAL_API_URL`, `PALDACA_SSO_*` (timeouts, gracia, breaker) |
@@ -242,20 +245,25 @@ backend **8007** · Planificación frontend **5181**. Idioma `es-ve`, zona
 
 ## 7. Despliegue y tareas programadas
 
-- Servidor WSGI: gunicorn (en `requirements.txt`); estáticos con WhiteNoise.
-- Coolify (Scheduled Tasks):
+Guía paso a paso: [`despliegue.md`](despliegue.md).
+
+- Imagen Docker (`Dockerfile`): etapa Node que compila la SPA con
+  `frontend/.env.production` y etapa Python con Django, `frontend/dist` y
+  `collectstatic`. `entrypoint.sh` migra (con reintentos), crea la tabla de
+  caché y arranca gunicorn. Estáticos y SPA con WhiteNoise, sin nginx.
+- Coolify (Scheduled Tasks, directorio `/app/backend`):
   - `python manage.py procesar_avisos` — cada 5 minutos (también purga la
     bandeja de avisos cerrados viejos).
   - `python manage.py revisar_vencimientos` — una vez al día, temprano.
 - En local los corre el arranque de la Suite (`iniciar.ps1 -Modo planificacion`
   en el repo del Portal).
-- Antes de producción: MySQL propia (D-06), `PALDACA_SSO_ENABLED=true`,
-  `PALDACA_FRAME_ANCESTORS`, secreto de avisos, cookies `Secure` y el resto de
-  la lista de la auditoría (§Checklist de despliegue).
+- Al desplegar: MySQL propia (D-06) en `DATABASE_URL`, clave propia,
+  `PALDACA_SSO_ENABLED=true`, secreto de avisos y los cambios del lado del
+  Portal (ver [`despliegue.md`](despliegue.md) §5).
 
 ## 8. Decisiones vigentes
 
 Tabla completa en el plan §9. Las que más condicionan el código:
 D-01 fechas solo día · D-05 Gantt propio (HTML + SVG) · D-06 MySQL propia
-pendiente · D-07 el admin del módulo no ve tableros personales ajenos ·
+(lista por `DATABASE_URL`) · D-07 el admin del módulo no ve tableros personales ajenos ·
 D-09 varios tableros personales · D-10 `paldaca-nav` como menú suelto.

@@ -17,6 +17,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import Max
 
 from core.errores import ReglaDeNegocio
+from core.texto import clave_nombre
 from tableros.models import CampoPersonalizado, Tablero, TipoCampo
 
 MAX_CAMPOS = 20
@@ -36,6 +37,19 @@ def _opciones_limpias(opciones) -> list[str]:
 def _guardar(campo: CampoPersonalizado) -> CampoPersonalizado:
     try:
         with transaction.atomic():
+            # «Nombre único entre los activos» también se comprueba aquí: MySQL no
+            # admite la restricción con condición (`campo_activo_unico_por_tablero`)
+            # y la ignora. Con el tablero bloqueado, dos altas simultáneas no pasan
+            # ambas. Sin mayúsculas ni acentos, como compara MySQL.
+            if not campo.archivado:
+                Tablero.objects.select_for_update().filter(pk=campo.tablero_id).first()
+                activos = (
+                    CampoPersonalizado.objects.filter(tablero_id=campo.tablero_id, archivado=False)
+                    .exclude(pk=campo.pk)
+                    .values_list("nombre", flat=True)
+                )
+                if any(clave_nombre(n) == clave_nombre(campo.nombre) for n in activos):
+                    raise IntegrityError
             campo.save()
     except IntegrityError:
         raise ReglaDeNegocio(f"Ya hay un campo «{campo.nombre}» en este tablero.")

@@ -49,6 +49,11 @@ if not DEBUG and (SECRET_KEY.startswith("django-insecure-") or len(SECRET_KEY) <
         "Para desarrollo local, DJANGO_DEBUG=true en backend/.env."
     )
 ALLOWED_HOSTS = _csv_env("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
+if _bool_env("RUNNING_IN_DOCKER", "false"):
+    # El HEALTHCHECK de la imagen llama a http://127.0.0.1:$PORT/api/health/
+    # desde dentro del contenedor: con solo el dominio público, Django
+    # respondería 400 (DisallowedHost) y Coolify daría el contenedor por caído.
+    ALLOWED_HOSTS += [h for h in ("127.0.0.1", "localhost") if h not in ALLOWED_HOSTS]
 
 
 # --- Apps / middleware ----------------------------------------------------
@@ -118,16 +123,43 @@ WSGI_APPLICATION = "Planificacion.wsgi.application"
 
 # --- Base de datos ----------------------------------------------------
 
-# SQLite por defecto (fase de scaffold, sin datos de negocio todavía). Migrar
-# a MySQL propio (nunca la instancia del Portal) antes de manejar planes
-# reales — ver DATABASE_URL/MYSQL_* en los satélites federados existentes
-# (Nomina Paldaca/Nomina/env.py) para el patrón a seguir.
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+# Producción: MySQL PROPIA (nunca la del Portal) por `DATABASE_URL`
+# (`mysql://usuario:clave@host:3306/planificacion`), el mismo patrón que
+# Nómina. Sin la variable: SQLite local, solo para desarrollo y pruebas. En el
+# contenedor (`RUNNING_IN_DOCKER=1`) es obligatoria: caer a un SQLite dentro
+# de la imagen perdería los datos en cada despliegue (auditoría A-02).
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+if DATABASE_URL:
+    import dj_database_url
+
+    DATABASES = {"default": dj_database_url.parse(DATABASE_URL, conn_max_age=600, conn_health_checks=True)}
+    if DATABASES["default"]["ENGINE"] == "django.db.backends.mysql":
+        DATABASES["default"].setdefault("OPTIONS", {}).update(
+            {"charset": "utf8mb4", "init_command": "SET sql_mode='STRICT_TRANS_TABLES'"}
+        )
+elif _bool_env("RUNNING_IN_DOCKER", "false"):
+    raise ImproperlyConfigured(
+        "DATABASE_URL es obligatoria en el contenedor: mysql://usuario:clave@host:3306/planificacion"
+    )
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
     }
-}
+
+# Caché compartida por todos los workers (auditoría A-04): feriados, umbral de
+# «vence pronto» y el breaker del SSO. Con BD de servidor, una tabla en ella
+# (la crea `createcachetable` al arrancar el contenedor); en desarrollo,
+# memoria del proceso.
+if DATABASE_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+            "LOCATION": "planificacion_cache",
+        }
+    }
 
 
 # --- Password validation ------------------------------------------------
@@ -201,8 +233,10 @@ CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
 CSRF_COOKIE_DOMAIN = SESSION_COOKIE_DOMAIN
 CSRF_COOKIE_SAMESITE = SESSION_COOKIE_SAMESITE
 CSRF_COOKIE_HTTPONLY = False  # el frontend necesita leerla para el header X-CSRFToken
+# Los orígenes de desarrollo solo por defecto con DEBUG: en producción se
+# declaran siempre (el dominio real del módulo).
 CSRF_TRUSTED_ORIGINS = _csv_env(
-    "DJANGO_CSRF_TRUSTED_ORIGINS", "http://localhost:5181,http://localhost:8007"
+    "DJANGO_CSRF_TRUSTED_ORIGINS", "http://localhost:5181,http://localhost:8007" if DEBUG else ""
 )
 
 
@@ -229,12 +263,19 @@ SILENCED_SYSTEM_CHECKS = [
     # HSTS preload exige inscribir el dominio en la lista de los navegadores:
     # decisión del dominio cpaldaca.com, no de un satélite.
     "security.W021",
+    # MySQL no crea las restricciones únicas con condición («una invitación
+    # pendiente», «nombre de campo activo»): esas reglas las cumplen los
+    # servicios con el padre bloqueado (equipos.invitar, campos._guardar).
+    "models.W036",
 ]
 
 
 # --- CORS (la SPA en dev corre en otro puerto que Django) -----------------
 
-CORS_ALLOWED_ORIGINS = _csv_env("CORS_ALLOWED_ORIGINS", "http://localhost:5181")
+# Solo hace falta en desarrollo (Vite en otro puerto). En producción la SPA es
+# del mismo origen: sin la variable no se abre CORS a nadie (con credenciales,
+# un `localhost` permitido dejaría a una página local llamar a producción).
+CORS_ALLOWED_ORIGINS = _csv_env("CORS_ALLOWED_ORIGINS", "http://localhost:5181" if DEBUG else "")
 CORS_ALLOW_CREDENTIALS = True
 # El nombre de un archivo exportado viaja en esta cabecera; entre orígenes
 # (Vite en desarrollo) el navegador solo la deja leer si se expone.
@@ -318,3 +359,22 @@ PALDACA_FRAME_ANCESTORS = os.getenv(
     "PALDACA_FRAME_ANCESTORS",
     " ".join(dict.fromkeys(a for a in _frame_ancestors if a)),
 )
+
+
+# --- Registro (auditoría A-12) ------------------------------------------------
+# A la consola (Coolify recoge stdout/stderr). `LOG_LEVEL` para los registros
+# propios (`planificacion.*`, `paldaca.*`: envíos de avisos, directorio, SSO);
+# lo demás solo desde WARNING, para no ahogar los logs.
+
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {"simple": {"format": "%(asctime)s %(levelname)s %(name)s | %(message)s"}},
+    "handlers": {"consola": {"class": "logging.StreamHandler", "formatter": "simple"}},
+    "root": {"handlers": ["consola"], "level": "WARNING"},
+    "loggers": {
+        "planificacion": {"level": LOG_LEVEL},
+        "paldaca": {"level": LOG_LEVEL},
+    },
+}

@@ -1,0 +1,41 @@
+# Planificación en Coolify (guía: docs/despliegue.md).
+# La base de datos es un recurso MySQL PROPIO de Coolify (nunca la del Portal):
+# Coolify inyecta DATABASE_URL. Los secretos (clave de Django, secreto de
+# avisos) se cargan en el panel, nunca aquí.
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8007:8007"
+    environment:
+      RUNNING_IN_DOCKER: "1"
+      DATABASE_URL: ${DATABASE_URL}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-planificacion.cpaldaca.com}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-https://planificacion.cpaldaca.com}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # SSO federado y embed en el Portal
+      PALDACA_SSO_ENABLED: ${PALDACA_SSO_ENABLED:-true}
+      PALDACA_MODULO_CODIGO: planificacion
+      PALDACA_PORTAL_URL: ${PALDACA_PORTAL_URL:-https://cpaldaca.com}
+      PALDACA_PORTAL_API_URL: ${PALDACA_PORTAL_API_URL:-https://cpaldaca.com}
+      PALDACA_SSO_LOGIN_URL: ${PALDACA_SSO_LOGIN_URL:-https://cpaldaca.com/login}
+      PALDACA_SHELL_PATH: ${PALDACA_SHELL_PATH:-/planificacion}
+      PALDACA_FRAME_ANCESTORS: ${PALDACA_FRAME_ANCESTORS:-self https://cpaldaca.com https://www.cpaldaca.com}
+      # Avisos en la campana: = PALDACA_NOTIF_SECRET_PLANIFICACION del Portal
+      PALDACA_NOTIF_SECRET: ${PALDACA_NOTIF_SECRET}
+      # Sesión propia del módulo (nunca paldaca_sessionid)
+      SESSION_COOKIE_NAME: planificacion_sessionid
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      PORT: ${PORT:-8007}
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-3}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:$${PORT:-8007}/api/health/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 45s

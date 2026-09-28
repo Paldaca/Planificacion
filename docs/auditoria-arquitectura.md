@@ -1,6 +1,6 @@
 # Auditoría de arquitectura — septiembre 2026
 
-> Fecha: 2026-09-25 · Rama: `dev` (fase 4 incluida; revisado contra el commit
+> Fecha: 2026-09-25 (actualizada 2026-09-28 con la preparación del despliegue) · Rama: `dev` (fase 4 incluida; revisado contra el commit
 > `6e9157a`) · Alcance: backend Django, frontend React,
 > configuración y operación. La auditoría anterior (organización del backend)
 > está en [`plan-modulo-planificacion.md`](plan-modulo-planificacion.md) §3.3.
@@ -33,19 +33,22 @@ CI, componentes muy grandes). Ninguno exige rediseñar.
 | ID | Severidad | Hallazgo |
 |---|---|---|
 | A-01 | Alta | `DEBUG` y `SECRET_KEY` con valores por defecto inseguros si falta la variable de entorno — ✅ resuelto 2026-09-26 |
-| A-02 | Alta | SQLite como única BD configurada (D-06 pendiente) |
+| A-02 | Alta | SQLite como única BD configurada (D-06 pendiente) — ✅ resuelto 2026-09-28 |
 | A-03 | Media | `manage.py check --deploy` falla (1 error, 5 avisos) — ✅ resuelto 2026-09-26 |
-| A-04 | Media | Caché en memoria por proceso: feriados y umbral pueden quedar desfasados entre workers |
+| A-04 | Media | Caché en memoria por proceso: feriados y umbral pueden quedar desfasados entre workers — ✅ resuelto 2026-09-28 |
 | A-05 | Media | La bandeja `AvisoSaliente` crece sin límite — ✅ resuelto 2026-09-26 |
 | A-10 | Media | Sin pruebas de frontend ni integración continua |
 | A-06 | Baja | `gantt` y `exportacion` dependen de la capa HTTP interna de `tableros` |
 | A-07 | Baja | `equipos` traduce ids del Portal sin pasar por `integracion_portal` |
-| A-08 | Baja | `manage.py` de la raíz roto y `Planificacion/db.py` vacío versionado |
+| A-08 | Baja | `manage.py` de la raíz roto y `Planificacion/db.py` vacío versionado — ✅ resuelto 2026-09-28 |
 | A-09 | Baja | Reglas espejadas en el frontend (vencimiento, filtros) sin prueba de contrato |
-| A-11 | Baja | Componentes y módulos del frontend de más de 800 líneas |
-| A-12 | Baja | Sin configuración de `LOGGING` |
+| A-11 | Baja | Componentes y módulos del frontend de más de 800 líneas — `VistaGantt` ✅ dividido 2026-09-28 |
+| A-12 | Baja | Sin configuración de `LOGGING` — ✅ resuelto 2026-09-28 |
 | A-13 | Info | Importación: XML con `ElementTree` y generación síncrona — XML ✅ resuelto 2026-09-26 (`e81f239`) |
 | A-14 | Info | Utilidades de test dentro de código de producción |
+| A-15 | Media | Restricciones únicas con condición que MySQL no crea — ✅ resuelto 2026-09-28 |
+| A-16 | Media | Orígenes de desarrollo en CORS/CSRF por defecto también en producción — ✅ resuelto 2026-09-28 |
+| A-17 | Media | Sin imagen de despliegue; el healthcheck interno chocaba con `ALLOWED_HOSTS` — ✅ resuelto 2026-09-28 |
 
 ## 3. Fortalezas verificadas
 
@@ -102,6 +105,13 @@ arrancar si `DJANGO_SECRET_KEY` falta o empieza por `django-insecure-`.
 
 ### A-02 · Alta · SQLite como única base de datos
 
+> ✅ **Resuelto 2026-09-28.** `DATABASES` desde `DATABASE_URL`
+> (`dj-database-url` + `mysqlclient`; en MySQL `utf8mb4` y modo estricto,
+> `CONN_MAX_AGE=600` con chequeo de salud). Sin la variable, SQLite solo para
+> desarrollo; en el contenedor (`RUNNING_IN_DOCKER=1`) es obligatoria. Suite
+> completa (133 pruebas) en verde contra MySQL 8. Guía:
+> [`despliegue.md`](despliegue.md).
+
 **Evidencia.** `settings.py:117` solo define SQLite. Decisión D-06 abierta.
 
 **Impacto.** Con varios workers de gunicorn, SQLite serializa escrituras
@@ -143,6 +153,11 @@ cookies `Secure` por defecto cuando `DEBUG=False`; decidir HSTS y
 `SECURE_PROXY_SSL_HEADER` según cómo termine TLS el proxy de Coolify.
 
 ### A-04 · Media · Caché por proceso
+
+> ✅ **Resuelto 2026-09-28.** Con `DATABASE_URL`, `DatabaseCache` en la tabla
+> `planificacion_cache` (la crea `createcachetable` en `entrypoint.sh`): todos
+> los workers comparten feriados, umbral y *breaker*. En desarrollo sigue en
+> memoria.
 
 **Evidencia.** No hay `CACHES` → `LocMemCache` por proceso. La usan: feriados
 (`calendario/services/dias_habiles.py:23`, 5 min, invalidación por versión en
@@ -202,6 +217,10 @@ solo por `integracion_portal`; es el único caso fuera de esa app.
 
 ### A-08 · Baja · Archivos muertos en la raíz y en el paquete
 
+> ✅ **Resuelto 2026-09-28.** Borrados `manage.py` de la raíz y
+> `backend/Planificacion/db.py` (el `iniciar.ps1` del Portal usa
+> `backend/manage.py`).
+
 **Evidencia.** `manage.py` de la raíz falla (`ModuleNotFoundError: No module
 named 'Planificacion'`): el paquete vive en `backend/`. `backend/Planificacion/db.py`
 está versionado vacío.
@@ -244,6 +263,11 @@ pruebas; nada impide integrar a `dev` con la suite de backend en rojo.
 
 ### A-11 · Baja · Archivos demasiado grandes en el frontend
 
+> ◐ **Parcial 2026-09-28.** `VistaGantt.tsx` (1318 → 643 líneas) dividido en
+> `Avance`, `Escala`, `Filas`, `Dependencias`, `Bandeja` y `tipos.ts`, sin
+> cambiar comportamiento. Quedan `api/queries.ts` (~1010) y
+> `CardDialogo.tsx`.
+
 **Evidencia.** `components/gantt/VistaGantt.tsx` 1097 líneas,
 `api/queries.ts` 991, `components/card/CardDialogo.tsx` 815,
 `pages/EquipoPage.tsx` 549.
@@ -256,6 +280,10 @@ modifica `queries.ts`).
 `VistaGantt` en cabecera, filas, barras, flechas y bandeja.
 
 ### A-12 · Baja · Sin `LOGGING`
+
+> ✅ **Resuelto 2026-09-28.** `LOGGING` a consola con fecha, nivel y origen;
+> `LOG_LEVEL` (INFO por defecto) para `planificacion.*` y `paldaca.*`, el resto
+> desde WARNING.
 
 **Evidencia.** `settings.py` no define `LOGGING`. `planificacion.notificaciones`
 registra `NOTIFICACION_ENVIADA` en INFO.
@@ -288,6 +316,53 @@ entorno (`LOG_LEVEL`).
   pero sería más claro un modo explícito en `integracion_portal` (p. ej. un
   gestor de contexto `envio_sincrono()`) que no dependa de utilidades de test.
 
+### A-15 · Media · Restricciones únicas con condición en MySQL
+
+> ✅ **Resuelto 2026-09-28.**
+
+**Evidencia.** Al correr la suite contra MySQL fallaba
+`test_rechazar_no_agrega_y_permite_reinvitar`: MySQL no crea las
+`UniqueConstraint` con `condition` (`invitacion_pendiente_unica`,
+`campo_activo_unico_por_tablero`; aviso `models.W036`) y se podían duplicar.
+Además, la colación de MySQL compara sin mayúsculas ni acentos y SQLite no.
+
+**Resolución.** Los servicios comprueban la regla con el padre bloqueado
+(`equipos.services.invitaciones.invitar`, `tableros.services.campos._guardar`)
+y comparan nombres con `core.texto.clave_nombre` (también las etiquetas), así
+dan lo mismo en SQLite y en MySQL. Las restricciones se conservan (SQLite las
+aplica) y `models.W036` se silencia con su razón. Pruebas nuevas en
+`tableros/tests/test_configuracion.py`.
+
+### A-16 · Media · Orígenes de desarrollo abiertos en producción
+
+> ✅ **Resuelto 2026-09-28.**
+
+**Evidencia.** `CORS_ALLOWED_ORIGINS` (con credenciales) y
+`CSRF_TRUSTED_ORIGINS` tomaban `http://localhost:5181`/`8007` por defecto
+aunque no hubiera DEBUG.
+
+**Impacto.** Una página servida en ese puerto del equipo de alguien podía
+llamar a la API de producción con su sesión.
+
+**Resolución.** Esos valores por defecto solo con DEBUG; en producción se
+declaran (`DJANGO_CSRF_TRUSTED_ORIGINS`) y CORS queda cerrado (la SPA es del
+mismo origen).
+
+### A-17 · Media · Empaquetado para Coolify
+
+> ✅ **Resuelto 2026-09-28.**
+
+**Evidencia.** No había `Dockerfile` ni arranque. Al crearlo: el `HEALTHCHECK`
+llama a `127.0.0.1`, que con `DJANGO_ALLOWED_HOSTS=planificacion.cpaldaca.com`
+daba 400 y el contenedor quedaba «unhealthy».
+
+**Resolución.** `Dockerfile` en dos etapas (build de la SPA + Django con
+gunicorn), `entrypoint.sh` (migrate con reintentos, `createcachetable`),
+`docker-compose.yml`, `.dockerignore`; en el contenedor se aceptan siempre
+`127.0.0.1` y `localhost`. `frontend/.env.production` apunta la API del Portal
+a `https://cpaldaca.com/api` (el Portal ya no necesita `api.cpaldaca.com`).
+Guía en [`despliegue.md`](despliegue.md).
+
 ## 5. Plan de acción recomendado
 
 | Orden | Acción | Hallazgos | Esfuerzo |
@@ -301,13 +376,19 @@ entorno (`LOG_LEVEL`).
 
 ## 6. Checklist de despliegue (derivado)
 
-- [ ] `DJANGO_DEBUG=false`, `DJANGO_SECRET_KEY` propia y larga.
-- [ ] `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `CORS_ALLOWED_ORIGINS` del dominio real.
+Pasos concretos en [`despliegue.md`](despliegue.md). En el código ya está:
+
+- [x] `DJANGO_DEBUG` falso por defecto y clave obligatoria sin DEBUG (A-01).
 - [x] `SESSION_COOKIE_SECURE` y CSRF `Secure` por defecto fuera de DEBUG (A-03).
-- [ ] MySQL propia configurada y migrada.
-- [ ] `PALDACA_SSO_ENABLED=true`, `PALDACA_PORTAL_URL`, `PALDACA_PORTAL_API_URL`, `PALDACA_FRAME_ANCESTORS`.
-- [ ] `PALDACA_NOTIF_SECRET` = `PALDACA_NOTIF_SECRET_PLANIFICACION` del Portal; `planificacion` en `PALDACA_NOTIF_ESTRICTO`.
-- [ ] `npm run build` y `collectstatic`.
+- [x] MySQL por `DATABASE_URL`, caché compartida y `LOGGING` (A-02, A-04, A-12).
+- [x] Imagen Docker con build de la SPA y `collectstatic`; `migrate` al arrancar (A-17).
+- [x] `manage.py check --deploy` sin problemas con valores de producción (2026-09-28).
+
+En Coolify, al desplegar:
+
+- [ ] MySQL **propia** y `DATABASE_URL`.
+- [ ] `DJANGO_SECRET_KEY` propia, `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS` del dominio real.
+- [ ] `PALDACA_SSO_ENABLED=true` (el resto de `PALDACA_*` tiene el valor de `cpaldaca.com` por defecto).
+- [ ] `PALDACA_NOTIF_SECRET` = `PALDACA_NOTIF_SECRET_PLANIFICACION` del Portal; luego `planificacion` en `PALDACA_NOTIF_ESTRICTO`.
 - [ ] Scheduled Tasks: `procesar_avisos` (5 min) y `revisar_vencimientos` (diario).
-- [ ] `manage.py check --deploy` sin errores (pasa con clave propia desde 2026-09-26).
-- [ ] Recién entonces, `planificacion` en `VITE_EMBEDDED_MODULES` del Portal.
+- [ ] Portal: origen del módulo en su CORS/CSRF, `VITE_SATELLITE_PLANIFICACION_URL` y `planificacion` en `VITE_EMBEDDED_MODULES`.

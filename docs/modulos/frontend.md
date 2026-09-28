@@ -1,6 +1,6 @@
 # Módulo `frontend` (SPA React)
 
-> Leer antes de modificar `frontend/`. Revisado: 2026-09-26.
+> Leer antes de modificar `frontend/`. Revisado: 2026-09-28.
 
 ## Stack
 
@@ -121,9 +121,12 @@ Reglas:
   `noUnusedParameters`, `erasableSyntaxOnly`) y `npm run lint` (oxlint).
 - **No hay pruebas automáticas** del frontend (auditoría A-10). `lib/` es puro
   y es el primer candidato a Vitest.
-- Archivos grandes a dividir cuando se toquen: `components/gantt/VistaGantt.tsx`
-  (~1100 líneas), `api/queries.ts` (~1000), `components/card/CardDialogo.tsx`
-  (~800) (auditoría A-11).
+- Archivos grandes a dividir cuando se toquen: `api/queries.ts` (~1000
+  líneas) y `components/card/CardDialogo.tsx` (~800) (auditoría A-11).
+  `VistaGantt.tsx` ya está dividido en piezas (ver [`gantt.md`](gantt.md)).
+- En producción `VITE_PALDACA_PORTAL_API_URL` es `https://cpaldaca.com/api`:
+  el Portal sirve su API en el mismo origen (`api.cpaldaca.com` es solo un
+  alias opcional).
 
 ## Relacionado
 

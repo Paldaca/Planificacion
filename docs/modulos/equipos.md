@@ -1,6 +1,6 @@
 # Módulo `equipos`
 
-> Leer antes de modificar `backend/equipos/`. Revisado: 2026-09-25.
+> Leer antes de modificar `backend/equipos/`. Revisado: 2026-09-28.
 
 ## Responsabilidad
 
@@ -13,7 +13,7 @@ membresías con rol y las **invitaciones**, única forma de entrar a un equipo.
 |---|---|---|
 | `Equipo` | `planificacion_equipo` | `nombre`, `descripcion`, `color` (hex, por defecto `#32407b`), `creado_por`, `archivado`. QuerySet propio (`EquipoQuerySet`). |
 | `MiembroEquipo` | `planificacion_miembro_equipo` | `equipo`, `usuario`, `rol` (`RolEquipo`: administrador / miembro / lector), `agregado_por`. Único por (equipo, usuario). `puede_editar` = administrador o miembro. |
-| `InvitacionEquipo` | `planificacion_invitacion_equipo` | `equipo`, `invitado`, `invitado_por`, `rol`, `mensaje`, `estado` (pendiente / aceptada / rechazada / cancelada), `respondida_en`. Una sola **pendiente** por (equipo, invitado); las respondidas quedan como historial. |
+| `InvitacionEquipo` | `planificacion_invitacion_equipo` | `equipo`, `invitado`, `invitado_por`, `rol`, `mensaje`, `estado` (pendiente / aceptada / rechazada / cancelada), `respondida_en`. Una sola **pendiente** por (equipo, invitado); las respondidas quedan como historial. La restricción `invitacion_pendiente_unica` tiene condición y MySQL no la crea: la regla la cumple `invitar` con el equipo bloqueado. |
 
 ## Servicios
 
@@ -21,7 +21,8 @@ membresías con rol y las **invitaciones**, única forma de entrar a un equipo.
   `editar_equipo`, `archivar_equipo`, `cambiar_rol`, `quitar_miembro`,
   `salir_del_equipo`. **Regla central: un equipo nunca queda sin
   administrador.**
-- `services/invitaciones.py`: `invitar`, `cancelar`, `responder`. Invitar emite
+- `services/invitaciones.py`: `invitar` (bloquea el equipo y rechaza una
+  segunda pendiente para la misma persona), `cancelar`, `responder`. Invitar emite
   `planificacion.invitacion_equipo`; responder o cancelar la resuelve, y quien
   invitó recibe `planificacion.invitacion_respondida`.
 - `services/candidatos.py`: `buscar_candidatos` (Portal primero; si no

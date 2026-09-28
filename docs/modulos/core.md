@@ -1,6 +1,6 @@
 # Módulo `core`
 
-> Leer antes de modificar `backend/core/`. Revisado: 2026-09-25.
+> Leer antes de modificar `backend/core/`. Revisado: 2026-09-28.
 
 ## Responsabilidad
 
@@ -16,6 +16,10 @@ Planificación:
   módulo según el Portal (o superusuario local de emergencia).
 - **Errores de dominio** (`errores.py`): `ReglaDeNegocio`, `ConflictoDeVersion`,
   `ServicioNoDisponible` y el manejador DRF `manejador_excepciones`.
+- **Comparar nombres** (`texto.py`): `clave_nombre(texto)` quita acentos,
+  mayúsculas y espacios de más, como la colación de MySQL. Las reglas de
+  «nombre único» (etiquetas, campos personalizados) comparan con ella para dar
+  lo mismo en SQLite y en MySQL.
 - **Utilidades de API** (`api.py`): `booleano(request, campo, defecto)` para leer
   booleanos del cuerpo sin la trampa `bool("false") is True`.
 - **Cierre de sesión SSO** (`session_logout.py`): expira cookies y cierra la

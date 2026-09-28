@@ -2,7 +2,7 @@
 
 > Punto de entrada para asistentes de IA (Claude Code, Cursor) y para
 > cualquier persona que llegue nueva al repo. Resume qué es el programa, cómo
-> está hecho y dónde está cada cosa. Revisado: 2026-09-26.
+> está hecho y dónde está cada cosa. Revisado: 2026-09-28.
 >
 > **Regla del proyecto:** antes de modificar un módulo, leer su documento en
 > [`docs/modulos/`](modulos/) (tabla en §6). Si el cambio altera lo que ahí
@@ -38,8 +38,8 @@ están **en español**.
 |---|---|
 | Backend | Python 3.12 · Django 6.1 · DRF 3.18 · django-cors-headers · WhiteNoise · gunicorn · openpyxl · requests · python-dotenv |
 | Frontend | React 19 · TypeScript 6 · Vite 8 · Tailwind CSS 4 · TanStack Query 5 · React Router 7 · dnd-kit · Radix UI · Motion · sonner · lucide-react · oxlint |
-| BD | SQLite en desarrollo; MySQL propia pendiente antes de producción (D-06) |
-| Despliegue | Coolify (contenedor + Scheduled Tasks) |
+| BD | SQLite en desarrollo; MySQL propia en producción por `DATABASE_URL` (D-06) |
+| Despliegue | Coolify: `Dockerfile` + `entrypoint.sh` (gunicorn) + Scheduled Tasks — [`despliegue.md`](despliegue.md) |
 
 ## 3. Mapa del repositorio
 
@@ -133,7 +133,7 @@ Rutas relativas a la raíz del repo; en Windows (PowerShell) el venv está en
 ```powershell
 # Backend (desde backend/)
 ..\venv\Scripts\python.exe manage.py runserver 127.0.0.1:8007
-..\venv\Scripts\python.exe manage.py test                    # 131 pruebas, ~25 s
+..\venv\Scripts\python.exe manage.py test                    # 133 pruebas, ~25 s
 ..\venv\Scripts\python.exe manage.py test tableros.tests.test_tarjetas
 ..\venv\Scripts\python.exe manage.py makemigrations <app>
 ..\venv\Scripts\python.exe manage.py migrate
@@ -146,8 +146,9 @@ npm run lint       # oxlint
 npm run build      # tsc -b + vite build → frontend/dist (lo sirve Django)
 ```
 
-El `manage.py` de la raíz del repo está roto (auditoría A-08): usar siempre
-`backend/manage.py`. Arranque completo de la Suite en local:
+`manage.py` solo existe en `backend/` (el de la raíz, roto, se borró: A-08).
+Imagen de producción: `docker build -t planificacion .` (guía en
+[`despliegue.md`](despliegue.md)). Arranque completo de la Suite en local:
 `.\iniciar.ps1 -Modo planificacion` desde el repo del Portal.
 
 ## 8. Estado (septiembre 2026)
@@ -161,10 +162,14 @@ El `manage.py` de la raíz del repo está roto (auditoría A-08): usar siempre
 - **Fase 5 implementada**: etiquetas, campos personalizados y límite suave
   por columna (en `tableros`), y app `plantillas`. Queda fuera: automatizaciones
   y vista de carga de trabajo (ver plan §7).
-- Pendientes transversales: MySQL propia (D-06), prueba con sesión real del
-  Portal, estado del módulo abierto suelto (opcional), hallazgos de
-  [`auditoria-arquitectura.md`](auditoria-arquitectura.md) (los de severidad
-  Alta son de configuración de producción).
+- **Listo para desplegar** (2026-09-28): MySQL por `DATABASE_URL` (suite en
+  verde contra MySQL 8), caché compartida, `LOGGING`, imagen Docker probada y
+  `check --deploy` limpio. Pasos en [`despliegue.md`](despliegue.md); del lado
+  del Portal hace falta publicar su rama `feat/modulo-planificacion`.
+- Pendientes: prueba con sesión real del Portal, abrir el XML en MS Project,
+  estado del módulo abierto suelto (opcional) y los hallazgos Media/Baja que
+  siguen abiertos en [`auditoria-arquitectura.md`](auditoria-arquitectura.md)
+  (CI y pruebas del frontend, `queries.ts` grande).
 - Rama de trabajo: `dev`; principal: `main`. Commits cortos en español, sin
   tildes en el asunto (p. ej. «Fase 3: Gantt, Lista y Calendario»).
 

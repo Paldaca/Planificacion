@@ -452,7 +452,7 @@ crece a mitad de camino: lo nuevo va a la siguiente.
 
 | Fase | Estado | Commits (repo Planificación, rama `dev`) |
 |---|---|---|
-| 0 — Cimientos | ✅ hecha; queda la BD MySQL propia antes de datos reales (D-06) | `4e9ef6b` |
+| 0 — Cimientos | ✅ hecha; MySQL propia lista por `DATABASE_URL` (D-06) | `4e9ef6b` |
 | 1 — Tableros y cards | ✅ implementada | `6d7034c`, `6f8f9fa`, `d7de71c` |
 | 2 — Colaboración y avisos | ✅ implementada; §6.6 (estado del módulo suelto) sigue opcional | `6aa1a61` |
 | 3 — Gantt y vistas | ✅ implementada y auditada | `644c063`, `594fde4` |
@@ -493,11 +493,19 @@ crece a mitad de camino: lo nuevo va a la siguiente.
   secuencia), resumen de avance (% terminado, vencidas, por vencer, sin fechas)
   con atajo a lo atrasado, y avance por grupo (hechas/total, vencidas y barra
   resumen por persona, columna o urgencia).
+- **Preparación del despliegue** (auditoría 2026-09-28): MySQL propia por
+  `DATABASE_URL` con la suite en verde contra MySQL 8 (las reglas «una
+  invitación pendiente» y «nombre de campo único» pasaron a los servicios:
+  MySQL ignora esas restricciones con condición), caché compartida, `LOGGING`,
+  CORS/CSRF de desarrollo solo con DEBUG, imagen Docker con healthcheck,
+  `VistaGantt.tsx` dividido en piezas y guía
+  [`despliegue.md`](despliegue.md).
 - Correcciones: `frontend/src/lib/` no se versionaba por un patrón del
   `.gitignore` (`c116d13`); la lista de *Archivadas* mostraba la caché vacía
   al reabrirla (`e8d521c`).
 
-**Pendiente transversal:** MySQL propia (D-06); estado del módulo abierto
+**Pendiente transversal:** crear la MySQL propia en Coolify al desplegar
+(D-06, ver [`despliegue.md`](despliegue.md)); estado del módulo abierto
 suelto (§6.6, opcional); prueba con sesión real del Portal (solo se probó con
 un usuario de demostración).
 
@@ -511,8 +519,8 @@ registro del módulo en el Portal.
 convenciones de API (`/api/v1/`, `{"detail"}` en errores de negocio, 409 por
 versión, permisos por objeto en `permisos.py`).
 
-**Pendiente:** migración a **MySQL propia** (nunca la instancia del Portal)
-antes de cargar datos reales (D-06).
+**Resuelto (2026-09-28):** MySQL propia (nunca la instancia del Portal) por
+`DATABASE_URL` (D-06); SQLite queda solo para desarrollo.
 
 ### Fase 1 — Tableros y cards (primera versión útil) — ✅ implementada
 
@@ -812,5 +820,5 @@ cabecera `X-CSRFToken`.
 | Notificaciones duplicadas o ruidosas | `clave_agrupacion`, no notificar al actor, resolver al terminar |
 | Pérdida de datos por ediciones simultáneas | Versión por objeto y 409 |
 | Personas que pierden acceso quedan "colgadas" | Se conservan y se muestran como *sin acceso* (§6.1) |
-| SQLite en producción | Migrar a MySQL propia antes de datos reales (D-06) |
+| SQLite en producción | MySQL propia por `DATABASE_URL`; el contenedor no arranca sin ella (D-06) |
 | Exportación a Project incompleta | Basarse en MSPDI y probar ida y vuelta (criterio de la fase 4) |

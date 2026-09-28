@@ -83,6 +83,15 @@ def invitar(equipo: Equipo, *, invitado, rol: str, actor, mensaje: str = "") -> 
         raise ReglaDeNegocio("Esa persona ya es miembro del equipo.")
     try:
         with transaction.atomic():
+            # «Una sola pendiente» también se comprueba aquí: MySQL no admite la
+            # restricción única con condición (`invitacion_pendiente_unica`) y
+            # la ignora. Con el equipo bloqueado, dos invitaciones simultáneas
+            # a la misma persona no pasan ambas.
+            Equipo.objects.select_for_update().filter(pk=equipo.pk).first()
+            if InvitacionEquipo.objects.filter(
+                equipo=equipo, invitado=invitado, estado=EstadoInvitacion.PENDIENTE
+            ).exists():
+                raise IntegrityError
             invitacion = InvitacionEquipo.objects.create(
                 equipo=equipo, invitado=invitado, invitado_por=actor, rol=rol, mensaje=mensaje.strip()
             )

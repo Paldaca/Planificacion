@@ -4,6 +4,7 @@
 |---|---|
 | [`AI_CONTEXT.md`](AI_CONTEXT.md) | Punto de entrada: qué es el programa, stack, mapa del repo, reglas de oro, comandos. Lo leen los asistentes de IA al empezar. |
 | [`arquitectura.md`](arquitectura.md) | Arquitectura tal como está construida: capas, dependencias entre apps, flujos, configuración y despliegue. |
+| [`despliegue.md`](despliegue.md) | Despliegue en Coolify: imagen Docker, MySQL propia, variables, tareas programadas, cambios en el Portal y comprobación. |
 | [`auditoria-arquitectura.md`](auditoria-arquitectura.md) | Auditoría de septiembre 2026: fortalezas, hallazgos con severidad, plan de acción y checklist de despliegue. |
 | [`modulos/`](modulos/) | Un documento por módulo. **Leer el del módulo antes de modificarlo.** |
 | [`plan-modulo-planificacion.md`](plan-modulo-planificacion.md) | Diseño funcional, modelo de datos conceptual, permisos, sincronización con el Portal, plan por fases y decisiones. |

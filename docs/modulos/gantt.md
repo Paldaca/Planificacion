@@ -1,7 +1,7 @@
 # Módulo `gantt`
 
 > Leer antes de modificar `backend/gantt/` o `frontend/src/components/gantt/`.
-> Revisado: 2026-09-26.
+> Revisado: 2026-09-28.
 
 ## Responsabilidad
 
@@ -60,9 +60,22 @@ Kanban: un cambio en una vista se ve de inmediato en la otra.
 
 ## Frontend
 
-`components/gantt/VistaGantt.tsx` (Gantt propio en HTML + SVG, sin librería,
-decisión D-05) y `lib/gantt.ts` (geometría pura: rango, filas agrupadas,
-rutas de flechas). Agrupar por columna/responsable/urgencia, zoom
+Gantt propio en HTML + SVG, sin librería (decisión D-05), y `lib/gantt.ts`
+(geometría pura: rango, filas agrupadas, rutas de flechas). En
+`components/gantt/`:
+
+| Archivo | Qué tiene |
+|---|---|
+| `VistaGantt.tsx` | La vista: barra de herramientas, estado (zoom, agrupación, selección, arrastre, colocación desde la bandeja, enlace de dependencias), desplazamientos y composición de las piezas. |
+| `Avance.tsx` | `ResumenAvance` (línea de avance del Gantt visible) y `ResumenGrupo` (barra resumen de un grupo). |
+| `Escala.tsx` | `Escala` (meses y días) y `Fondo` (fines de semana, feriados, líneas de filas). |
+| `Filas.tsx` | `EtiquetaCard` (columna fija de títulos) y `Barra` (barra con tiradores). |
+| `Dependencias.tsx` | `Flechas` (SVG) y `PanelDependencia` (editar tipo, desfase, quitar). |
+| `Bandeja.tsx` | Bandeja «Sin fechas» para arrastrar tarjetas a la línea de tiempo. |
+| `NuevaTareaDialogo.tsx` | Alta rápida de una tarea desde el Gantt. |
+| `tipos.ts` | `ALTO_ESCALA` y los tipos `Modo`, `Enlace`, `Colocando` que comparten. |
+
+ Agrupar por columna/responsable/urgencia, zoom
 día/semana/mes, bandeja «Sin fechas» (solo si hay tarjetas sin fechas; si no,
 la línea de tiempo usa todo el ancho), flechas incumplidas en rojo punteado,
 interruptor «Mover sucesoras».
