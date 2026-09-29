@@ -70,6 +70,34 @@ const TABLERO: TemaAyuda = {
       ],
     },
     {
+      id: "etiquetas",
+      titulo: "Etiquetas: clasificar las tarjetas",
+      parrafos: [
+        "Una **etiqueta** es una marca de color con nombre que le pones a una tarjeta para saber de un vistazo de qué se trata. Una tarjeta puede tener varias.",
+        "Ejemplos de uso:",
+        "• **Disciplina**: Civil, Mecánica, Eléctrica, Instrumentación.",
+        "• **Cliente o proyecto**: Cliente A, Planta Norte, Ampliación.",
+        "• **Tipo de trabajo o fase**: Ingeniería, Procura, Construcción.",
+        "• **Estados que no son columnas**: Bloqueada, Espera cliente, Revisión interna.",
+        "Para qué sirven: se ven como píldoras en el Tablero y en la Lista, y con el filtro **Etiquetas** ves solo, por ejemplo, lo de Mecánica. El filtro vale para las cuatro vistas y para exportar a Excel.",
+        "Cómo se crean: en el menú «…» del tablero, **Etiquetas y campos…** (hasta 30 por tablero, cada una con su color). Luego, dentro de cada tarjeta, se marcan o desmarcan con un clic.",
+        "Ojo: borrar una etiqueta la quita de todas las tarjetas que la tenían.",
+      ],
+    },
+    {
+      id: "campos",
+      titulo: "Campos personalizados: datos propios del tablero",
+      parrafos: [
+        "Un **campo personalizado** es un dato extra que tu tablero necesita y que la tarjeta no trae de fábrica. Se define una vez para el tablero y cada tarjeta guarda su valor.",
+        "Hay tres tipos:",
+        "• **Texto**: N.º de plano o documento (PLN-CIV-0012), orden de compra, área o unidad.",
+        "• **Número**: horas estimadas, monto, cantidad, % de avance reportado (acepta coma o punto).",
+        "• **Lista**: una opción entre varias fijas, por ejemplo Etapa (Básica, Detalle, Construcción) o Revisión (A, B, 0, 1).",
+        "Para qué sirven: se rellenan dentro de la tarjeta, cada campo tiene **su columna en la Lista** (ordenable: por ejemplo, de más a menos horas) y sale en el **Excel** exportado. Si lo pones en «Se ve en la tarjeta del tablero», su valor también aparece en el Kanban.",
+        "Cómo se crean: en el menú «…» del tablero, **Etiquetas y campos…** (hasta 20 activos). El tipo no se puede cambiar después. Un campo no se borra: se **archiva** y conserva los valores que ya tenía.",
+      ],
+    },
+    {
       id: "filtros",
       titulo: "Buscar y filtrar",
       parrafos: [
@@ -247,6 +275,16 @@ const PREGUNTAS: TemaAyuda = {
       titulo: "¿Quién ve mi tablero personal?",
       parrafos: [
         "Solo tú. Ni siquiera el administrador del módulo puede verlo. Puedes tener varios tableros personales.",
+      ],
+    },
+    {
+      id: "etiqueta-o-campo",
+      titulo: "¿Uso una etiqueta o un campo personalizado?",
+      parrafos: [
+        "• **Etiqueta** si quieres **clasificar y filtrar**: pocas categorías que se ven de un vistazo en el tablero (disciplina, cliente, «Bloqueada»). Una tarjeta puede tener varias.",
+        "• **Campo** si quieres **guardar un dato** de cada tarjeta: un código, un número, una opción de una lista (N.º de plano, horas, etapa). Un valor por tarjeta, que puedes ordenar en la Lista y llevar a Excel.",
+        "Ejemplo: «Mecánica» es una etiqueta; «Horas estimadas: 16» es un campo.",
+        "Los dos se crean en el menú «…» del tablero, **Etiquetas y campos…**, y los gestiona quien administra el tablero (el dueño, o los administradores del equipo); cualquiera que edite tarjetas puede ponerlos. Viajan en las plantillas y, al mover una tarjeta a otro tablero, se conservan los que existan allí con el mismo nombre.",
       ],
     },
     {
