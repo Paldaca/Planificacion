@@ -105,6 +105,10 @@ sin esfuerzo:
 - **Encajar** (`encaje` en `lib/gantt.ts`): elige el zoom más cercano en el
   que caben todas las barras visibles (con 2 días de margen) y centra ese
   tramo. Si no caben ni en «Mes», va al principio en «Mes».
+- **PDF** (botón de la barra, también en *Excel / Project → Gantt en PDF…*):
+  abre `components/tablero/ExportarPdfDialogo` con el zoom, la agrupación y
+  los grupos plegados de esta vista (`onExportarPdf`); lo genera el servidor
+  (`exportacion/services/pdf.py`, ver [`exportacion.md`](exportacion.md)).
 - **Pantalla completa** (`hooks/usePantallaCompleta`): el Gantt pasa a un
   portal en `<body>` con `fixed inset-0` (un ancestro con `transform` rompería
   el `fixed`) y se pide la pantalla completa del **documento**, no del Gantt:

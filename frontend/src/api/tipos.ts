@@ -221,7 +221,7 @@ export type Dependencia = {
 
 // --- Exportación e importación (fase 4) ------------------------------------------------
 
-export type FormatoExportacion = "xlsx" | "xml";
+export type FormatoExportacion = "xlsx" | "xml" | "pdf";
 
 export type FilaVistaPrevia = {
   fila: number;

@@ -256,6 +256,18 @@ const GANTT: TemaAyuda = {
       ],
     },
     {
+      id: "pdf",
+      titulo: "Compartir el Gantt en PDF",
+      parrafos: [
+        "Pulsa **PDF** en la barra del Gantt (o **Excel / Project → Gantt en PDF…**). Sale un PDF para enviar o imprimir con el diagrama, el resumen de avance y la leyenda.",
+        "Lleva lo que ves: los filtros, la agrupación y los grupos plegados. Al descargarlo eliges:",
+        "• **Escala**: ajustada al ancho (todo el periodo en una hoja) o como en el Gantt (Día, Semana o Mes; un plan largo sigue en más hojas).",
+        "• **Periodo**: todo el plan o de una fecha a otra.",
+        "• **Hoja**: Carta u **11×17** (tabloide) para el plan grande, siempre horizontal.",
+        "Las flechas se dibujan cuando las dos tareas caen en la misma hoja.",
+      ],
+    },
+    {
       id: "project",
       titulo: "Llevar el plan a MS Project",
       parrafos: [

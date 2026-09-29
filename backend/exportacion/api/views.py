@@ -13,13 +13,14 @@ from rest_framework.views import APIView
 
 from core.api import booleano
 from core.errores import ReglaDeNegocio
-from exportacion.services import excel, importacion, mspdi
+from exportacion.services import excel, importacion, mspdi, pdf
 from exportacion.services.datos import Filtros, contenido, nombre_archivo
 from tableros.api.views.comunes import obtener_tablero
 
 TIPOS = {
     "xlsx": ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", excel.exportar),
     "xml": ("application/xml", mspdi.exportar),
+    "pdf": ("application/pdf", pdf.exportar),
 }
 
 
@@ -31,17 +32,22 @@ def _descarga(datos: bytes, tipo: str, nombre: str) -> HttpResponse:
 
 
 class ExportarView(APIView):
-    """`?formato=xlsx|xml` y los mismos filtros del tablero
-    (`q`, `urgencia`, `responsable`, `vencidas`)."""
+    """`?formato=xlsx|xml|pdf` y los mismos filtros del tablero
+    (`q`, `urgencia`, `responsable`, `etiqueta`, `vencidas`). El PDF (el Gantt)
+    lleva además su configuración: `escala`, `zoom`, `agrupar`, `plegado`,
+    `desde`/`hasta` y `hoja` (ver `pdf.OpcionesPdf`)."""
 
     def get(self, request, pk):
         tablero = obtener_tablero(request, pk)
         formato = request.query_params.get("formato", "xlsx")
         if formato not in TIPOS:
-            raise ValidationError({"formato": "Usa xlsx (Excel) o xml (MS Project)."})
+            raise ValidationError({"formato": "Usa xlsx (Excel), xml (MS Project) o pdf (Gantt)."})
         tipo, generar = TIPOS[formato]
-        datos = generar(contenido(tablero, Filtros.desde_query(request.query_params)))
-        return _descarga(datos, tipo, nombre_archivo(tablero, formato))
+        datos_tablero = contenido(tablero, Filtros.desde_query(request.query_params))
+        if formato == "pdf":
+            datos = pdf.exportar(datos_tablero, pdf.OpcionesPdf.desde_query(request.query_params))
+            return _descarga(datos, tipo, f"gantt-{nombre_archivo(tablero, formato)}")
+        return _descarga(generar(datos_tablero), tipo, nombre_archivo(tablero, formato))
 
 
 class PlantillaView(APIView):

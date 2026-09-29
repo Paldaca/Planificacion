@@ -5,6 +5,7 @@ import {
   ChartGantt,
   CircleHelp,
   Ellipsis,
+  FileDown,
   FileSpreadsheet,
   FileUp,
   LayoutTemplate,
@@ -33,6 +34,7 @@ import { CardDialogo } from "@/components/card/CardDialogo";
 import { Encabezado } from "@/components/layout/Encabezado";
 import { GuardarPlantillaDialogo } from "@/components/plantillas/GuardarPlantillaDialogo";
 import { ConfiguracionDialogo } from "@/components/tablero/ConfiguracionDialogo";
+import { ExportarPdfDialogo, type ConfigGantt } from "@/components/tablero/ExportarPdfDialogo";
 import { BarraFiltros } from "@/components/tablero/Filtros";
 import { FILTROS_VACIOS, filtrar, hayFiltros, type EstadoFiltros } from "@/lib/filtros";
 import { ImportarDialogo } from "@/components/tablero/ImportarDialogo";
@@ -49,6 +51,7 @@ import { ItemMenu, Menu, SeparadorMenu } from "@/components/ui/Menu";
 import { useAlAbrir } from "@/hooks/useAlAbrir";
 import { useAyuda, useTemaAyuda } from "@/hooks/useAyuda";
 import { moduloDiferido, useModuloDiferido } from "@/hooks/useModuloDiferido";
+import { leerPreferencia } from "@/hooks/usePreferencia";
 import { ContextoConfigTablero, useValorConfigTablero } from "@/hooks/useConfigTablero";
 import { useTitulo } from "@/hooks/useTitulo";
 import { useVista } from "@/hooks/useVista";
@@ -85,6 +88,20 @@ export default function TableroPage() {
   const [importando, setImportando] = useState(false);
   const [configurando, setConfigurando] = useState(false);
   const [guardandoPlantilla, setGuardandoPlantilla] = useState(false);
+  /** Configuración del Gantt con la que se abre «Gantt en PDF» (null = cerrado). */
+  const [pdfGantt, setPdfGantt] = useState<ConfigGantt | null>(null);
+  const [ultimoPdf, setUltimoPdf] = useState<ConfigGantt | null>(null);
+  const abrirPdf = useCallback((config: ConfigGantt) => {
+    setUltimoPdf(config);
+    setPdfGantt(config);
+  }, []);
+  // Desde el menú, fuera del Gantt: su zoom y agrupación guardados (sin plegados).
+  const abrirPdfDesdeMenu = () =>
+    abrirPdf({
+      zoom: leerPreferencia("gantt:zoom", "dia", ["dia", "semana", "mes"] as const),
+      agrupar: leerPreferencia("gantt:agrupar", "columna", ["columna", "responsable", "urgencia", "ninguna"] as const),
+      plegados: [],
+    });
   const config = useValorConfigTablero(tablero);
 
   useTitulo(tablero?.nombre);
@@ -188,6 +205,9 @@ export default function TableroPage() {
               <ItemMenu icono={ChartGantt} onSelect={() => exportar.mutate({ formato: "xml", filtros: vigentes })}>
                 {hayFiltros(vigentes) ? "Exportar lo filtrado a MS Project" : "Exportar a MS Project"}
               </ItemMenu>
+              <ItemMenu icono={FileDown} onSelect={abrirPdfDesdeMenu}>
+                Gantt en PDF…
+              </ItemMenu>
               {permisos.editar && (
                 <>
                   <SeparadorMenu />
@@ -236,6 +256,9 @@ export default function TableroPage() {
                 className="sm:hidden"
               >
                 {hayFiltros(vigentes) ? "Exportar lo filtrado a MS Project" : "Exportar a MS Project"}
+              </ItemMenu>
+              <ItemMenu icono={FileDown} onSelect={abrirPdfDesdeMenu} className="sm:hidden">
+                Gantt en PDF…
               </ItemMenu>
               {permisos.editar && (
                 <ItemMenu icono={FileUp} onSelect={() => setImportando(true)} className="sm:hidden">
@@ -297,6 +320,7 @@ export default function TableroPage() {
           visibles={visibles}
           onAbrir={abrir}
           onVerAtrasadas={() => setFiltros((f) => ({ ...f, soloVencidas: true }))}
+          onExportarPdf={abrirPdf}
         />
       )}
       {(vista === "gantt" || vista === "calendario") &&
@@ -320,6 +344,15 @@ export default function TableroPage() {
       <ImportarDialogo tableroId={id} abierto={importando} onCerrar={() => setImportando(false)} />
       <ConfiguracionDialogo tablero={tablero} abierto={configurando} onCerrar={() => setConfigurando(false)} />
       <GuardarPlantillaDialogo tablero={tablero} abierto={guardandoPlantilla} onCerrar={() => setGuardandoPlantilla(false)} />
+      {ultimoPdf && (
+        <ExportarPdfDialogo
+          tablero={tablero}
+          filtros={vigentes}
+          config={pdfGantt ?? ultimoPdf}
+          abierto={pdfGantt !== null}
+          onCerrar={() => setPdfGantt(null)}
+        />
+      )}
 
       <PanelArchivadas tableroId={id} abierto={verArchivadas} onCerrar={() => setVerArchivadas(false)} puedeRestaurar={permisos.editar} />
 

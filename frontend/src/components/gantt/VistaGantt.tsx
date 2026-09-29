@@ -1,4 +1,4 @@
-import { ChartGantt, ChevronDown, ChevronsLeftRight, EyeOff, Link2, Locate, Maximize2, Minimize2, Plus } from "lucide-react";
+import { ChartGantt, ChevronDown, ChevronsLeftRight, EyeOff, FileDown, Link2, Locate, Maximize2, Minimize2, Plus } from "lucide-react";
 import {
   useEffect,
   useEffectEvent,
@@ -12,6 +12,7 @@ import { createPortal } from "react-dom";
 
 import { useCrearDependencia, useDependencias, useFeriados, useProgramarCard } from "@/api/queries";
 import type { CardResumen, Dependencia, TableroDetalle } from "@/api/tipos";
+import type { ConfigGantt } from "@/components/tablero/ExportarPdfDialogo";
 import { NuevaTareaDialogo } from "@/components/tablero/NuevaTareaDialogo";
 import { Boton } from "@/components/ui/Boton";
 import { Pildora } from "@/components/ui/Estados";
@@ -136,12 +137,15 @@ export function VistaGantt({
   visibles,
   onAbrir,
   onVerAtrasadas,
+  onExportarPdf,
 }: {
   tablero: TableroDetalle;
   visibles: CardResumen[];
   onAbrir: (card: CardResumen) => void;
   /** Filtra el tablero a lo vencido o por vencer (desde el resumen). */
   onVerAtrasadas?: () => void;
+  /** Abre «Gantt en PDF» con la configuración de esta vista. */
+  onExportarPdf?: (config: ConfigGantt) => void;
 }) {
   const [zoom, setZoom] = usePreferencia<Zoom>("gantt:zoom", "dia", ["dia", "semana", "mes"]);
   const [agrupar, setAgrupar] = usePreferencia<Agrupacion>("gantt:agrupar", "columna", [
@@ -557,6 +561,19 @@ export function VistaGantt({
               <ChevronsLeftRight />
               <span className="max-sm:hidden">Encajar</span>
             </Boton>
+            {onExportarPdf && (
+              <Boton
+                variante="secundario"
+                tamano="sm"
+                aria-label="Gantt en PDF"
+                title="Descargar el Gantt en PDF para compartir o imprimir"
+                className="max-sm:px-2.5"
+                onClick={() => onExportarPdf({ zoom, agrupar, plegados: [...plegados] })}
+              >
+                <FileDown />
+                <span className="max-sm:hidden">PDF</span>
+              </Boton>
+            )}
             <BotonCalendarioLaboral />
             <Boton
               variante={expandido ? "primario" : "secundario"}

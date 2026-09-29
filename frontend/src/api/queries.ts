@@ -960,13 +960,25 @@ export type FiltrosExportacion = {
 
 export function useExportar(tableroId: number) {
   return useMutation({
-    mutationFn: ({ formato, filtros }: { formato: FormatoExportacion; filtros?: FiltrosExportacion }) => {
+    mutationFn: ({
+      formato,
+      filtros,
+      extra,
+    }: {
+      formato: FormatoExportacion;
+      filtros?: FiltrosExportacion;
+      /** Parámetros propios del formato (el PDF lleva la configuración del Gantt). */
+      extra?: Record<string, string | string[]>;
+    }) => {
       const params = new URLSearchParams({ formato });
       if (filtros?.texto.trim()) params.set("q", filtros.texto.trim());
       filtros?.urgencias.forEach((u) => params.append("urgencia", u));
       filtros?.responsables.forEach((r) => params.append("responsable", String(r)));
       filtros?.etiquetas.forEach((e) => params.append("etiqueta", String(e)));
       if (filtros?.soloVencidas) params.set("vencidas", "1");
+      for (const [clave, valor] of Object.entries(extra ?? {})) {
+        for (const v of Array.isArray(valor) ? valor : [valor]) params.append(clave, v);
+      }
       return descargar(`${V1}/tableros/${tableroId}/exportar/?${params}`, `tablero.${formato}`);
     },
     onError: avisarError,

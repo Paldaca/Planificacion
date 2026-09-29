@@ -501,6 +501,10 @@ crece a mitad de camino: lo nuevo va a la siguiente.
   propuesto un recorrido guiado de primera vez y un tablero de práctica.
 - **Crear tareas desde el Calendario**: clic en un día (o arrastrar sobre
   varios) abre «Nueva tarea» con esas fechas.
+- **Gantt en PDF** para compartir: diagrama, resumen de avance y leyenda con
+  la configuración de la pantalla (filtros, agrupación, plegados); escala
+  ajustada al ancho o el zoom del Gantt, periodo opcional y hoja Carta u
+  11×17 (ReportLab en el servidor).
 - **Tableros favoritos**: estrella en cada tablero (solo para quien la
   marca); los favoritos salen primero en *Tableros*. No dan acceso.
 - **Arranque local**: `iniciar.ps1` / `iniciar.sh` del Portal abren todo como

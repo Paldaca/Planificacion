@@ -20,6 +20,8 @@ Llevar un tablero a las herramientas de la empresa y traerlo de vuelta:
   columna por cada campo personalizado activo, todas importables.
 - **MS Project**: XML de Project (**MSPDI**). El `.mpp` es cerrado y no se
   genera. Etiquetas y campos personalizados **no** viajan al XML.
+- **Gantt en PDF** (`services/pdf.py`, ReportLab): el diagrama para compartir
+  o imprimir, con la configuración de la pantalla (ver abajo).
 - **Plantilla** de importación: hoja *Tarjetas* vacía con listas desplegables
   (columnas del tablero, urgencias y campos de tipo lista) + columnas
   *Etiquetas* y de campos + hoja de instrucciones. (No confundir con las
@@ -34,6 +36,7 @@ Llevar un tablero a las herramientas de la empresa y traerlo de vuelta:
 | `services/datos.py` | Qué se exporta y cómo se nombra, compartido por los tres formatos. `Filtros` = los mismos del tablero en pantalla (`frontend/src/lib/filtros.ts`, incluidas las etiquetas) para exportar exactamente lo que se ve. Dependencias en texto estilo Project en español: `3`, `3CC+2`, `3FF-1`. `Contenido.campos`: campos activos del tablero. |
 | `services/excel.py` | `exportar`, `plantilla`, `leer`. Antes de guardar, toda celda que openpyxl tomó por fórmula pasa a texto (`_sin_formulas`): un título que empieza por `=` no se ejecuta en el Excel de quien descarga. `leer` busca la fila de encabezados (título + otro conocido) en las 15 primeras y recorre bajo demanda con tope (`FILAS_MAXIMAS_LEIDAS`). |
 | `services/mspdi.py` | `exportar`, `leer`. Proyecto = tablero; tareas resumen = columnas; tareas = tarjetas del Gantt con inicio y fin; tareas **programadas manualmente**; calendario «Planificación» lun–vie 8–12 y 13–17 con feriados como excepciones; vínculos FC=1, CC=3, FF=0 con desfase; responsables → recursos; urgencia ↔ prioridad (baja 300, media 500, alta 700, crítica 900); avance = checklist; descripción → notas. Elementos en el orden del esquema MSPDI; sin caracteres de control. `leer` rechaza XML con `DOCTYPE`/`ENTITY`. |
+| `services/pdf.py` | `exportar(contenido, OpcionesPdf)` y `planificar` (páginas antes de dibujar, para «hoja x de y»). Opciones (`OpcionesPdf.desde_query`): `escala` ajustar\|zoom, `zoom` dia\|semana\|mes (14 / 5,5 / 1,8 pt por día), `agrupar`, `plegado` (claves de grupo, repetible), `desde`/`hasta` (las dos o ninguna; solo tareas que tocan el periodo, recortadas en los bordes) y `hoja` carta\|tabloide (11×17), siempre horizontal. Filas y flechas son **espejo** de `frontend/src/lib/gantt.ts` (`grupoDe`, `construirFilas`, `rutaFlecha`). Con zoom, un plan largo se reparte en tramos de hojas; muchas filas siguen en más hojas repitiendo la escala. Flechas solo si las dos puntas caen en la hoja (debajo de barras y títulos). Más de 150 hojas → `ReglaDeNegocio`. Texto en las fuentes base del PDF (Windows-1252): lo que no cabe en ella sale como «?». |
 | `services/modelo.py` | `FilaEntrada`: una fila leída antes de validar (incluye `etiquetas` y `campos` por nombre de encabezado). |
 | `services/importacion.py` | `vista_previa` (valida sin tocar la BD: errores y avisos por fila) e `importar` (revalida y crea en **una** transacción las filas válidas y sus dependencias). Límites: 5 MB y 1000 filas. Los responsables reciben **un** aviso agrupado en vez de uno por tarjeta (`crear_card(avisar=False)`). Etiquetas desconocidas y valores de campo inválidos se ignoran **con aviso** (no son error); las columnas que no son campos del tablero se ignoran sin más. |
 
@@ -44,7 +47,7 @@ archivo.
 
 | Ruta | Operaciones |
 |---|---|
-| `tableros/<id>/exportar/?formato=xlsx\|xml` (+ `q`, `urgencia`, `responsable`, `etiqueta`, `vencidas`) | descarga (requiere ver el tablero) |
+| `tableros/<id>/exportar/?formato=xlsx\|xml\|pdf` (+ `q`, `urgencia`, `responsable`, `etiqueta`, `vencidas`; el PDF además `escala`, `zoom`, `agrupar`, `plegado`, `desde`, `hasta`, `hoja`) | descarga (requiere ver el tablero). El PDF se llama `gantt-<tablero>-<fecha>.pdf` |
 | `tableros/<id>/importar/plantilla/` | descarga la plantilla |
 | `tableros/<id>/importar/` (multipart `archivo`, `confirmar`) | sin `confirmar`: vista previa · con `confirmar=true`: crea (requiere editar) |
 
@@ -56,7 +59,9 @@ archivo.
 
 ## Pruebas
 
-`tests/test_exportacion.py` (incluye la ida y vuelta y `EtiquetasYCamposTests`). Criterios de aceptación
+`tests/test_exportacion.py` (incluye la ida y vuelta y `EtiquetasYCamposTests`) y
+`tests/test_pdf.py` (hojas, filas como la pantalla, plegados, filtros, periodo,
+tramos, límite de hojas, permisos). Criterios de aceptación
 de la fase 4: un tablero exportado a XML e importado de nuevo conserva
 tarjetas, fechas y dependencias; el XML abre en MS Project sin advertencias
 (pendiente de probar con Project).
@@ -73,6 +78,9 @@ tarjetas, fechas y dependencias; el XML abre en MS Project sin advertencias
 - XML parseado con `xml.etree.ElementTree`; se rechazan `DOCTYPE` y `ENTITY`
   antes de parsear (auditoría A-13).
 - Nunca escribir fórmulas en los Excel: `_guardar` las convierte en texto.
+- PDF: si cambia cómo agrupa u ordena el Gantt de la pantalla (`lib/gantt.ts`),
+  cambiar igual `pdf.construir_filas` / `pdf._grupo` / `pdf._ruta`, y los
+  colores si cambian los de `lib/estilos.ts`.
 
 ## Relacionado
 
