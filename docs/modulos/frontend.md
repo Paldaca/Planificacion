@@ -14,6 +14,15 @@ Dev: `npm run dev` en `http://localhost:5181` (puerto fijo; usar `localhost`,
 no `127.0.0.1`). Build: `npm run build` (`tsc -b && vite build`) → `dist/`,
 que Django sirve en producción (`WHITENOISE_ROOT` + `spa_shell`).
 
+**Dentro del Portal en local** el iframe carga ese build servido por Django
+(`:8007`), no Vite: `iniciar.ps1` solo compila al arrancar, así que lo que se
+cambia después no llega al Portal hasta recompilar. Para trabajar así, dejar
+corriendo `npm run build:watch` (`vite build --watch`: recompila `dist/` al
+guardar) y recargar el Portal con F5. No revisa tipos: antes de commitear,
+`npm run build`. Una pestaña abierta sigue con el build anterior hasta
+recargar (y puede fallar al cambiar de vista: el build nuevo borra los chunks
+viejos).
+
 ## Estructura de `src/`
 
 | Carpeta | Contenido |
@@ -23,8 +32,8 @@ que Django sirve en producción (`WHITENOISE_ROOT` + `spa_shell`).
 | `embed/` | `protocol.ts` (contrato `paldaca-embed` v1, espejo del parser del Portal), `portal.ts` (URL del Portal: la `<meta name="paldaca-portal-url">` que escribe Django, o `VITE_PALDACA_PORTAL_URL` con Vite), `usePaldacaEmbed` (avisa `ready`/`navigate`/`session-expired`/`forbidden` al shell, con la ruta sin `paldaca_embed`), `usePaldacaNav` (barra de la Suite al abrirse suelta; menú propio de respaldo a los 8 s) |
 | `pages/` | Una por ruta, cargadas con `lazy()`: `MisTareasPage`, `TablerosPage`, `TableroPage` (+ `TarjetaAbierta`), `EquiposPage`, `EquipoPage`, `InvitacionesPage` |
 | `components/ui/` | Primitivas propias: `Boton`, `Campos`, `Dialogo`, `Menu`, `Avatar`, `Estados` (`Vacio`, `Esqueleto`) |
-| `components/<dominio>/` | `tablero/` (Kanban, columnas, tarjeta, filtros, alta rápida, importar, `ConfiguracionDialogo` de etiquetas y campos, `LimiteColumnaDialogo`), `card/` (diálogo de la tarjeta, checklist, comentarios, menciones, historial, `EtiquetasYCampos`), `vistas/` (Lista, Calendario, `CalendarioMovil`, calendario laboral), `gantt/`, `plantillas/` (guardar y listar plantillas), `equipos/` (incluye `TableroDialogo` con el selector «Empezar con»), `invitaciones/`, `layout/` (Shell, Encabezado) |
-| `hooks/` | `useVista` (`?vista=` + última usada por tablero), `usePreferencia` (localStorage con prefijo `planificacion:`), `useTitulo`, `useAlAbrir`, `useModuloDiferido` (vistas pesadas sin `Suspense`), `useEstable` (manejadores con identidad estable para filas memoizadas), `usePantallaCompleta` (vista a toda la ventana + pantalla completa del documento; ver `gantt.md`), `useConfigTablero` (contexto con las etiquetas y los campos del tablero para dibujar tarjetas; lo provee `TableroPage`, fuera de un tablero queda vacío) |
+| `components/<dominio>/` | `ayuda/` (Centro de ayuda: `CentroAyuda` con `ProveedorAyuda`, y su texto en `contenido.ts`), `tablero/` (Kanban, columnas, tarjeta, filtros, alta rápida, `NuevaTareaDialogo` que comparten Gantt y Calendario, importar, `ConfiguracionDialogo` de etiquetas y campos, `LimiteColumnaDialogo`), `card/` (diálogo de la tarjeta, checklist, comentarios, menciones, historial, `EtiquetasYCampos`), `vistas/` (Lista, Calendario, `CalendarioMovil`, calendario laboral), `gantt/`, `plantillas/` (guardar y listar plantillas), `equipos/` (incluye `TableroDialogo` con el selector «Empezar con»), `invitaciones/`, `layout/` (Shell, Encabezado) |
+| `hooks/` | `useVista` (`?vista=` + última usada por tablero), `usePreferencia` (localStorage con prefijo `planificacion:`), `useTitulo`, `useAlAbrir`, `useModuloDiferido` (vistas pesadas sin `Suspense`), `useEstable` (manejadores con identidad estable para filas memoizadas), `usePantallaCompleta` (vista a toda la ventana + pantalla completa del documento; ver `gantt.md`), `useAyuda` / `useTemaAyuda` (abrir el Centro de ayuda; la pantalla declara con qué tema abre), `useConfigTablero` (contexto con las etiquetas y los campos del tablero para dibujar tarjetas; lo provee `TableroPage`, fuera de un tablero queda vacío) |
 | `lib/` | Lógica pura, sin React: `fechas`, `dias`, `calendarioMes`, `gantt` (geometría), `filtros`, `vencimiento`, `estilos` (colores de dominio), `actividadUsuario` (refresco vivo), `cn` |
 
 ## Rutas
@@ -66,6 +75,21 @@ Mismo del Portal: Poppins (títulos) + Geist Sans (texto); tokens
 - Fechas de la API son días `"YYYY-MM-DD"`: parsear con `parsearDia` (fecha
   local), nunca `new Date("YYYY-MM-DD")` (se corre por zona horaria).
 - Textos de interfaz en español, tuteo; a la tarjeta se le dice «tarjeta».
+- **Centro de ayuda** (`components/ayuda/`): panel lateral con una guía por
+  vista (Tablero, Lista, Calendario, Gantt) y preguntas frecuentes, con
+  buscador (sin acentos ni mayúsculas). Se abre con «Ayuda» en la cabecera del
+  tablero (en la guía de la vista actual: `useTemaAyuda(vista)`), con la tecla
+  `?` fuera de un campo de texto y sin otro diálogo abierto, o desde otra ayuda
+  (`useAyuda().abrir("gantt", "sucesoras")`, como el «?» del Gantt). Lo provee
+  `ProveedorAyuda` en `App`. **Si cambias cómo funciona algo que la ayuda
+  explica, cambia su texto en `contenido.ts` en el mismo cambio.**
+- **Crear tareas desde el Calendario**: clic en un día abre «Nueva tarea» con
+  ese día como inicio y fin; arrastrar sobre varios días (puntero capturado
+  por la celda, `data-dia` bajo el puntero) la abre con ese tramo; también
+  «+ Tarea» en su barra y, en el teléfono, «Nueva tarea este día». Usa
+  `NuevaTareaDialogo` con `origen="calendario"`: ofrece todas las columnas
+  que no son finales, sin «Empieza después de», y «Crear y añadir otra»
+  conserva las fechas.
 - Los menús de la Suite se editan en el Portal (`navigationConfig.ts`); aquí
   no se repiten ítems.
 - `embed/protocol.ts` es un contrato Suite-wide: cambiarlo exige cambiar
@@ -101,8 +125,8 @@ Reglas:
   `className="sm:hidden"`); los filtros se pliegan tras «Filtros» con contador.
 - Kanban: columnas que encajan al deslizar (`max-sm:snap-mandatory`) y alto
   con `dvh`. Lista: sin la columna «#» y con el título que envuelve.
-  Calendario: `CalendarioMovil` (mes compacto + tarjetas del día elegido), sin
-  arrastre. Gantt: deslizar sobre las barras desplaza (tocar abre la tarjeta);
+  Calendario: `CalendarioMovil` (mes compacto + tarjetas del día elegido, con
+  «Nueva tarea este día»), sin arrastre. Gantt: deslizar sobre las barras desplaza (tocar abre la tarjeta);
   no se arrastran barras ni se enlazan en táctil.
 - La búsqueda usa 16 px en el teléfono (iOS no hace zoom al enfocarla).
 - `lib/dias.ts` tiene `siguienteLaborableISO`, `sumarLaborablesISO` y

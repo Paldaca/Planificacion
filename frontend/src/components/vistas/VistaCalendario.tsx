@@ -1,10 +1,11 @@
-import { ChevronLeft, ChevronRight, CircleCheck, Move } from "lucide-react";
+import { ChevronLeft, ChevronRight, CircleCheck, Move, Plus } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { Popover } from "radix-ui";
 import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
 import { useFeriados, useProgramarCard } from "@/api/queries";
 import type { CardResumen, Feriado, TableroDetalle } from "@/api/tipos";
+import { NuevaTareaDialogo } from "@/components/tablero/NuevaTareaDialogo";
 import { Boton } from "@/components/ui/Boton";
 import { Pildora } from "@/components/ui/Estados";
 import { cn } from "@/lib/cn";
@@ -20,6 +21,11 @@ const ALTO_CARRIL = 24;
 const ALTO_CABECERA = 28;
 
 type Arrastre = { card: CardResumen; diaOrigen: string; diaActual: string; x: number; y: number; movido: boolean };
+/** Días elegidos para una tarea nueva: desde donde se pulsó hasta donde va el puntero. */
+type Seleccion = { ancla: string; actual: string };
+type Fechas = { inicio: string; fin: string };
+
+const ordenar = (s: Seleccion): Fechas => (s.ancla <= s.actual ? { inicio: s.ancla, fin: s.actual } : { inicio: s.actual, fin: s.ancla });
 
 export function VistaCalendario({
   tablero,
@@ -37,6 +43,17 @@ export function VistaCalendario({
   const [diaElegido, setDiaElegido] = useState(() => aISO(hoyLocal()));
   const programar = useProgramarCard(tablero.id);
   const puede = tablero.permisos.editar;
+  // Tarea nueva: `fechasNueva` se conserva al cerrar para no cambiar el
+  // formulario durante la animación de salida.
+  const [creando, setCreando] = useState(false);
+  const [fechasNueva, setFechasNueva] = useState<Fechas | null>(null);
+  const [seleccion, setSeleccion] = useState<Seleccion | null>(null);
+  const seleccionRef = useRef<Seleccion | null>(null);
+
+  function crear(fechas: Fechas | null) {
+    setFechasNueva(fechas);
+    setCreando(true);
+  }
 
   const semanas = useMemo(() => distribuir(mes, visibles), [mes, visibles]);
   const desde = aISO(semanas[0].dias[0]);
@@ -71,7 +88,34 @@ export function VistaCalendario({
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }
 
+  // --- Elegir días para una tarea nueva: clic en un día o arrastrar sobre varios ------
+  function empezarSeleccion(e: ReactPointerEvent, iso: string) {
+    if (!puede || e.button !== 0) return;
+    // «+N más» es un botón del día: abre su lista, no crea.
+    if ((e.target as HTMLElement).closest("button")) return;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    const inicial = { ancla: iso, actual: iso };
+    seleccionRef.current = inicial;
+    setSeleccion(inicial);
+  }
+
+  function cancelar() {
+    arrastreRef.current = null;
+    seleccionRef.current = null;
+    setArrastre(null);
+    setSeleccion(null);
+  }
+
   function mover(e: ReactPointerEvent) {
+    const sel = seleccionRef.current;
+    if (sel) {
+      const dia = diaBajo(e.clientX, e.clientY);
+      if (dia && dia !== sel.actual) {
+        seleccionRef.current = { ...sel, actual: dia };
+        setSeleccion(seleccionRef.current);
+      }
+      return;
+    }
     const actual = arrastreRef.current;
     if (!actual) return;
     const movido = actual.movido || Math.hypot(e.clientX - actual.x, e.clientY - actual.y) > 5;
@@ -83,6 +127,13 @@ export function VistaCalendario({
   }
 
   function soltar() {
+    const sel = seleccionRef.current;
+    if (sel) {
+      seleccionRef.current = null;
+      setSeleccion(null);
+      crear(ordenar(sel));
+      return;
+    }
     const actual = arrastreRef.current;
     arrastreRef.current = null;
     setArrastre(null);
@@ -115,6 +166,7 @@ export function VistaCalendario({
     return [sumarDiasISO(rango[0], delta), sumarDiasISO(rango[1], delta)] as const;
   }, [arrastre]);
 
+  const elegidos = seleccion ? ordenar(seleccion) : null;
   const hoy = hoyLocal();
 
   return (
@@ -141,6 +193,12 @@ export function VistaCalendario({
         >
           Hoy
         </Boton>
+        {puede && (
+          <Boton tamano="sm" onClick={() => crear(null)}>
+            <Plus />
+            Tarea
+          </Boton>
+        )}
         <div className="ml-auto flex flex-wrap items-center gap-2 text-xs text-tenue">
           {sinFecha > 0 && <Pildora>{sinFecha} sin fecha</Pildora>}
           <span className="inline-flex items-center gap-1.5">
@@ -150,7 +208,7 @@ export function VistaCalendario({
           {puede && (
             <span className="hidden items-center gap-1 md:inline-flex pointer-coarse:hidden">
               <Move className="size-3.5" />
-              Arrastra para cambiar la fecha
+              Clic en un día: nueva tarea · Arrastra una tarea: cambia su fecha
             </span>
           )}
           <BotonCalendarioLaboral />
@@ -166,6 +224,7 @@ export function VistaCalendario({
         seleccionado={diaElegido}
         onSeleccionar={setDiaElegido}
         onAbrir={onAbrir}
+        onCrear={puede ? (iso) => crear({ inicio: iso, fin: iso }) : undefined}
       />
 
       <div className="overflow-x-auto max-sm:hidden">
@@ -188,11 +247,8 @@ export function VistaCalendario({
               transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
               onPointerMove={mover}
               onPointerUp={soltar}
-              onPointerCancel={() => {
-                arrastreRef.current = null;
-                setArrastre(null);
-              }}
-              className={cn(arrastre?.movido && "cursor-grabbing select-none")}
+              onPointerCancel={cancelar}
+              className={cn(arrastre?.movido && "cursor-grabbing select-none", seleccion && "select-none")}
             >
               {semanas.map((semana) => (
                 <div
@@ -205,7 +261,9 @@ export function VistaCalendario({
                     const feriado = porFecha.get(iso);
                     const fuera = dia.getMonth() !== mes.getMonth();
                     const esHoy = mismoDia(dia, hoy);
-                    const resaltado = destino && iso >= destino[0] && iso <= destino[1];
+                    const resaltado =
+                      (destino && iso >= destino[0] && iso <= destino[1]) ||
+                      (elegidos && iso >= elegidos.inicio && iso <= elegidos.fin);
                     return (
                       <Dia
                         key={iso}
@@ -218,6 +276,7 @@ export function VistaCalendario({
                         ocultas={semana.ocultas[col]}
                         cards={visibles}
                         onAbrir={onAbrir}
+                        onPointerDown={puede ? (e) => empezarSeleccion(e, iso) : undefined}
                       />
                     );
                   })}
@@ -236,6 +295,16 @@ export function VistaCalendario({
           </AnimatePresence>
         </div>
       </div>
+
+      {puede && (
+        <NuevaTareaDialogo
+          tablero={tablero}
+          abierto={creando}
+          origen="calendario"
+          fechas={fechasNueva}
+          onCerrar={() => setCreando(false)}
+        />
+      )}
     </div>
   );
 }
@@ -250,6 +319,7 @@ function Dia({
   ocultas,
   cards,
   onAbrir,
+  onPointerDown,
 }: {
   iso: string;
   dia: Date;
@@ -260,12 +330,16 @@ function Dia({
   ocultas: number;
   cards: CardResumen[];
   onAbrir: (card: CardResumen) => void;
+  /** Sin él (solo lectura) el día no crea tareas. */
+  onPointerDown?: (e: ReactPointerEvent<HTMLDivElement>) => void;
 }) {
   return (
     <div
       data-dia={iso}
+      onPointerDown={onPointerDown}
       className={cn(
-        "relative border-r border-linea/60 px-1.5 pt-1 transition-colors duration-150 last:border-r-0",
+        "group/dia relative border-r border-linea/60 px-1.5 pt-1 transition-colors duration-150 last:border-r-0",
+        onPointerDown && "cursor-pointer hover:bg-morado/[0.035]",
         esFinDeSemana(dia) && "bg-fondo/80",
         feriado && "bg-rojo/[0.06]",
         resaltado && "bg-morado/10 ring-1 ring-morado/30 ring-inset",
@@ -283,6 +357,12 @@ function Dia({
         </span>
         {feriado && (
           <span className={cn("truncate text-[0.62rem] font-semibold text-rojo", fuera && "opacity-50")}>{feriado.nombre}</span>
+        )}
+        {onPointerDown && (
+          <Plus
+            aria-hidden
+            className="ml-auto size-4 shrink-0 rounded text-morado opacity-0 transition-opacity group-hover/dia:opacity-70"
+          />
         )}
       </div>
       {ocultas > 0 && (

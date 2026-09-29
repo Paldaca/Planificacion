@@ -3,6 +3,7 @@ import {
   ArchiveRestore,
   ArrowLeft,
   ChartGantt,
+  CircleHelp,
   Ellipsis,
   FileSpreadsheet,
   FileUp,
@@ -45,6 +46,7 @@ import { Entrada, Campo, AreaTexto } from "@/components/ui/Campos";
 import { Esqueleto, Pildora, Vacio } from "@/components/ui/Estados";
 import { ItemMenu, Menu, SeparadorMenu } from "@/components/ui/Menu";
 import { useAlAbrir } from "@/hooks/useAlAbrir";
+import { useAyuda, useTemaAyuda } from "@/hooks/useAyuda";
 import { moduloDiferido, useModuloDiferido } from "@/hooks/useModuloDiferido";
 import { ContextoConfigTablero, useValorConfigTablero } from "@/hooks/useConfigTablero";
 import { useTitulo } from "@/hooks/useTitulo";
@@ -69,6 +71,9 @@ export default function TableroPage() {
   const navigate = useNavigate();
   const { search } = useLocation();
   const [vista, setVista] = useVista(id);
+  // La ayuda abre en la guía de la vista que se está usando.
+  useTemaAyuda(vista);
+  const ayuda = useAyuda();
   const { data: tablero, error, isLoading } = useTablero(id);
   const [filtros, setFiltros] = useState<EstadoFiltros>(FILTROS_VACIOS);
   const [verArchivadas, setVerArchivadas] = useState(false);
@@ -193,6 +198,17 @@ export default function TableroPage() {
             <Boton variante="secundario" tamano="sm" onClick={() => setVerArchivadas(true)} className="max-sm:hidden">
               <Archive />
               Archivadas
+            </Boton>
+            <Boton
+              variante="secundario"
+              tamano="sm"
+              onClick={() => ayuda.abrir()}
+              aria-label="Ayuda"
+              title="Cómo usar esta vista (tecla ?)"
+              className="max-sm:size-11 max-sm:px-0"
+            >
+              <CircleHelp />
+              <span className="max-sm:hidden">Ayuda</span>
             </Boton>
             <Menu
               disparador={

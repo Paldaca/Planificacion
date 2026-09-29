@@ -144,6 +144,7 @@ Rutas relativas a la raíz del repo; en Windows (PowerShell) el venv está en
 npm run dev        # http://localhost:5181  (usar localhost, no 127.0.0.1)
 npm run lint       # oxlint
 npm run build      # tsc -b + vite build → frontend/dist (lo sirve Django)
+npm run build:watch  # recompila dist al guardar: para ver los cambios dentro del Portal (F5)
 ```
 
 `manage.py` solo existe en `backend/` (el de la raíz, roto, se borró: A-08).

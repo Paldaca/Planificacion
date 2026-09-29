@@ -493,6 +493,14 @@ crece a mitad de camino: lo nuevo va a la siguiente.
   secuencia), resumen de avance (% terminado, vencidas, por vencer, sin fechas)
   con atajo a lo atrasado, y avance por grupo (hechas/total, vencidas y barra
   resumen por persona, columna o urgencia).
+- **Gantt más cómodo** (`a20de55`): pantalla completa, «Encajar», bandeja
+  «Sin fechas» plegable, ayuda «?» sobre sucesoras y dos formas visibles de
+  crear una sucesora («+» en cada fila y «Empieza después de»).
+- **Centro de ayuda**: panel lateral con una guía por vista (Tablero, Lista,
+  Calendario, Gantt) y preguntas frecuentes, con buscador y tecla `?`. Queda
+  propuesto un recorrido guiado de primera vez y un tablero de práctica.
+- **Crear tareas desde el Calendario**: clic en un día (o arrastrar sobre
+  varios) abre «Nueva tarea» con esas fechas.
 - **Preparación del despliegue** (auditoría 2026-09-28): MySQL propia por
   `DATABASE_URL` con la suite en verde contra MySQL 8 (las reglas «una
   invitación pendiente» y «nombre de campo único» pasaron a los servicios:

@@ -7,6 +7,7 @@ import { registrarSesionExpirada } from "./api/client";
 import { IdentidadProvider } from "./auth/identidad";
 import { redirectToPortalLogin } from "./auth/redirectToPortalLogin";
 import { StatusScreen } from "./auth/StatusScreen";
+import { ProveedorAyuda } from "./components/ayuda/CentroAyuda";
 import { useIdentity } from "./auth/useIdentity";
 import { Shell } from "./components/layout/Shell";
 import { Boton } from "./components/ui/Boton";
@@ -96,36 +97,38 @@ function App() {
   return (
     <IdentidadProvider identidad={state.identity}>
       <Tooltip.Provider>
-        <Shell>
-          <Suspense fallback={<CargandoPagina />}>
-          <Routes>
-            <Route path="/" element={<Navigate to="/mis-tareas" replace />} />
-            <Route path="/mis-tareas" element={<MisTareasPage />} />
-            <Route path="/tableros" element={<TablerosPage />} />
-            <Route path="/tableros/:tableroId" element={<TableroPage />}>
-              <Route path="cards/:numero" element={<TarjetaAbierta />} />
-            </Route>
-            <Route path="/equipos" element={<EquiposPage />} />
-            <Route path="/equipos/:equipoId" element={<EquipoPage />} />
-            <Route path="/invitaciones" element={<InvitacionesPage />} />
-            <Route
-              path="*"
-              element={
-                <Vacio
-                  icono={Compass}
-                  titulo="Esta página no existe"
-                  texto="Puede que el enlace esté incompleto."
-                  accion={
-                    <Link to="/mis-tareas">
-                      <Boton>Ir a Mis tareas</Boton>
-                    </Link>
-                  }
-                />
-              }
-            />
-          </Routes>
-          </Suspense>
-        </Shell>
+        <ProveedorAyuda>
+          <Shell>
+            <Suspense fallback={<CargandoPagina />}>
+            <Routes>
+              <Route path="/" element={<Navigate to="/mis-tareas" replace />} />
+              <Route path="/mis-tareas" element={<MisTareasPage />} />
+              <Route path="/tableros" element={<TablerosPage />} />
+              <Route path="/tableros/:tableroId" element={<TableroPage />}>
+                <Route path="cards/:numero" element={<TarjetaAbierta />} />
+              </Route>
+              <Route path="/equipos" element={<EquiposPage />} />
+              <Route path="/equipos/:equipoId" element={<EquipoPage />} />
+              <Route path="/invitaciones" element={<InvitacionesPage />} />
+              <Route
+                path="*"
+                element={
+                  <Vacio
+                    icono={Compass}
+                    titulo="Esta página no existe"
+                    texto="Puede que el enlace esté incompleto."
+                    accion={
+                      <Link to="/mis-tareas">
+                        <Boton>Ir a Mis tareas</Boton>
+                      </Link>
+                    }
+                  />
+                }
+              />
+            </Routes>
+            </Suspense>
+          </Shell>
+        </ProveedorAyuda>
       </Tooltip.Provider>
     </IdentidadProvider>
   );

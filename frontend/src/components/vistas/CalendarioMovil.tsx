@@ -1,4 +1,4 @@
-import { CircleCheck } from "lucide-react";
+import { CircleCheck, Plus } from "lucide-react";
 import { useMemo } from "react";
 
 import type { CardResumen, Feriado } from "@/api/tipos";
@@ -11,8 +11,8 @@ import { parsearDia, rangoCorto } from "@/lib/fechas";
 /**
  * Calendario en el teléfono: la rejilla con barras necesita ~720 px. Aquí el
  * mes cabe a lo ancho (cada día con puntos de color, uno por tarjeta, hasta
- * tres) y debajo se listan las tarjetas del día elegido. Sin arrastre: las
- * fechas se cambian desde la tarjeta.
+ * tres) y debajo se listan las tarjetas del día elegido, con «Nueva tarea
+ * este día». Sin arrastre: las fechas se cambian desde la tarjeta.
  */
 export function CalendarioMovil({
   dias,
@@ -23,6 +23,7 @@ export function CalendarioMovil({
   seleccionado,
   onSeleccionar,
   onAbrir,
+  onCrear,
 }: {
   dias: Date[];
   mes: Date;
@@ -32,6 +33,8 @@ export function CalendarioMovil({
   seleccionado: string;
   onSeleccionar: (iso: string) => void;
   onAbrir: (card: CardResumen) => void;
+  /** Sin él (solo lectura) no se ofrece crear. */
+  onCrear?: (iso: string) => void;
 }) {
   const porDia = useMemo(() => {
     const isos = dias.map(aISO);
@@ -105,10 +108,22 @@ export function CalendarioMovil({
       </div>
 
       <div className="p-3">
-        <p className="mb-2 text-xs font-semibold text-tenue first-letter:uppercase">
-          {fechaLarga}
-          {feriado && <span className="text-rojo"> · {feriado.nombre}</span>}
-        </p>
+        <div className="mb-2 flex items-center gap-2">
+          <p className="min-w-0 flex-1 text-xs font-semibold text-tenue first-letter:uppercase">
+            {fechaLarga}
+            {feriado && <span className="text-rojo"> · {feriado.nombre}</span>}
+          </p>
+          {onCrear && (
+            <button
+              type="button"
+              onClick={() => onCrear(seleccionado)}
+              className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg bg-morado/8 px-3 text-sm font-semibold text-morado active:bg-morado/14"
+            >
+              <Plus className="size-4" />
+              Nueva tarea este día
+            </button>
+          )}
+        </div>
         {delDia.length ? (
           <ul className="space-y-1.5">
             {delDia.map((c) => {

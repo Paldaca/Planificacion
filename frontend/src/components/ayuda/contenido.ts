@@ -1,0 +1,386 @@
+/**
+ * Texto del Centro de ayuda: una guía por vista del tablero y las preguntas
+ * frecuentes. Formato mínimo: cada entrada es una lista de párrafos; un
+ * párrafo que empieza por «• » es un punto de lista y `**así**` va en
+ * negrita.
+ *
+ * Si cambias cómo funciona algo que se explica aquí, cambia también el texto
+ * (en el mismo cambio, como la documentación).
+ */
+
+export type Tema = "tablero" | "lista" | "calendario" | "gantt" | "preguntas";
+
+export type EntradaAyuda = { id: string; titulo: string; parrafos: string[] };
+
+export type TemaAyuda = { id: Tema; etiqueta: string; resumen: string; entradas: EntradaAyuda[] };
+
+const TABLERO: TemaAyuda = {
+  id: "tablero",
+  etiqueta: "Tablero",
+  resumen:
+    "Las tarjetas ordenadas en columnas según su estado. Arrastrarlas de una columna a otra es la forma más rápida de avanzar el trabajo.",
+  entradas: [
+    {
+      id: "crear",
+      titulo: "Crear una tarjeta",
+      parrafos: [
+        "Pulsa **Añadir tarjeta** al pie de una columna, escribe el título y pulsa Enter. Puedes seguir escribiendo otra enseguida.",
+        "Después ábrela para ponerle fechas, responsables, urgencia y el resto del detalle.",
+      ],
+    },
+    {
+      id: "mover",
+      titulo: "Mover una tarjeta de columna",
+      parrafos: [
+        "Arrástrala a otra columna, o arriba y abajo dentro de la misma para cambiar su orden.",
+        "Con el teclado: Espacio o Enter para tomarla, las flechas para moverla, Espacio o Enter para soltarla y Escape para cancelar.",
+      ],
+    },
+    {
+      id: "terminar",
+      titulo: "Dar una tarjeta por terminada",
+      parrafos: [
+        "Llévala a la **columna final** (por defecto «Hecho», con una marca verde). Queda terminada (tachada en la Lista, el Calendario y el Gantt) y deja de contar como vencida.",
+        "Si la sacas de esa columna vuelve a estar abierta.",
+      ],
+    },
+    {
+      id: "detalle",
+      titulo: "Qué hay dentro de una tarjeta",
+      parrafos: [
+        "Haz clic en una tarjeta para abrirla. Ahí tienes:",
+        "• **Descripción** y **checklist** (su avance se ve en la tarjeta).",
+        "• **Fechas** de inicio y fin, **urgencia**, **etiquetas** y los **campos** propios del tablero.",
+        "• **Responsables**: reciben un aviso en la campana del Portal.",
+        "• **Comentarios** con @menciones, y la **Actividad**: el historial de todo lo que cambió.",
+        "• **Gantt**: si la tarjeta entra en el Gantt «Según columna», siempre o nunca.",
+        "Cada tarjeta tiene un número (#12): puedes buscarla por él o compartir su enlace.",
+      ],
+    },
+    {
+      id: "columnas",
+      titulo: "Organizar las columnas",
+      parrafos: [
+        "Con **Añadir columna** (a la derecha) creas una nueva. En el menú «…» de cada columna puedes:",
+        "• Renombrarla o archivarla (sus tarjetas pasan a otra columna).",
+        "• **Marcarla como columna final**: sus tarjetas cuentan como terminadas.",
+        "• Ponerle un **límite de tarjetas**: el contador se pone ámbar al llegar y rojo al pasarse. Solo avisa, no bloquea.",
+        "• Incluirla en el Gantt o sacarla.",
+        "Para reordenarlas, arrastra su encabezado. Esto lo hace quien gestiona el tablero (el dueño, o los administradores del equipo).",
+      ],
+    },
+    {
+      id: "filtros",
+      titulo: "Buscar y filtrar",
+      parrafos: [
+        "Arriba del tablero puedes buscar por título o por #número y filtrar por urgencia, responsables, etiquetas o **Vencidas o por vencer**.",
+        "Los filtros valen para las cuatro vistas y para exportar: se exporta lo que ves.",
+      ],
+    },
+    {
+      id: "archivar",
+      titulo: "Archivar (nada se borra)",
+      parrafos: [
+        "Abre la tarjeta y pulsa **Archivar tarjeta**: deja de verse, pero conserva todo su historial.",
+        "Con **Archivadas** ves las tarjetas archivadas del tablero y puedes restaurarlas.",
+      ],
+    },
+  ],
+};
+
+const LISTA: TemaAyuda = {
+  id: "lista",
+  etiqueta: "Lista",
+  resumen: "Todas las tarjetas en una tabla: la vista para revisar fechas, responsables y avance de un vistazo.",
+  entradas: [
+    {
+      id: "columnas",
+      titulo: "Qué muestra cada columna",
+      parrafos: [
+        "Número, tarjeta, estado (su columna del tablero), responsables, urgencia, inicio, fin y avance del checklist.",
+        "Si el tablero tiene campos propios, cada uno tiene su columna al final.",
+        "En pantallas pequeñas algunas columnas se ocultan para que la tabla quepa.",
+      ],
+    },
+    {
+      id: "ordenar",
+      titulo: "Ordenar",
+      parrafos: [
+        "Haz clic en el encabezado de una columna para ordenar por ella; otro clic invierte el orden.",
+        "Las tarjetas sin fecha (o sin valor en un campo) quedan siempre al final.",
+      ],
+    },
+    {
+      id: "abrir",
+      titulo: "Abrir y editar",
+      parrafos: [
+        "Haz clic en una fila (o Enter con el teclado) para abrir la tarjeta y cambiar lo que necesites.",
+        "Para crear tarjetas usa el Tablero, el Calendario o el Gantt.",
+      ],
+    },
+    {
+      id: "exportar",
+      titulo: "Llevar la lista a Excel",
+      parrafos: [
+        "Filtra lo que te interesa y pulsa **Excel / Project → Exportar a Excel**: el archivo trae exactamente lo que ves.",
+      ],
+    },
+  ],
+};
+
+const CALENDARIO: TemaAyuda = {
+  id: "calendario",
+  etiqueta: "Calendario",
+  resumen: "El mes con cada tarjeta como una barra desde su inicio hasta su fin. Útil para ver cómo se reparte el trabajo en el tiempo.",
+  entradas: [
+    {
+      id: "crear",
+      titulo: "Crear una tarea en un día",
+      parrafos: [
+        "Haz clic en un día vacío del calendario: se abre **Nueva tarea** con ese día como inicio y fin.",
+        "Para una tarea de varios días, **arrastra sobre los días** que dura y suelta: se abre con esas fechas ya puestas.",
+        "También puedes usar el botón **+ Tarea** de arriba.",
+        "En el teléfono: toca el día y pulsa **Nueva tarea este día**.",
+      ],
+    },
+    {
+      id: "mover",
+      titulo: "Cambiar la fecha de una tarjeta",
+      parrafos: [
+        "Arrastra su barra a otro día: se mueve entera y conserva su duración.",
+        "Si otras tarjetas dependen de ella (flechas del Gantt), se corren también lo necesario.",
+        "Para cambiar solo el inicio o solo el fin, abre la tarjeta o usa el Gantt.",
+      ],
+    },
+    {
+      id: "leer",
+      titulo: "Cómo leerlo",
+      parrafos: [
+        "• El color del borde es la urgencia; las terminadas salen en verde y tachadas, las vencidas con el texto en rojo.",
+        "• Una tarjeta con una sola fecha aparece solo ese día.",
+        "• Si no caben todas, el día muestra **+N más**: haz clic para verlas.",
+        "• Los feriados van en rojo con su nombre, y los fines de semana más claros.",
+      ],
+    },
+    {
+      id: "navegar",
+      titulo: "Moverse entre meses",
+      parrafos: ["Usa las flechas para ir al mes anterior o al siguiente, y **Hoy** para volver al mes actual."],
+    },
+  ],
+};
+
+const GANTT: TemaAyuda = {
+  id: "gantt",
+  etiqueta: "Gantt",
+  resumen:
+    "El plan en una línea de tiempo: cada tarea es una barra y las flechas dicen qué va después de qué. Aquí el equipo carga sus tareas y quien dirige sigue el avance.",
+  entradas: [
+    {
+      id: "crear",
+      titulo: "Cargar tareas",
+      parrafos: [
+        "Pulsa **+ Tarea**: título, responsable, inicio, fin y urgencia en un solo paso.",
+        "**Crear y añadir otra** deja lista la siguiente, empezando el día hábil después de la anterior y con la misma duración: así cargas un plan completo seguido.",
+      ],
+    },
+    {
+      id: "sucesoras",
+      titulo: "Tareas que van una después de otra",
+      parrafos: [
+        "Una **sucesora** es una tarea que no puede empezar hasta que termine otra (su predecesora). Las une una flecha. Para crearla:",
+        "• Pasa el ratón sobre una tarea de la lista y pulsa **+**: la nueva empieza cuando esa termina.",
+        "• En **+ Tarea**, elige **Empieza después de**.",
+        "• Para enlazar dos que ya existen, arrastra desde el punto al final de una barra hasta la otra.",
+        "Haz clic en una flecha para cambiar el tipo (fin → inicio, inicio → inicio, fin → fin), dejar días de espera o quitarla.",
+      ],
+    },
+    {
+      id: "mover",
+      titulo: "Cambiar fechas en el Gantt",
+      parrafos: [
+        "Arrastra una barra para moverla entera, o sus bordes para cambiar solo el inicio o el fin. Mientras arrastras ves las fechas nuevas.",
+        "Con **Mover sucesoras** activado, al retrasar una tarea las que dependen de ella se corren solas (en días hábiles) y conservan su duración. Desactivado, solo se mueve la que arrastras y las flechas que no se cumplan se ven en rojo punteado.",
+      ],
+    },
+    {
+      id: "ver",
+      titulo: "Ver el plan como te sirva",
+      parrafos: [
+        "• **Día / Semana / Mes** cambian el zoom; **Encajar** elige el que muestra todas las tareas a la vez.",
+        "• **Agrupar** por columna, responsable o urgencia. Por responsable ves cómo va cada persona.",
+        "• **Hoy** vuelve a la fecha actual; el botón de la esquina pone el Gantt en **pantalla completa** (Esc para salir).",
+      ],
+    },
+    {
+      id: "avance",
+      titulo: "Seguir el avance",
+      parrafos: [
+        "La línea bajo la barra de herramientas dice el % terminado y cuántas tareas están vencidas o vencen pronto; al hacer clic en esos números se filtra lo atrasado.",
+        "Cada grupo muestra hechas/total y una barra resumen con su tramo. Dentro de cada barra, la parte más oscura es el avance del checklist.",
+      ],
+    },
+    {
+      id: "sin-fechas",
+      titulo: "Tareas sin fechas",
+      parrafos: [
+        "Las tareas del Gantt que aún no tienen inicio y fin esperan en **Sin fechas**. Ábrela y arrastra una tarjeta a la línea de tiempo para darle fecha.",
+      ],
+    },
+    {
+      id: "project",
+      titulo: "Llevar el plan a MS Project",
+      parrafos: [
+        "**Excel / Project → Exportar a MS Project** descarga un XML que Project abre con las tareas, fechas y dependencias. También puedes importar un XML de Project al tablero.",
+      ],
+    },
+  ],
+};
+
+const PREGUNTAS: TemaAyuda = {
+  id: "preguntas",
+  etiqueta: "Preguntas frecuentes",
+  resumen: "Lo que más se pregunta sobre tableros, equipos, avisos y fechas.",
+  entradas: [
+    {
+      id: "personal",
+      titulo: "¿Quién ve mi tablero personal?",
+      parrafos: [
+        "Solo tú. Ni siquiera el administrador del módulo puede verlo. Puedes tener varios tableros personales.",
+      ],
+    },
+    {
+      id: "equipos",
+      titulo: "¿Cómo creo un equipo? ¿Puedo estar en varios?",
+      parrafos: [
+        "En **Equipos → Nuevo equipo**. Quien lo crea queda como administrador. Puedes crear todos los que necesites y pertenecer a varios equipos a la vez.",
+      ],
+    },
+    {
+      id: "invitar",
+      titulo: "¿Cómo agrego a alguien a mi equipo?",
+      parrafos: [
+        "Un administrador del equipo la invita desde la página del equipo, eligiendo su rol. La persona recibe un aviso y entra al aceptar la invitación en **Invitaciones**.",
+        "Se puede invitar a quien aún no ha entrado a Planificación, siempre que tenga acceso al módulo en el Portal.",
+      ],
+    },
+    {
+      id: "roles",
+      titulo: "¿Qué puede hacer cada rol?",
+      parrafos: [
+        "• **Administrador**: todo, más invitar, cambiar roles, crear tableros del equipo y gestionar columnas, etiquetas y campos.",
+        "• **Miembro**: crea, edita y mueve tarjetas y comenta.",
+        "• **Lector**: solo consulta.",
+        "Un equipo siempre conserva al menos un administrador.",
+      ],
+    },
+    {
+      id: "solo-lectura",
+      titulo: "¿Por qué no puedo editar un tablero?",
+      parrafos: [
+        "Porque eres lector en ese equipo, o porque el tablero o el equipo están archivados. Arriba del tablero lo verás como «Solo lectura».",
+      ],
+    },
+    {
+      id: "vencimientos",
+      titulo: "¿Qué significan «vencida» y «vence pronto»?",
+      parrafos: [
+        "• **Vencida**: su fecha de fin ya pasó y no está en la columna final.",
+        "• **Vence pronto**: le quedan pocos días hábiles (2, salvo que el Portal diga otro número).",
+        "• **Terminada**: está en la columna final; nunca cuenta como vencida.",
+        "Los responsables reciben un aviso cuando una tarjeta pasa a vencer pronto o a vencida.",
+      ],
+    },
+    {
+      id: "dias-habiles",
+      titulo: "¿Qué cuenta como día hábil?",
+      parrafos: [
+        "De lunes a viernes, sin feriados. Los feriados nacionales ya vienen cargados (incluidos Carnaval y Semana Santa); el administrador del módulo puede añadir otros en **Calendario laboral**.",
+      ],
+    },
+    {
+      id: "no-gantt",
+      titulo: "¿Por qué una tarjeta no aparece en el Gantt?",
+      parrafos: [
+        "Para tener barra necesita **inicio y fin**. Si le falta alguna, espera en **Sin fechas**.",
+        "Además, su columna debe estar incluida en el Gantt (menú «…» de la columna) o la tarjeta debe tener «Gantt: Sí». El Gantt dice cuántas quedan fuera.",
+      ],
+    },
+    {
+      id: "avisos",
+      titulo: "¿Cuándo recibo avisos?",
+      parrafos: [
+        "En la campana del Portal, cuando:",
+        "• te hacen responsable de una tarjeta o te mencionan con @;",
+        "• comentan en una tarjeta de la que eres responsable;",
+        "• una tarjeta tuya vence pronto o se vence;",
+        "• te invitan a un equipo, o responden a una invitación que enviaste.",
+        "Nunca te avisa de lo que haces tú. Al hacer clic en el aviso se abre la tarjeta.",
+      ],
+    },
+    {
+      id: "mis-tareas",
+      titulo: "¿Dónde veo todo lo que tengo asignado?",
+      parrafos: ["En **Mis tareas**: las tarjetas de las que eres responsable en todos tus tableros, agrupadas por cuándo vencen."],
+    },
+    {
+      id: "borrar",
+      titulo: "¿Se puede borrar una tarjeta?",
+      parrafos: [
+        "No: se **archiva** (dentro de la tarjeta, **Archivar tarjeta**) y se puede restaurar desde **Archivadas**. Así nunca se pierde el historial.",
+      ],
+    },
+    {
+      id: "trasladar",
+      titulo: "¿Cómo paso una tarjeta a otro tablero?",
+      parrafos: [
+        "Ábrela y usa **Mover a otro tablero**. De un tablero personal puede ir a otro tuyo o a uno de equipo; de uno de equipo, solo a otro de equipo.",
+        "Viajan sus comentarios, checklist e historial; sus flechas del Gantt se pierden.",
+      ],
+    },
+    {
+      id: "conflicto",
+      titulo: "¿Qué pasa si dos personas cambian la misma tarjeta?",
+      parrafos: [
+        "Si alguien la cambió mientras la tenías abierta, al guardar te avisa y te muestra la versión actual, para que no pises su cambio sin saberlo.",
+      ],
+    },
+    {
+      id: "excel",
+      titulo: "¿Puedo cargar tarjetas desde Excel?",
+      parrafos: [
+        "Sí: **Excel / Project → Importar tarjetas…**. Descarga la plantilla, llénala y súbela (también acepta un XML de MS Project). Antes de crear nada ves cómo quedará cada tarjeta.",
+      ],
+    },
+    {
+      id: "plantillas",
+      titulo: "¿Puedo reutilizar un tablero como modelo?",
+      parrafos: [
+        "Sí: en el menú «…» del tablero, **Guardar como plantilla…**. Al crear un tablero nuevo elige la plantilla en **Empezar con** y la fecha de inicio: las fechas se recalculan en días hábiles.",
+      ],
+    },
+  ],
+};
+
+export const TEMAS: TemaAyuda[] = [TABLERO, LISTA, CALENDARIO, GANTT, PREGUNTAS];
+
+/** Minúsculas y sin acentos: «calendário» encuentra «calendario». */
+export function normalizar(texto: string): string {
+  return texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
+export type Resultado = { tema: TemaAyuda; entrada: EntradaAyuda };
+
+/** Entradas cuyo título o texto contienen todas las palabras buscadas. */
+export function buscar(consulta: string): Resultado[] {
+  const palabras = normalizar(consulta).split(/\s+/).filter(Boolean);
+  if (!palabras.length) return [];
+  const resultados: Resultado[] = [];
+  for (const tema of TEMAS) {
+    for (const entrada of tema.entradas) {
+      const texto = normalizar(`${entrada.titulo} ${entrada.parrafos.join(" ")}`);
+      if (palabras.every((p) => texto.includes(p))) resultados.push({ tema, entrada });
+    }
+  }
+  return resultados;
+}

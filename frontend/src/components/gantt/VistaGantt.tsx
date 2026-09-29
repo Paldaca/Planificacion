@@ -12,7 +12,7 @@ import { createPortal } from "react-dom";
 
 import { useCrearDependencia, useDependencias, useFeriados, useProgramarCard } from "@/api/queries";
 import type { CardResumen, Dependencia, TableroDetalle } from "@/api/tipos";
-import { NuevaTareaDialogo } from "@/components/gantt/NuevaTareaDialogo";
+import { NuevaTareaDialogo } from "@/components/tablero/NuevaTareaDialogo";
 import { Boton } from "@/components/ui/Boton";
 import { Pildora } from "@/components/ui/Estados";
 import { BotonCalendarioLaboral } from "@/components/vistas/CalendarioLaboral";

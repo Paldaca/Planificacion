@@ -73,7 +73,6 @@ Gantt propio en HTML + SVG, sin librería (decisión D-05), y `lib/gantt.ts`
 | `Dependencias.tsx` | `Flechas` (SVG) y `PanelDependencia` (editar tipo, desfase, quitar). |
 | `Bandeja.tsx` | `BotonBandeja` y la bandeja «Sin fechas» (panel plegable sobre la línea de tiempo) para arrastrar tarjetas a la línea de tiempo. |
 | `Ayuda.tsx` | `InterruptorSucesoras` y `AyudaSucesoras` (botón redondo «?»: qué es una sucesora, cómo crearla y qué hace «Mover sucesoras»). |
-| `NuevaTareaDialogo.tsx` | Alta rápida de una tarea desde el Gantt. |
 | `tipos.ts` | `ALTO_ESCALA` y los tipos `Modo`, `Enlace`, `Colocando` que comparten. |
 
 Agrupar por columna/responsable/urgencia, zoom día/semana/mes, flechas
@@ -84,7 +83,8 @@ activado y desactivado).
 Pensado para que un equipo cargue su plan y quien lo dirige siga el avance
 sin esfuerzo:
 
-- **«+ Tarea»** (`NuevaTareaDialogo`, también en el estado vacío): título,
+- **«+ Tarea»** (`components/tablero/NuevaTareaDialogo`, compartido con el
+  Calendario; también en el estado vacío): título,
   responsable (tú por defecto), inicio, fin y urgencia en un paso; la columna
   es la primera que entra en el Gantt. «Crear y añadir otra» deja la
   siguiente empezando el día hábil después, con la misma duración. Las

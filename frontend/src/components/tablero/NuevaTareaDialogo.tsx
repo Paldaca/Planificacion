@@ -20,17 +20,19 @@ const estiloSelect =
   "h-10 w-full rounded-xl border border-linea bg-white px-3 text-sm text-texto outline-none focus:border-morado/50";
 
 /**
- * Cargar tareas desde el Gantt en un solo paso (título, responsable, fechas y
- * urgencia), sin pasar por el Kanban ni abrir la tarjeta. «Crear y añadir
- * otra» deja el formulario listo para la siguiente, que empieza el día hábil
- * después de la anterior con la misma duración: así se carga un plan en fila.
- * Las fechas propuestas cuentan de lunes a viernes; los feriados los aplica el
- * servidor en los vencimientos.
+ * Cargar tareas en un solo paso (título, responsable, fechas y urgencia), sin
+ * pasar por el Kanban ni abrir la tarjeta. Lo usan el Gantt y el Calendario
+ * (`origen`). Las fechas propuestas cuentan de lunes a viernes; los feriados
+ * los aplica el servidor en los vencimientos.
  *
- * «Empieza después de» la crea como sucesora: tras crear la tarjeta se crea la
- * dependencia fin → inicio (las reglas las valida el servidor). Con una
- * predecesora elegida, «Crear y añadir otra» encadena: la siguiente va después
- * de la recién creada.
+ * - Gantt: «Crear y añadir otra» deja lista la siguiente, que empieza el día
+ *   hábil después de la anterior con la misma duración (un plan en fila).
+ *   «Empieza después de» la crea como sucesora: tras crear la tarjeta se crea
+ *   la dependencia fin → inicio (las reglas las valida el servidor); con
+ *   predecesora, «Crear y añadir otra» encadena tras la recién creada. Solo
+ *   ofrece columnas que entran en el Gantt (si no, la tarea «desaparecería»).
+ * - Calendario: abre con el día (o los días) elegidos en `fechas`, y «Crear y
+ *   añadir otra» conserva esas fechas (varias tareas el mismo día).
  */
 export function NuevaTareaDialogo({
   tablero,
@@ -38,20 +40,25 @@ export function NuevaTareaDialogo({
   onCerrar,
   onCreada,
   despuesDe = null,
+  origen = "gantt",
+  fechas = null,
 }: {
   tablero: TableroDetalle;
   abierto: boolean;
+  origen?: "gantt" | "calendario";
+  /** Inicio y fin con que abre (el día o los días elegidos en el calendario). */
+  fechas?: { inicio: string; fin: string } | null;
   /** Predecesora propuesta al abrir (desde el «+» de una fila del Gantt). */
   despuesDe?: number | null;
   onCerrar: () => void;
-  onCreada: (card: CardDetalle) => void;
+  onCreada?: (card: CardDetalle) => void;
 }) {
   const identidad = useIdentidad();
   const crear = useCrearCard(tablero.id);
   const crearDependencia = useCrearDependencia(tablero.id);
   const titulo = useRef<HTMLInputElement>(null);
-  // Solo columnas que se ven en el Gantt (si no, la tarea «desaparecería»).
-  const columnas = tablero.columnas.filter((c) => c.incluir_en_gantt && !c.es_final);
+  const enGantt = origen === "gantt";
+  const columnas = tablero.columnas.filter((c) => !c.es_final && (!enGantt || c.incluir_en_gantt));
   const opciones = columnas.length ? columnas : tablero.columnas;
 
   const [texto, setTexto] = useState("");
@@ -74,8 +81,8 @@ export function NuevaTareaDialogo({
     const propuesto = previa ? inicioTras(previa) : siguienteLaborableISO(aISO(hoy()));
     setTexto("");
     setResponsable(tablero.personas.some((p) => p.id === identidad.id) ? identidad.id : null);
-    setInicio(propuesto);
-    setFin(sumarLaborablesISO(propuesto, DURACION_INICIAL - 1));
+    setInicio(fechas?.inicio ?? propuesto);
+    setFin(fechas?.fin ?? sumarLaborablesISO(propuesto, DURACION_INICIAL - 1));
     setUrgencia("media");
     setColumna(opciones[0]?.id ?? null);
     setPredecesora(previa?.id ?? null);
@@ -114,7 +121,7 @@ export function NuevaTareaDialogo({
       // enlazar a mano desde el Gantt.
       await crearDependencia.mutateAsync({ predecesora: anterior.id, sucesora: card.id }).catch(() => undefined);
     }
-    onCreada(card);
+    onCreada?.(card);
     toast.success("Tarea creada", {
       description: anterior ? `#${card.numero} ${card.titulo}, después de #${anterior.numero}` : `#${card.numero} ${card.titulo}`,
     });
@@ -122,13 +129,14 @@ export function NuevaTareaDialogo({
       onCerrar();
       return;
     }
+    setTexto("");
+    titulo.current?.focus();
+    if (!enGantt) return; // En el calendario, la siguiente va en los mismos días.
     // La siguiente empieza el día hábil después de esta, con la misma duración.
     const siguiente = siguienteLaborableISO(sumarDiasISO(fin, 1));
-    setTexto("");
     setInicio(siguiente);
     setFin(sumarLaborablesISO(siguiente, Math.max(duracion, 1) - 1));
     if (anterior) setPredecesora(card.id);
-    titulo.current?.focus();
   }
 
   return (
@@ -136,7 +144,7 @@ export function NuevaTareaDialogo({
       abierto={abierto}
       onCambio={(v) => !v && onCerrar()}
       titulo="Nueva tarea"
-      descripcion="Aparece en el Gantt al crearla."
+      descripcion={enGantt ? "Aparece en el Gantt al crearla." : "Aparece en el calendario al crearla."}
       icono={CalendarPlus}
       pie={
         <>
@@ -169,7 +177,7 @@ export function NuevaTareaDialogo({
             onChange={(e) => setTexto(e.target.value)}
           />
         </Campo>
-        {candidatas.length > 0 && (
+        {enGantt && candidatas.length > 0 && (
           <Campo
             etiqueta="Empieza después de"
             ayuda={

@@ -145,6 +145,27 @@ html[data-embebido="true"] body {
   }
 }
 
+/* Panel lateral (Centro de ayuda): entra desde la derecha. */
+.cajon[data-state="open"] {
+  animation: cajon-entra 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.cajon[data-state="closed"] {
+  animation: cajon-sale 0.18s ease-in both;
+}
+@keyframes cajon-entra {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes cajon-sale {
+  to {
+    transform: translateX(100%);
+  }
+}
+
 /* Menús y popovers de Radix */
 /* Gantt en pantalla completa (hooks/usePantallaCompleta): la barra de la Suite
    va por encima de todo (z-index ~1050) y taparía la vista. */

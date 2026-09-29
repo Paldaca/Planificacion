@@ -1,9 +1,10 @@
 /** «Mover sucesoras» y su ayuda: qué es una sucesora y cómo se crea. */
 
-import { Link2, Plus, X } from "lucide-react";
+import { ArrowRight, Link2, Plus, X } from "lucide-react";
 import { Popover } from "radix-ui";
 import type { ReactNode } from "react";
 
+import { useAyuda } from "@/hooks/useAyuda";
 import { cn } from "@/lib/cn";
 
 export function InterruptorSucesoras({ activo, onCambiar }: { activo: boolean; onCambiar: (v: boolean) => void }) {
@@ -37,6 +38,7 @@ function Seccion({ titulo, children }: { titulo: string; children: ReactNode }) 
  * dedo), no al pasar el ratón: es texto para leer con calma.
  */
 export function AyudaSucesoras({ puede }: { puede: boolean }) {
+  const ayuda = useAyuda();
   return (
     <Popover.Root>
       <Popover.Trigger asChild>
@@ -115,6 +117,16 @@ export function AyudaSucesoras({ puede }: { puede: boolean }) {
             </p>
             <p className="text-xs text-tenue">Nunca mueve tareas terminadas ni sin fechas.</p>
           </Seccion>
+          <Popover.Close asChild>
+            <button
+              type="button"
+              onClick={() => ayuda.abrir("gantt", "sucesoras")}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-morado hover:underline"
+            >
+              Ver la guía completa del Gantt
+              <ArrowRight className="size-3.5" />
+            </button>
+          </Popover.Close>
           <Popover.Arrow className="fill-white" />
         </Popover.Content>
       </Popover.Portal>
