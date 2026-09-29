@@ -16,9 +16,10 @@ que Django sirve en producción (`WHITENOISE_ROOT` + `spa_shell`).
 
 **Dentro del Portal en local** el iframe carga ese build servido por Django
 (`:8007`), no Vite: `iniciar.ps1` solo compila al arrancar, así que lo que se
-cambia después no llega al Portal hasta recompilar. Para trabajar así, dejar
-corriendo `npm run build:watch` (`vite build --watch`: recompila `dist/` al
-guardar) y recargar el Portal con F5. No revisa tipos: antes de commitear,
+cambia después no llega al Portal hasta recompilar. Por eso el script abre
+también una pestaña con `npm run build:watch` (`vite build --watch`:
+recompila `dist/` al guardar; clave `recompilar` de su `scripts/modulos.py`);
+basta recargar el Portal con F5. A mano: `npm run build:watch` en `frontend/`. No revisa tipos: antes de commitear,
 `npm run build`. Una pestaña abierta sigue con el build anterior hasta
 recargar (y puede fallar al cambiar de vista: el build nuevo borra los chunks
 viejos).
