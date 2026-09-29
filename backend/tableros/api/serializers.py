@@ -20,6 +20,7 @@ from tableros.models import (
     Urgencia,
 )
 from tableros.services.campos import validar_valores
+from tableros.services.favoritos import ids_favoritos
 from tableros.services.vencimientos import DIAS_HABILES_VENCE_PRONTO, vencimiento
 
 
@@ -304,6 +305,7 @@ class TableroResumenSerializer(serializers.ModelSerializer):
     equipo = serializers.SerializerMethodField()
     conteos = serializers.SerializerMethodField()
     permisos = serializers.SerializerMethodField()
+    es_favorito = serializers.SerializerMethodField()
 
     class Meta:
         model = Tablero
@@ -316,8 +318,16 @@ class TableroResumenSerializer(serializers.ModelSerializer):
             "archivado",
             "conteos",
             "permisos",
+            "es_favorito",
             "actualizado_en",
         ]
+
+    def get_es_favorito(self, tablero):
+        # Una consulta por respuesta, no por tablero: el contexto lo comparten
+        # todos los elementos de una lista (`many=True`).
+        if "favoritos" not in self.context:
+            self.context["favoritos"] = ids_favoritos(self.context["request"].user)
+        return tablero.pk in self.context["favoritos"]
 
     def get_equipo(self, tablero):
         return equipo_breve(tablero.equipo)

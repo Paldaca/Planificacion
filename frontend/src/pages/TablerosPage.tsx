@@ -1,4 +1,4 @@
-import { Archive, ArchiveRestore, ChevronDown, LayoutGrid, LayoutTemplate, Plus, UsersRound } from "lucide-react";
+import { Archive, ArchiveRestore, ChevronDown, LayoutGrid, LayoutTemplate, Plus, Star, UsersRound } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -29,6 +29,8 @@ export default function TablerosPage() {
 
   const administrables = useMemo(() => (equipos ?? []).filter((e) => e.permisos.administrar && e.mi_rol), [equipos]);
 
+  // Favoritos arriba, en el mismo orden (siguen apareciendo también en su grupo).
+  const favoritos = useMemo(() => (tableros ?? []).filter((t) => t.es_favorito), [tableros]);
   // Ya vienen ordenados: «Mi tablero» (el más antiguo) primero.
   const personales = useMemo(() => (tableros ?? []).filter((t) => t.tipo === "personal"), [tableros]);
   const porEquipo = useMemo(() => {
@@ -82,6 +84,21 @@ export default function TablerosPage() {
         </div>
       ) : (
         <div className="space-y-10">
+          {favoritos.length > 0 && (
+            <section>
+              <div className="mb-3 flex items-center gap-3">
+                <Star className="size-4 animate-rise fill-[#f59e0b] text-[#f59e0b]" />
+                <Etiqueta>Favoritos</Etiqueta>
+                <span className="h-px flex-1 bg-linea/70" />
+              </div>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-5">
+                {favoritos.map((t, j) => (
+                  <MosaicoTablero key={t.id} tablero={t} indice={j} />
+                ))}
+              </div>
+            </section>
+          )}
+
           <section>
             <div className="mb-3 flex items-center gap-3">
               <Etiqueta>Personales</Etiqueta>

@@ -13,6 +13,7 @@ from equipos.models import Equipo
 from equipos.permisos import puede_administrar_equipo
 from tableros.models import Card, Tablero, TipoTablero
 from tableros.services import tableros as servicio
+from tableros.services.favoritos import marcar_favorito
 
 from ..serializers import CardDetalleSerializer, TableroEscrituraSerializer, TableroResumenSerializer
 from .comunes import contexto, detalle_tablero, obtener_tablero
@@ -80,6 +81,18 @@ class TableroArchivarView(APIView):
         tablero = obtener_tablero(request, pk, gestionar=True)
         servicio.archivar_tablero(tablero, archivado=booleano(request, "archivado", True))
         return Response(TableroResumenSerializer(tablero, context=contexto(request)).data)
+
+
+class TableroFavoritoView(APIView):
+    """POST lo marca como favorito y DELETE lo quita (para quien lo pide)."""
+
+    def post(self, request, pk):
+        tablero = obtener_tablero(request, pk)
+        return Response({"es_favorito": marcar_favorito(tablero, request.user, favorito=True)})
+
+    def delete(self, request, pk):
+        tablero = obtener_tablero(request, pk)
+        return Response({"es_favorito": marcar_favorito(tablero, request.user, favorito=False)})
 
 
 class TableroCardsArchivadasView(APIView):

@@ -26,6 +26,7 @@ interfaz y en los mensajes al usuario es **tarjeta**.
 | `CampoPersonalizado` | `planificacion_campo_personalizado` | Por tablero (`related_name="campos"`): `tipo` texto/numero/lista, `opciones` (lista), `orden`, `visible_en_tarjeta`, `archivado`. Nombre único entre los activos (sin mayúsculas ni acentos): lo cumple `campos._guardar` con el tablero bloqueado, porque MySQL no crea la restricción con condición `campo_activo_unico_por_tablero`. No se borran: se archivan. Los valores viven en `Card.campos` (JSON `{"<id del campo>": valor}`, D-14). |
 | `Comentario` | `planificacion_comentario` | `menciones` M2M, `editado_en`, `eliminado` (borrado lógico). |
 | `ItemChecklist` | `planificacion_item_checklist` | `texto`, `hecho`, `orden`. |
+| `TableroFavorito` | `planificacion_tablero_favorito` | `usuario`, `tablero`, `creado_en`; único (usuario, tablero). Solo lo ve esa persona y **no da acceso**: los listados parten de `visibles_para`, así que un favorito de un tablero que ya no ve no aparece. |
 | `Actividad` | `planificacion_actividad` | Historial inmutable: `accion` ∈ creo, movio, edito, asigno, desasigno, comento, checklist, archivo, restauro, traslado, dependencia; `detalle` (antes/después). Etiquetas: `edito` con `campo="etiquetas"` (nombres separados por coma); campos: `campo="personalizado"` con `nombre`, `antes`, `despues` en texto. |
 
 Lecturas reutilizables en QuerySet: `Tablero.objects.activos()`,
@@ -48,6 +49,7 @@ historial + avisos + estado de vencimiento). Argumentos por nombre; lanzan
 | `tableros.py` | `crear_tablero` (con Tareas / En curso / Hecho, o las `columnas` que se le pasen: así lo usa `plantillas`), `asegurar_tablero_personal` («Mi tablero» en el primer ingreso), `personales_de`, `puede_archivar_personal`, `editar_tablero`, `archivar_tablero` |
 | `columnas.py` | `crear_columna`, `reordenar_columnas`, `editar_columna` (con `version`; incluye `limite_cards`), `archivar_columna` (exige destino para sus tarjetas) |
 | `tarjetas.py` | `crear_card` (`avisar=False` para la importación y las plantillas; acepta `etiquetas` y `valores_campos`), `editar_card` (con `version` → `ConflictoDeVersion`; `etiquetas` y `valores_campos` registran su historial), `mover_card`, `archivar_card`, `trasladar_card` (emite la señal `tarjeta_trasladada`; conserva las etiquetas y los campos que existan en el destino con el mismo nombre —y tipo, en los campos—; el resto se pierde, no se crea) |
+| `favoritos.py` | `marcar_favorito` (idempotente; quien llama ya comprobó que lo ve), `ids_favoritos` |
 | `etiquetas.py` | `crear_etiqueta` (máx. 30 por tablero; nombre repetido → `ReglaDeNegocio`), `editar_etiqueta`, `eliminar_etiqueta` |
 | `campos.py` | `crear_campo` (máx. 20 activos; una lista exige opciones), `editar_campo` (el tipo no cambia), `valor_valido` (número con coma o punto → int/float; lista: una de sus opciones; texto ≤ 500), `validar_valores` (solo campos activos del tablero; `null`/vacío borra), `texto_valor`, `remapear` (valores de un tablero a otro) |
 | `comentarios.py` | `extraer_menciones`, `comentar`, `editar_comentario`, `eliminar_comentario` |
@@ -81,6 +83,7 @@ serializer). Piezas comunes en `api/views/comunes.py`: `obtener_tablero`,
 |---|---|
 | `tableros/` | listar (personales + de mis equipos; `?archivados=personales`), crear (sin `equipo` = personal) |
 | `tableros/<id>/` · `archivar/` · `archivadas/` | ver (con columnas y tarjetas), editar · archivar/restaurar · tarjetas archivadas |
+| `tableros/<id>/favorito/` | POST marcar, DELETE quitar (basta con **ver** el tablero; responde `{es_favorito}`). Los tableros traen `es_favorito` (una consulta por respuesta, no por tablero) |
 | `equipos/<id>/tableros/` | tableros del equipo |
 | `tableros/<id>/columnas/` · `columnas/reordenar/` | crear · reordenar |
 | `columnas/<id>/` · `columnas/<id>/archivar/` | editar (con `version`) · archivar con destino |
@@ -120,7 +123,8 @@ administra, beto y carla son miembros, `lector` solo consulta, `ajeno` no está
 (ids del Portal fijos 11/22/33 para verificar destinatarios). Archivos por
 funcionalidad: `test_tableros`, `test_columnas`, `test_tarjetas`,
 `test_comentarios`, `test_checklist`, `test_avisos`, `test_vencimientos`,
-`test_mis_tareas`, `test_configuracion` (etiquetas, campos y límite).
+`test_mis_tareas`, `test_configuracion` (etiquetas, campos y límite),
+`test_favoritos`.
 
 ## Cuidado al modificar
 

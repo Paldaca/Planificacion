@@ -250,6 +250,14 @@ const PREGUNTAS: TemaAyuda = {
       ],
     },
     {
+      id: "favoritos",
+      titulo: "¿Cómo tengo a mano los tableros que más uso?",
+      parrafos: [
+        "Márcalos como **favoritos** con la estrella: en su tarjeta de **Tableros** (aparece al pasar el ratón) o junto al nombre del tablero abierto.",
+        "Los favoritos salen primero en **Tableros**. Son solo tuyos: nadie más ve cuáles marcaste.",
+      ],
+    },
+    {
       id: "equipos",
       titulo: "¿Cómo creo un equipo? ¿Puedo estar en varios?",
       parrafos: [

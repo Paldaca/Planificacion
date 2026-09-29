@@ -134,6 +134,8 @@ export type TableroResumen = {
   archivado: boolean;
   conteos: { abiertas: number; vencidas: number; terminadas: number };
   permisos: PermisosTablero;
+  /** Marcado como favorito por quien consulta (solo lo ve esa persona). */
+  es_favorito: boolean;
   actualizado_en: string;
 };
 

@@ -501,6 +501,12 @@ crece a mitad de camino: lo nuevo va a la siguiente.
   propuesto un recorrido guiado de primera vez y un tablero de práctica.
 - **Crear tareas desde el Calendario**: clic en un día (o arrastrar sobre
   varios) abre «Nueva tarea» con esas fechas.
+- **Tableros favoritos**: estrella en cada tablero (solo para quien la
+  marca); los favoritos salen primero en *Tableros*. No dan acceso.
+- **Arranque local**: `iniciar.ps1` / `iniciar.sh` del Portal abren todo como
+  pestañas de una ventana (Windows Terminal; en Linux, GNOME Terminal,
+  Konsole, Xfce, MATE o Tilix) y una pestaña con `npm run build:watch` para
+  que los cambios lleguen al iframe.
 - **Preparación del despliegue** (auditoría 2026-09-28): MySQL propia por
   `DATABASE_URL` con la suite en verde contra MySQL 8 (las reglas «una
   invitación pendiente» y «nombre de campo único» pasaron a los servicios:

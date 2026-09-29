@@ -146,6 +146,25 @@ class Tablero(models.Model):
         ]
 
 
+class TableroFavorito(models.Model):
+    """Tablero marcado como favorito por una persona (solo lo ve ella).
+
+    No da acceso: si la persona deja de ver el tablero (sale del equipo), la
+    marca queda pero el tablero no aparece, porque los listados parten de
+    `Tablero.objects.visibles_para`."""
+
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="tableros_favoritos")
+    tablero = models.ForeignKey(Tablero, on_delete=models.CASCADE, related_name="favoritos")
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "planificacion_tablero_favorito"
+        constraints = [models.UniqueConstraint(fields=["usuario", "tablero"], name="favorito_unico_por_usuario")]
+
+    def __str__(self):
+        return f"{self.usuario} ★ {self.tablero}"
+
+
 class ColumnaQuerySet(models.QuerySet):
     def activas(self):
         return self.filter(archivada=False).order_by("orden", "id")

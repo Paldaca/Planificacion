@@ -7,6 +7,7 @@ urlpatterns = [
     path("tableros/", tableros.TablerosView.as_view(), name="tableros"),
     path("tableros/<int:pk>/", tableros.TableroDetalleView.as_view(), name="tablero-detalle"),
     path("tableros/<int:pk>/archivar/", tableros.TableroArchivarView.as_view(), name="tablero-archivar"),
+    path("tableros/<int:pk>/favorito/", tableros.TableroFavoritoView.as_view(), name="tablero-favorito"),
     path("tableros/<int:pk>/archivadas/", tableros.TableroCardsArchivadasView.as_view(), name="tablero-archivadas"),
     path("equipos/<int:pk>/tableros/", tableros.EquipoTablerosView.as_view(), name="equipo-tableros"),
     # Columnas

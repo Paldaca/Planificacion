@@ -38,6 +38,7 @@ import { FILTROS_VACIOS, filtrar, hayFiltros, type EstadoFiltros } from "@/lib/f
 import { ImportarDialogo } from "@/components/tablero/ImportarDialogo";
 import { Kanban } from "@/components/tablero/Kanban";
 import { SelectorVista } from "@/components/tablero/SelectorVista";
+import { BotonFavorito } from "@/components/tablero/BotonFavorito";
 import { CuerpoTarjeta } from "@/components/tablero/Tarjeta";
 import { PilaAvatares } from "@/components/ui/Avatar";
 import { Boton } from "@/components/ui/Boton";
@@ -156,6 +157,7 @@ export default function TableroPage() {
         titulo={
           <span className="inline-flex items-center gap-3">
             {tablero.nombre}
+            <BotonFavorito tablero={tablero} className="-ml-1.5" />
             {tablero.archivado && <Pildora color="#b45309">Archivado</Pildora>}
           </span>
         }
