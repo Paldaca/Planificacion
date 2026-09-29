@@ -9,7 +9,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     ports:
-      - "8007:8007"
+      - "8070:8070"
     environment:
       RUNNING_IN_DOCKER: "1"
       DATABASE_URL: ${DATABASE_URL}

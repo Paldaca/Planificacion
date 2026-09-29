@@ -47,7 +47,7 @@ RUN cd backend \
 USER app
 WORKDIR /app/backend
 
-EXPOSE 8007
+EXPOSE 8070
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=5 \
     CMD curl -fsS "http://127.0.0.1:${PORT:-8007}/api/health/" || exit 1
