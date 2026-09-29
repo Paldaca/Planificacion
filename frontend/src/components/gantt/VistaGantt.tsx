@@ -1,4 +1,4 @@
-import { ChartGantt, ChevronDown, EyeOff, Link2, Locate, Plus } from "lucide-react";
+import { ChartGantt, ChevronDown, ChevronsLeftRight, EyeOff, Link2, Locate, Maximize2, Minimize2, Plus } from "lucide-react";
 import {
   useEffect,
   useEffectEvent,
@@ -8,6 +8,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { createPortal } from "react-dom";
 
 import { useCrearDependencia, useDependencias, useFeriados, useProgramarCard } from "@/api/queries";
 import type { CardResumen, Dependencia, TableroDetalle } from "@/api/tipos";
@@ -16,6 +17,7 @@ import { Boton } from "@/components/ui/Boton";
 import { Pildora } from "@/components/ui/Estados";
 import { BotonCalendarioLaboral } from "@/components/vistas/CalendarioLaboral";
 import { useEstable } from "@/hooks/useEstable";
+import { usePantallaCompleta } from "@/hooks/usePantallaCompleta";
 import { usePreferencia } from "@/hooks/usePreferencia";
 import { cn } from "@/lib/cn";
 import { aISO, diferencia, sumarDias, sumarDiasISO } from "@/lib/dias";
@@ -28,6 +30,7 @@ import {
   cajas,
   calcularRango,
   construirFilas,
+  encaje,
   fechaDeX,
   xDeFecha,
   type Agrupacion,
@@ -35,11 +38,12 @@ import {
   type Zoom,
 } from "@/lib/gantt";
 
+import { AyudaSucesoras, InterruptorSucesoras } from "./Ayuda";
 import { ResumenAvance, ResumenGrupo } from "./Avance";
 import { Escala, Fondo } from "./Escala";
 import { Barra, EtiquetaCard } from "./Filas";
 import { Flechas, PanelDependencia } from "./Dependencias";
-import { Bandeja } from "./Bandeja";
+import { Bandeja, BotonBandeja } from "./Bandeja";
 import { ALTO_ESCALA, type Colocando, type Enlace, type Modo } from "./tipos";
 
 const ZOOMS: { id: Zoom; etiqueta: string }[] = [
@@ -62,19 +66,26 @@ const MARGEN_INFERIOR = 88;
 /** Como mucho se descuenta esta fracción de la ventana por lo que hay encima. */
 const MAX_CABECERA = 0.45;
 
-type Espacio = { ancho: number; alto: number };
+/** Con la bandeja abierta el cuerpo no baja de esto (si no, el panel no cabe). */
+const ALTO_CON_BANDEJA = 300;
+
+type Espacio = { ancho: number; alto: number; visible: number };
 
 /**
  * Espacio disponible para el Gantt: el alto que queda en la ventana bajo la
- * cabecera del tablero (menos un margen) y el ancho de la línea de tiempo. Se
- * vuelve a medir al cambiar el tamaño de la ventana o del contenedor.
+ * cabecera del tablero (menos un margen), el ancho de la línea de tiempo y el
+ * alto visible del cuerpo (solo significativo en pantalla completa, donde el
+ * cuerpo ocupa lo que sobra). Se vuelve a medir al cambiar el tamaño de la
+ * ventana o del contenedor, y con `clave` (el contenedor se vuelve a montar al
+ * entrar o salir de pantalla completa).
  */
 function useEspacioDisponible(
   contenedor: React.RefObject<HTMLDivElement | null>,
   etiquetas: React.RefObject<HTMLDivElement | null>,
   activo: boolean,
+  clave: unknown,
 ): Espacio {
-  const [espacio, setEspacio] = useState<Espacio>({ ancho: 0, alto: 0 });
+  const [espacio, setEspacio] = useState<Espacio>({ ancho: 0, alto: 0, visible: 0 });
   useLayoutEffect(() => {
     const el = contenedor.current;
     if (!activo || !el) return;
@@ -85,7 +96,10 @@ function useEspacioDisponible(
         Math.round(window.innerHeight - Math.min(arriba, window.innerHeight * MAX_CABECERA) - MARGEN_INFERIOR),
       );
       const ancho = Math.max(0, el.clientWidth - (etiquetas.current?.offsetWidth ?? 0));
-      setEspacio((previo) => (previo.alto === alto && previo.ancho === ancho ? previo : { alto, ancho }));
+      const visible = el.clientHeight;
+      setEspacio((previo) =>
+        previo.alto === alto && previo.ancho === ancho && previo.visible === visible ? previo : { alto, ancho, visible },
+      );
     };
     medir();
     const observador = new ResizeObserver(medir);
@@ -95,7 +109,7 @@ function useEspacioDisponible(
       observador.disconnect();
       window.removeEventListener("resize", medir);
     };
-  }, [contenedor, etiquetas, activo]);
+  }, [contenedor, etiquetas, activo, clave]);
   return espacio;
 }
 const MAX_DIAS_FERIADOS = 790;
@@ -144,6 +158,13 @@ export function VistaGantt({
   const [seleccion, setSeleccion] = useState<Seleccion | null>(null);
   const [resaltada, setResaltada] = useState<number | null>(null);
   const [creando, setCreando] = useState(false);
+  /** Predecesora propuesta al crear desde el «+» de una fila. */
+  const [despuesDe, setDespuesDe] = useState<number | null>(null);
+  const [verBandeja, setVerBandeja] = useState(false);
+  /** Tramo al que desplazarse tras «Encajar» (cuando el zoom nuevo ya se pintó). */
+  const [encuadre, setEncuadre] = useState<{ desde: string; hasta: string } | null>(null);
+  const pantalla = usePantallaCompleta();
+  const ultimoScroll = useRef({ left: 0, top: 0 });
   /** Tarjeta recién creada: se lleva a la vista en cuanto tiene barra. */
   const [enfocar, setEnfocar] = useState<number | null>(null);
   const temporizadorResalte = useRef<number | undefined>(undefined);
@@ -164,7 +185,7 @@ export function VistaGantt({
   const sinFechas = useMemo(() => incluidas.filter((c) => !(c.fecha_inicio && c.fecha_fin)), [incluidas]);
   const excluidas = visibles.length - incluidas.length;
 
-  const espacio = useEspacioDisponible(scrollRef, etiquetasRef, incluidas.length > 0);
+  const espacio = useEspacioDisponible(scrollRef, etiquetasRef, incluidas.length > 0, pantalla.expandido);
   const diasVisibles = Math.ceil(espacio.ancho / px);
   const rango = useMemo(
     () => calcularRango(conFechas, zoom, parsearDia(hoyISO), diasVisibles),
@@ -189,7 +210,13 @@ export function VistaGantt({
     [mostradas, agrupar, tablero.columnas, plegados],
   );
   const posiciones = useMemo(() => cajas(filas, r, px), [filas, r, px]);
-  const altoCuerpo = Math.max(alto, ALTO_FILA * 3);
+  // En pantalla completa el fondo (días, feriados) llena todo el alto.
+  const altoCuerpo = Math.max(
+    alto,
+    ALTO_FILA * 3,
+    sinFechas.length > 0 && verBandeja ? ALTO_CON_BANDEJA : 0,
+    pantalla.expandido ? espacio.visible - ALTO_ESCALA : 0,
+  );
 
   // Al entrar, la línea de hoy y las tarjetas en curso quedan a la vista; al
   // cambiar el zoom solo se recoloca en horizontal (no se pierde la fila).
@@ -239,6 +266,41 @@ export function VistaGantt({
   }, [enfocar, posiciones]);
   useEffect(() => () => window.clearTimeout(temporizadorResalte.current), []);
 
+  // Tras «Encajar»: centra el tramo con el zoom nuevo (va después del efecto
+  // que centra hoy al cambiar el zoom, para ganarle).
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!encuadre || !el) return;
+    const x1 = xDeFecha(encuadre.desde, r, px);
+    const x2 = xDeFecha(encuadre.hasta, r, px) + px;
+    const visible = el.clientWidth - (etiquetasRef.current?.offsetWidth ?? 0);
+    el.scrollTo({ left: Math.max(0, x1 - Math.max(0, visible - (x2 - x1)) / 2), top: 0, behavior: "smooth" });
+    setEncuadre(null);
+  }, [encuadre, r, px]);
+
+  // Al entrar o salir de pantalla completa el cuerpo se vuelve a montar: se
+  // recupera el desplazamiento. Se repite al medir el espacio nuevo (re-render
+  // síncrono, antes de pintar), cuando la línea de tiempo ya tiene su ancho.
+  const expandidoPrevio = useRef(pantalla.expandido);
+  const restaurar = useRef<{ left: number; top: number } | null>(null);
+  useLayoutEffect(() => {
+    if (expandidoPrevio.current !== pantalla.expandido) {
+      expandidoPrevio.current = pantalla.expandido;
+      restaurar.current = { ...ultimoScroll.current };
+      window.setTimeout(() => (restaurar.current = null), 0);
+    }
+    if (restaurar.current) scrollRef.current?.scrollTo(restaurar.current);
+  }, [pantalla.expandido, espacio.ancho]);
+
+  /** Zoom y posición para ver todas las barras visibles de una vez. */
+  function encajar() {
+    const { desde, hasta } = avanceDe(conFechas);
+    if (!desde || !hasta) return;
+    const e = encaje(desde, hasta, espacio.ancho);
+    setZoom(e.zoom);
+    setEncuadre({ desde: e.desde, hasta: e.hasta });
+  }
+
   const avance = useMemo(() => avanceDe(incluidas), [incluidas]);
   const porVencer = useMemo(() => incluidas.filter((c) => c.vencimiento === "vence_pronto").length, [incluidas]);
 
@@ -246,12 +308,19 @@ export function VistaGantt({
     <NuevaTareaDialogo
       tablero={tablero}
       abierto={creando}
+      despuesDe={despuesDe}
       onCerrar={() => setCreando(false)}
       onCreada={(card) => setEnfocar(card.id)}
     />
   );
   const botonNueva = puede && (
-    <Boton tamano="sm" onClick={() => setCreando(true)}>
+    <Boton
+      tamano="sm"
+      onClick={() => {
+        setDespuesDe(null);
+        setCreando(true);
+      }}
+    >
       <Plus />
       Tarea
     </Boton>
@@ -376,6 +445,10 @@ export function VistaGantt({
   const alMoverEnlace = useEstable(moverEnlace);
   const alSoltarEnlace = useEstable(soltarEnlace);
   const alAbrir = useEstable(onAbrir);
+  const alNuevaSucesora = useEstable((card: CardResumen) => {
+    setDespuesDe(card.id);
+    setCreando(true);
+  });
 
   const diaColocando = useMemo(() => {
     if (!colocando?.movido || !areaRef.current) return null;
@@ -407,10 +480,17 @@ export function VistaGantt({
 
   const xHoy = xDeFecha(hoyISO, r, px) + px / 2;
 
-  return (
-    // La bandeja «Sin fechas» solo ocupa sitio si hay tarjetas que colocar.
-    <div className={cn("animate-rise grid grid-cols-1 gap-4", sinFechas.length > 0 && "lg:grid-cols-[minmax(0,1fr)_248px]")}>
-      <div className="min-w-0 overflow-hidden rounded-2xl border border-linea bg-white shadow-[0_18px_40px_-32px_rgba(20,22,68,0.45)]">
+  const expandido = pantalla.expandido;
+  const contenido = (
+    // En pantalla completa va en un portal a <body>: un ancestro con `transform`
+    // (las animaciones de entrada) rompería el `fixed`.
+    <div className={cn(expandido ? "fixed inset-0 z-50 flex flex-col bg-fondo p-2 sm:p-3" : "animate-rise")}>
+      <div
+        className={cn(
+          "min-w-0 overflow-hidden rounded-2xl border border-linea bg-white shadow-[0_18px_40px_-32px_rgba(20,22,68,0.45)]",
+          expandido && "flex min-h-0 flex-1 flex-col",
+        )}
+      >
         {/* Barra de herramientas */}
         <div className="flex flex-wrap items-center gap-2 border-b border-linea px-3 py-2.5">
           {botonNueva}
@@ -448,161 +528,207 @@ export function VistaGantt({
               ))}
             </select>
           </label>
-          {puede && (
-            <button
-              type="button"
-              role="switch"
-              aria-checked={moverSucesoras}
-              onClick={() => setMoverSucesoras(!moverSucesoras)}
-              title="Al retrasar una tarjeta, empuja las que dependen de ella (en días hábiles)"
-              className="flex items-center gap-2 rounded-lg px-2 py-1 text-xs font-medium text-tenue transition-colors hover:bg-fondo pointer-coarse:hidden"
-            >
-              <span className={cn("relative inline-flex h-4.5 w-8 items-center rounded-full transition-colors", moverSucesoras ? "bg-morado" : "bg-linea")}>
-                <span className={cn("absolute size-3.5 rounded-full bg-white shadow transition-transform duration-200", moverSucesoras ? "translate-x-4" : "translate-x-0.5")} />
-              </span>
-              Mover sucesoras
-            </button>
-          )}
+          <div className="flex items-center gap-1">
+            {puede && <InterruptorSucesoras activo={moverSucesoras} onCambiar={setMoverSucesoras} />}
+            <AyudaSucesoras puede={puede} />
+          </div>
           <div className="ml-auto flex flex-wrap items-center gap-2">
             {excluidas > 0 && (
               <Pildora icono={EyeOff} className="cursor-help">
                 <span title="Por su columna o por la opción «Gantt» de cada tarjeta">{excluidas} fuera del Gantt</span>
               </Pildora>
             )}
-            <Boton variante="secundario" tamano="sm" onClick={() => irAHoy()}>
+            {sinFechas.length > 0 && (
+              <BotonBandeja total={sinFechas.length} abierta={verBandeja} onAlternar={() => setVerBandeja((v) => !v)} />
+            )}
+            {/* En el teléfono, solo iconos: la barra no ocupa media pantalla. */}
+            <Boton variante="secundario" tamano="sm" onClick={() => irAHoy()} aria-label="Hoy" className="max-sm:px-2.5">
               <Locate />
-              Hoy
+              <span className="max-sm:hidden">Hoy</span>
+            </Boton>
+            <Boton
+              variante="secundario"
+              tamano="sm"
+              onClick={encajar}
+              aria-label="Encajar"
+              title="Ajusta el zoom para ver todas las tareas de una vez"
+              className="max-sm:px-2.5"
+            >
+              <ChevronsLeftRight />
+              <span className="max-sm:hidden">Encajar</span>
             </Boton>
             <BotonCalendarioLaboral />
+            <Boton
+              variante={expandido ? "primario" : "secundario"}
+              tamano="icono-sm"
+              onClick={pantalla.alternar}
+              aria-label={expandido ? "Salir de pantalla completa" : "Pantalla completa"}
+              title={expandido ? "Salir de pantalla completa (Esc)" : "Pantalla completa"}
+            >
+              {expandido ? <Minimize2 /> : <Maximize2 />}
+            </Boton>
           </div>
         </div>
 
-        <ResumenAvance avance={avance} porVencer={porVencer} sinFechas={sinFechas.length} onVerAtrasadas={onVerAtrasadas} />
+        <ResumenAvance
+          avance={avance}
+          porVencer={porVencer}
+          sinFechas={sinFechas.length}
+          onVerAtrasadas={onVerAtrasadas}
+          onVerSinFechas={() => setVerBandeja(true)}
+        />
 
         {/* Cuerpo desplazable: etiquetas fijas a la izquierda, escala fija arriba */}
-        <div
-          ref={scrollRef}
-          className={cn("relative overflow-auto overscroll-contain", !espacio.alto && "max-h-[68vh]")}
-          style={espacio.alto ? { maxHeight: espacio.alto } : undefined}
-        >
-          <div className="flex min-w-max">
-            {/* Columna de etiquetas */}
-            <div ref={etiquetasRef} className="sticky left-0 z-30 w-32 shrink-0 border-r border-linea bg-white sm:w-60 2xl:w-72">
-              <div
-                className="sticky top-0 z-10 flex items-end border-b border-linea bg-fondo px-3 pb-2 text-[0.7rem] font-bold tracking-[0.08em] text-tenue uppercase"
-                style={{ height: ALTO_ESCALA }}
-              >
-                Tarjeta
-              </div>
-              <div className="relative" style={{ height: altoCuerpo }}>
-                {filas.map((f) =>
-                  f.tipo === "grupo" ? (
-                    <button
-                      key={`g-${f.clave}`}
-                      type="button"
-                      onClick={() => alternarGrupo(f.clave)}
-                      className="absolute inset-x-0 flex items-center gap-2 border-b border-linea/70 bg-fondo/70 px-3 text-left text-xs font-bold text-marino transition-colors hover:bg-columna"
-                      style={{ top: f.y, height: ALTO_GRUPO }}
-                    >
-                      <ChevronDown className={cn("size-3.5 text-tenue transition-transform", plegados.has(f.clave) && "-rotate-90")} />
-                      <span className="size-2 rounded-full" style={{ background: f.color }} />
-                      <span className="truncate">{f.titulo}</span>
-                      {f.vencidas > 0 && (
-                        <span
-                          className="ml-auto rounded-full bg-[#fef2f2] px-1.5 text-[0.68rem] font-bold text-[#dc2626] tabular-nums"
-                          title={f.vencidas === 1 ? "1 vencida" : `${f.vencidas} vencidas`}
-                        >
-                          {f.vencidas}
-                        </span>
-                      )}
-                      <span
-                        className={cn("font-semibold text-tenue tabular-nums", !f.vencidas && "ml-auto")}
-                        title={`${f.hechas} de ${f.total} terminadas`}
+        <div className={cn("relative", expandido && "flex min-h-0 flex-1 flex-col")}>
+          <div
+            ref={scrollRef}
+            onScroll={(e) => {
+              ultimoScroll.current = { left: e.currentTarget.scrollLeft, top: e.currentTarget.scrollTop };
+            }}
+            className={cn(
+              "relative overflow-auto overscroll-contain",
+              expandido ? "min-h-0 flex-1" : !espacio.alto && "max-h-[68vh]",
+            )}
+            style={!expandido && espacio.alto ? { maxHeight: espacio.alto } : undefined}
+          >
+            <div className="flex min-w-max">
+              {/* Columna de etiquetas */}
+              <div ref={etiquetasRef} className="sticky left-0 z-30 w-32 shrink-0 border-r border-linea bg-white sm:w-60 2xl:w-72">
+                <div
+                  className="sticky top-0 z-10 flex items-end border-b border-linea bg-fondo px-3 pb-2 text-[0.7rem] font-bold tracking-[0.08em] text-tenue uppercase"
+                  style={{ height: ALTO_ESCALA }}
+                >
+                  Tarjeta
+                </div>
+                <div className="relative" style={{ height: altoCuerpo }}>
+                  {filas.map((f) =>
+                    f.tipo === "grupo" ? (
+                      <button
+                        key={`g-${f.clave}`}
+                        type="button"
+                        onClick={() => alternarGrupo(f.clave)}
+                        className="absolute inset-x-0 flex items-center gap-2 border-b border-linea/70 bg-fondo/70 px-3 text-left text-xs font-bold text-marino transition-colors hover:bg-columna"
+                        style={{ top: f.y, height: ALTO_GRUPO }}
                       >
-                        {f.hechas}/{f.total}
-                      </span>
-                    </button>
-                  ) : (
-                    <EtiquetaCard key={f.card.id} fila={f} onAbrir={alAbrir} resaltada={resaltada === f.card.id} onResaltar={setResaltada} />
-                  ),
-                )}
+                        <ChevronDown className={cn("size-3.5 text-tenue transition-transform", plegados.has(f.clave) && "-rotate-90")} />
+                        <span className="size-2 rounded-full" style={{ background: f.color }} />
+                        <span className="truncate">{f.titulo}</span>
+                        {f.vencidas > 0 && (
+                          <span
+                            className="ml-auto rounded-full bg-[#fef2f2] px-1.5 text-[0.68rem] font-bold text-[#dc2626] tabular-nums"
+                            title={f.vencidas === 1 ? "1 vencida" : `${f.vencidas} vencidas`}
+                          >
+                            {f.vencidas}
+                          </span>
+                        )}
+                        <span
+                          className={cn("font-semibold text-tenue tabular-nums", !f.vencidas && "ml-auto")}
+                          title={`${f.hechas} de ${f.total} terminadas`}
+                        >
+                          {f.hechas}/{f.total}
+                        </span>
+                      </button>
+                    ) : (
+                      <EtiquetaCard
+                        key={f.card.id}
+                        fila={f}
+                        onAbrir={alAbrir}
+                        resaltada={resaltada === f.card.id}
+                        onResaltar={setResaltada}
+                        onNuevaSucesora={puede ? alNuevaSucesora : undefined}
+                      />
+                    ),
+                  )}
+                </div>
               </div>
-            </div>
 
-            {/* Línea de tiempo */}
-            <div className="relative shrink-0" style={{ width: ancho }}>
-              <Escala rango={r} px={px} zoom={zoom} feriados={feriadosPorDia} xHoy={xHoy} />
-              <div
-                ref={areaRef}
-                className={cn("relative", (arrastre?.movido || enlace) && "cursor-grabbing select-none")}
-                style={{ height: altoCuerpo }}
-                onPointerDown={() => setSeleccion(null)}
-              >
-                <Fondo rango={r} px={px} feriados={feriadosPorDia} filas={filas} alto={altoCuerpo} />
-                {filas.map((f) =>
-                  f.tipo === "grupo" && f.desde && f.hasta ? <ResumenGrupo key={`r-${f.clave}`} fila={f} rango={r} px={px} /> : null,
-                )}
-                {diaColocando && (
-                  <div
-                    className="pointer-events-none absolute inset-y-0 z-[2] bg-morado/12 ring-1 ring-morado/40 ring-inset"
-                    style={{ left: xDeFecha(diaColocando, r, px), width: px }}
-                  />
-                )}
-                <div className="pointer-events-none absolute inset-y-0 z-[3] w-0.5 -translate-x-1/2 bg-rojo/70" style={{ left: xHoy }} />
-
-                <Flechas
-                  dependencias={dependencias}
-                  posiciones={posiciones}
-                  ancho={ancho}
-                  alto={altoCuerpo}
-                  resaltada={resaltada}
-                  seleccionada={seleccion?.dep.id ?? null}
-                  onSeleccionar={(dep, e) => {
-                    const p = puntoEnArea(e.clientX, e.clientY);
-                    setSeleccion({ dep, x: p.x, y: p.y });
-                  }}
-                  enlace={enlace}
-                  origenEnlace={enlace ? posiciones.get(enlace.desde) : undefined}
-                />
-
-                {filas.map((f) =>
-                  f.tipo === "card" && posiciones.has(f.card.id) ? (
-                    <Barra
-                      key={f.card.id}
-                      fila={f}
-                      caja={posiciones.get(f.card.id)!}
-                      puede={puede}
-                      arrastrando={arrastre?.movido === true && arrastre.card.id === f.card.id}
-                      destinoEnlace={enlace !== null && enlace.desde !== f.card.id}
-                      onPointerDown={alEmpezarArrastre}
-                      onPointerMove={alMoverArrastre}
-                      onPointerUp={alSoltarArrastre}
-                      onPointerCancel={alCancelarArrastre}
-                      onConector={alEmpezarEnlace}
-                      onConectorMove={alMoverEnlace}
-                      onConectorUp={alSoltarEnlace}
-                      onResaltar={setResaltada}
-                      onAbrir={alAbrir}
+              {/* Línea de tiempo */}
+              <div className="relative shrink-0" style={{ width: ancho }}>
+                <Escala rango={r} px={px} zoom={zoom} feriados={feriadosPorDia} xHoy={xHoy} />
+                <div
+                  ref={areaRef}
+                  className={cn("relative", (arrastre?.movido || enlace) && "cursor-grabbing select-none")}
+                  style={{ height: altoCuerpo }}
+                  onPointerDown={() => setSeleccion(null)}
+                >
+                  <Fondo rango={r} px={px} feriados={feriadosPorDia} filas={filas} alto={altoCuerpo} />
+                  {filas.map((f) =>
+                    f.tipo === "grupo" && f.desde && f.hasta ? <ResumenGrupo key={`r-${f.clave}`} fila={f} rango={r} px={px} /> : null,
+                  )}
+                  {diaColocando && (
+                    <div
+                      className="pointer-events-none absolute inset-y-0 z-[2] bg-morado/12 ring-1 ring-morado/40 ring-inset"
+                      style={{ left: xDeFecha(diaColocando, r, px), width: px }}
                     />
-                  ) : null,
-                )}
+                  )}
+                  <div className="pointer-events-none absolute inset-y-0 z-[3] w-0.5 -translate-x-1/2 bg-rojo/70" style={{ left: xHoy }} />
 
-                {seleccionVigente && seleccion && (
-                  <PanelDependencia
-                    key={seleccionVigente.id}
-                    tableroId={tablero.id}
-                    dep={seleccionVigente}
-                    x={seleccion.x}
-                    y={seleccion.y}
-                    predecesora={cardsPorId.get(seleccionVigente.predecesora)}
-                    sucesora={cardsPorId.get(seleccionVigente.sucesora)}
-                    puede={puede}
-                    onCerrar={() => setSeleccion(null)}
+                  <Flechas
+                    dependencias={dependencias}
+                    posiciones={posiciones}
+                    ancho={ancho}
+                    alto={altoCuerpo}
+                    resaltada={resaltada}
+                    seleccionada={seleccion?.dep.id ?? null}
+                    onSeleccionar={(dep, e) => {
+                      const p = puntoEnArea(e.clientX, e.clientY);
+                      setSeleccion({ dep, x: p.x, y: p.y });
+                    }}
+                    enlace={enlace}
+                    origenEnlace={enlace ? posiciones.get(enlace.desde) : undefined}
                   />
-                )}
+
+                  {filas.map((f) =>
+                    f.tipo === "card" && posiciones.has(f.card.id) ? (
+                      <Barra
+                        key={f.card.id}
+                        fila={f}
+                        caja={posiciones.get(f.card.id)!}
+                        puede={puede}
+                        arrastrando={arrastre?.movido === true && arrastre.card.id === f.card.id}
+                        destinoEnlace={enlace !== null && enlace.desde !== f.card.id}
+                        onPointerDown={alEmpezarArrastre}
+                        onPointerMove={alMoverArrastre}
+                        onPointerUp={alSoltarArrastre}
+                        onPointerCancel={alCancelarArrastre}
+                        onConector={alEmpezarEnlace}
+                        onConectorMove={alMoverEnlace}
+                        onConectorUp={alSoltarEnlace}
+                        onResaltar={setResaltada}
+                        onAbrir={alAbrir}
+                      />
+                    ) : null,
+                  )}
+
+                  {seleccionVigente && seleccion && (
+                    <PanelDependencia
+                      key={seleccionVigente.id}
+                      tableroId={tablero.id}
+                      dep={seleccionVigente}
+                      x={seleccion.x}
+                      y={seleccion.y}
+                      predecesora={cardsPorId.get(seleccionVigente.predecesora)}
+                      sucesora={cardsPorId.get(seleccionVigente.sucesora)}
+                      puede={puede}
+                      onCerrar={() => setSeleccion(null)}
+                    />
+                  )}
+                </div>
               </div>
             </div>
           </div>
+          {sinFechas.length > 0 && verBandeja && (
+            <Bandeja
+              cards={sinFechas}
+              puede={puede}
+              colocando={colocando}
+              onCerrar={() => setVerBandeja(false)}
+              onPointerDown={empezarColocar}
+              onPointerMove={moverColocar}
+              onPointerUp={soltarColocar}
+              onPointerCancel={() => setColocando(null)}
+            />
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-linea/70 px-4 py-2 text-xs text-tenue">
@@ -627,17 +753,7 @@ export function VistaGantt({
       </div>
 
       {dialogoNueva}
-      {sinFechas.length > 0 && (
-        <Bandeja
-          cards={sinFechas}
-          puede={puede}
-          colocando={colocando}
-          onPointerDown={empezarColocar}
-          onPointerMove={moverColocar}
-          onPointerUp={soltarColocar}
-          onPointerCancel={() => setColocando(null)}
-        />
-      )}
     </div>
   );
+  return expandido ? createPortal(contenido, document.body) : contenido;
 }

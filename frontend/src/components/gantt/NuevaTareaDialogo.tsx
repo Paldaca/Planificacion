@@ -2,8 +2,8 @@ import { CalendarPlus } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { useCrearCard } from "@/api/queries";
-import type { CardDetalle, TableroDetalle, Urgencia } from "@/api/tipos";
+import { useCrearCard, useCrearDependencia } from "@/api/queries";
+import type { CardDetalle, CardResumen, TableroDetalle, Urgencia } from "@/api/tipos";
 import { useIdentidad } from "@/auth/useIdentidad";
 import { Boton } from "@/components/ui/Boton";
 import { Campo, Entrada } from "@/components/ui/Campos";
@@ -12,7 +12,7 @@ import { useAlAbrir } from "@/hooks/useAlAbrir";
 import { cn } from "@/lib/cn";
 import { aISO, laborablesEntre, siguienteLaborableISO, sumarDiasISO, sumarLaborablesISO } from "@/lib/dias";
 import { LISTA_URGENCIAS, URGENCIAS } from "@/lib/estilos";
-import { hoy } from "@/lib/fechas";
+import { diaCorto, hoy } from "@/lib/fechas";
 
 const DURACION_INICIAL = 5;
 
@@ -26,20 +26,29 @@ const estiloSelect =
  * después de la anterior con la misma duración: así se carga un plan en fila.
  * Las fechas propuestas cuentan de lunes a viernes; los feriados los aplica el
  * servidor en los vencimientos.
+ *
+ * «Empieza después de» la crea como sucesora: tras crear la tarjeta se crea la
+ * dependencia fin → inicio (las reglas las valida el servidor). Con una
+ * predecesora elegida, «Crear y añadir otra» encadena: la siguiente va después
+ * de la recién creada.
  */
 export function NuevaTareaDialogo({
   tablero,
   abierto,
   onCerrar,
   onCreada,
+  despuesDe = null,
 }: {
   tablero: TableroDetalle;
   abierto: boolean;
+  /** Predecesora propuesta al abrir (desde el «+» de una fila del Gantt). */
+  despuesDe?: number | null;
   onCerrar: () => void;
   onCreada: (card: CardDetalle) => void;
 }) {
   const identidad = useIdentidad();
   const crear = useCrearCard(tablero.id);
+  const crearDependencia = useCrearDependencia(tablero.id);
   const titulo = useRef<HTMLInputElement>(null);
   // Solo columnas que se ven en el Gantt (si no, la tarea «desaparecería»).
   const columnas = tablero.columnas.filter((c) => c.incluir_en_gantt && !c.es_final);
@@ -51,19 +60,32 @@ export function NuevaTareaDialogo({
   const [fin, setFin] = useState("");
   const [urgencia, setUrgencia] = useState<Urgencia>("media");
   const [columna, setColumna] = useState<number | null>(null);
+  const [predecesora, setPredecesora] = useState<number | null>(null);
+
+  // Candidatas a predecesora: las del Gantt con fecha de fin, sin mirar los
+  // filtros (la recién creada debe poder elegirse aunque un filtro la oculte).
+  const candidatas = tablero.cards
+    .filter((c) => c.en_gantt_efectivo && c.fecha_fin)
+    .sort((a, b) => (a.fecha_inicio ?? "").localeCompare(b.fecha_inicio ?? "") || a.numero - b.numero);
+  const anterior = candidatas.find((c) => c.id === predecesora);
 
   useAlAbrir(abierto, () => {
-    const propuesto = siguienteLaborableISO(aISO(hoy()));
+    const previa = candidatas.find((c) => c.id === despuesDe);
+    const propuesto = previa ? inicioTras(previa) : siguienteLaborableISO(aISO(hoy()));
     setTexto("");
     setResponsable(tablero.personas.some((p) => p.id === identidad.id) ? identidad.id : null);
     setInicio(propuesto);
     setFin(sumarLaborablesISO(propuesto, DURACION_INICIAL - 1));
     setUrgencia("media");
     setColumna(opciones[0]?.id ?? null);
+    setPredecesora(previa?.id ?? null);
   });
 
   const duracion = inicio && fin && fin >= inicio ? laborablesEntre(inicio, fin) : 0;
   const valido = texto.trim() !== "" && inicio !== "" && fin !== "" && fin >= inicio && columna !== null;
+  const guardando = crear.isPending || crearDependencia.isPending;
+  // Aviso, no bloqueo: el servidor la acepta y el Gantt la marca incumplida.
+  const antesDeTiempo = anterior?.fecha_fin && inicio && inicio <= anterior.fecha_fin;
 
   function cambiarInicio(valor: string) {
     // Conserva la duración al mover el inicio: es lo que se espera al planificar.
@@ -71,8 +93,14 @@ export function NuevaTareaDialogo({
     setInicio(valor);
   }
 
+  function elegirPredecesora(id: number | null) {
+    setPredecesora(id);
+    const card = candidatas.find((c) => c.id === id);
+    if (card) cambiarInicio(inicioTras(card));
+  }
+
   async function guardar(otra: boolean) {
-    if (!valido || crear.isPending) return;
+    if (!valido || guardando) return;
     const card = await crear.mutateAsync({
       titulo: texto.trim(),
       columna: columna!,
@@ -81,8 +109,15 @@ export function NuevaTareaDialogo({
       urgencia,
       responsables: responsable ? [responsable] : [],
     });
+    if (anterior) {
+      // Si falla, la tarjeta ya existe: el error lo avisa el hook y se puede
+      // enlazar a mano desde el Gantt.
+      await crearDependencia.mutateAsync({ predecesora: anterior.id, sucesora: card.id }).catch(() => undefined);
+    }
     onCreada(card);
-    toast.success("Tarea creada", { description: `#${card.numero} ${card.titulo}` });
+    toast.success("Tarea creada", {
+      description: anterior ? `#${card.numero} ${card.titulo}, después de #${anterior.numero}` : `#${card.numero} ${card.titulo}`,
+    });
     if (!otra) {
       onCerrar();
       return;
@@ -92,6 +127,7 @@ export function NuevaTareaDialogo({
     setTexto("");
     setInicio(siguiente);
     setFin(sumarLaborablesISO(siguiente, Math.max(duracion, 1) - 1));
+    if (anterior) setPredecesora(card.id);
     titulo.current?.focus();
   }
 
@@ -107,10 +143,10 @@ export function NuevaTareaDialogo({
           <Boton variante="secundario" onClick={onCerrar} className="max-sm:hidden">
             Cancelar
           </Boton>
-          <Boton variante="secundario" disabled={!valido} cargando={crear.isPending} onClick={() => void guardar(true)}>
+          <Boton variante="secundario" disabled={!valido} cargando={guardando} onClick={() => void guardar(true)}>
             Crear y añadir otra
           </Boton>
-          <Boton disabled={!valido} cargando={crear.isPending} onClick={() => void guardar(false)}>
+          <Boton disabled={!valido} cargando={guardando} onClick={() => void guardar(false)}>
             Crear tarea
           </Boton>
         </>
@@ -133,6 +169,31 @@ export function NuevaTareaDialogo({
             onChange={(e) => setTexto(e.target.value)}
           />
         </Campo>
+        {candidatas.length > 0 && (
+          <Campo
+            etiqueta="Empieza después de"
+            ayuda={
+              antesDeTiempo ? (
+                <span className="text-[#b45309]">Empieza antes de que termine la anterior: la flecha quedará en rojo.</span>
+              ) : anterior ? (
+                "Quedan unidas con una flecha: esta va después de la anterior."
+              ) : undefined
+            }
+          >
+            <select
+              value={predecesora ?? ""}
+              onChange={(e) => elegirPredecesora(e.target.value ? Number(e.target.value) : null)}
+              className={estiloSelect}
+            >
+              <option value="">Ninguna (tarea suelta)</option>
+              {candidatas.map((c) => (
+                <option key={c.id} value={c.id}>
+                  #{c.numero} {c.titulo} · termina {diaCorto(c.fecha_fin)}
+                </option>
+              ))}
+            </select>
+          </Campo>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <Campo etiqueta="Inicio">
             <Entrada type="date" value={inicio} onChange={(e) => cambiarInicio(e.target.value)} />
@@ -193,4 +254,9 @@ export function NuevaTareaDialogo({
       </form>
     </Dialogo>
   );
+}
+
+/** Primer día hábil (lunes a viernes) después de que termine `card`. */
+function inicioTras(card: CardResumen): string {
+  return siguienteLaborableISO(sumarDiasISO(card.fecha_fin!, 1));
 }

@@ -40,6 +40,24 @@ export function calcularRango(cards: CardResumen[], zoom: Zoom, hoy: Date, diasV
   return { desde, hasta, dias: diferencia(desde, hasta) + 1 };
 }
 
+/** Días de margen a cada lado al encajar: que la primera y la última barra no toquen el borde. */
+const MARGEN_ENCAJE = 2;
+
+/**
+ * «Encajar»: el zoom más cercano en el que el tramo `desde`–`hasta` (con un
+ * margen) cabe en `ancho` px, y ese tramo con margen para desplazarse hasta
+ * él. Si no cabe ni en «Mes», se queda en «Mes» y se va al principio.
+ */
+export function encaje(desde: string, hasta: string, ancho: number): { zoom: Zoom; desde: string; hasta: string } {
+  const dias = diferencia(desde, hasta) + 1 + MARGEN_ENCAJE * 2;
+  const zoom = (["dia", "semana", "mes"] as const).find((z) => dias * PX_POR_DIA[z] <= ancho) ?? "mes";
+  return {
+    zoom,
+    desde: aISO(sumarDias(parsearDia(desde), -MARGEN_ENCAJE)),
+    hasta: aISO(sumarDias(parsearDia(hasta), MARGEN_ENCAJE)),
+  };
+}
+
 // --- Filas ------------------------------------------------------------------------------
 
 /** Avance de un grupo: lo que ve el jefe de un vistazo (y la barra resumen). */

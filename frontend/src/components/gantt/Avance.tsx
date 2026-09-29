@@ -10,11 +10,14 @@ export function ResumenAvance({
   porVencer,
   sinFechas,
   onVerAtrasadas,
+  onVerSinFechas,
 }: {
   avance: Avance;
   porVencer: number;
   sinFechas: number;
   onVerAtrasadas?: () => void;
+  /** Abre la bandeja «Sin fechas». */
+  onVerSinFechas?: () => void;
 }) {
   const pct = avance.total ? Math.round((avance.hechas / avance.total) * 100) : 0;
   const atrasos = [
@@ -52,7 +55,19 @@ export function ResumenAvance({
           </span>
         ),
       )}
-      {sinFechas > 0 && <span className="text-tenue">{sinFechas} sin fechas</span>}
+      {sinFechas > 0 &&
+        (onVerSinFechas ? (
+          <button
+            type="button"
+            onClick={onVerSinFechas}
+            className="rounded-md px-1.5 py-0.5 text-tenue hover:bg-white hover:text-morado pointer-coarse:py-2"
+            title="Ver las tarjetas sin fechas"
+          >
+            {sinFechas} sin fechas
+          </button>
+        ) : (
+          <span className="text-tenue">{sinFechas} sin fechas</span>
+        ))}
     </div>
   );
 }

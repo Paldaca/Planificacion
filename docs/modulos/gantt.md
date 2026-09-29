@@ -66,19 +66,20 @@ Gantt propio en HTML + SVG, sin librería (decisión D-05), y `lib/gantt.ts`
 
 | Archivo | Qué tiene |
 |---|---|
-| `VistaGantt.tsx` | La vista: barra de herramientas, estado (zoom, agrupación, selección, arrastre, colocación desde la bandeja, enlace de dependencias), desplazamientos y composición de las piezas. |
+| `VistaGantt.tsx` | La vista: barra de herramientas, estado (zoom, agrupación, selección, arrastre, colocación desde la bandeja, enlace de dependencias, pantalla completa, encaje), desplazamientos y composición de las piezas. |
 | `Avance.tsx` | `ResumenAvance` (línea de avance del Gantt visible) y `ResumenGrupo` (barra resumen de un grupo). |
 | `Escala.tsx` | `Escala` (meses y días) y `Fondo` (fines de semana, feriados, líneas de filas). |
 | `Filas.tsx` | `EtiquetaCard` (columna fija de títulos) y `Barra` (barra con tiradores). |
 | `Dependencias.tsx` | `Flechas` (SVG) y `PanelDependencia` (editar tipo, desfase, quitar). |
-| `Bandeja.tsx` | Bandeja «Sin fechas» para arrastrar tarjetas a la línea de tiempo. |
+| `Bandeja.tsx` | `BotonBandeja` y la bandeja «Sin fechas» (panel plegable sobre la línea de tiempo) para arrastrar tarjetas a la línea de tiempo. |
+| `Ayuda.tsx` | `InterruptorSucesoras` y `AyudaSucesoras` (botón redondo «?»: qué es una sucesora, cómo crearla y qué hace «Mover sucesoras»). |
 | `NuevaTareaDialogo.tsx` | Alta rápida de una tarea desde el Gantt. |
 | `tipos.ts` | `ALTO_ESCALA` y los tipos `Modo`, `Enlace`, `Colocando` que comparten. |
 
- Agrupar por columna/responsable/urgencia, zoom
-día/semana/mes, bandeja «Sin fechas» (solo si hay tarjetas sin fechas; si no,
-la línea de tiempo usa todo el ancho), flechas incumplidas en rojo punteado,
-interruptor «Mover sucesoras».
+Agrupar por columna/responsable/urgencia, zoom día/semana/mes, flechas
+incumplidas en rojo punteado, interruptor «Mover sucesoras» con su ayuda «?»
+(se abre con clic: qué es una sucesora, las tres formas de crearla y qué pasa
+activado y desactivado).
 
 Pensado para que un equipo cargue su plan y quien lo dirige siga el avance
 sin esfuerzo:
@@ -89,6 +90,30 @@ sin esfuerzo:
   siguiente empezando el día hábil después, con la misma duración. Las
   fechas propuestas cuentan de lunes a viernes (`lib/dias.ts`, sin feriados);
   la tarea nueva se lleva a la vista y se resalta 2,5 s.
+- **Crear una sucesora** (tarea que va después de otra): el «+» que aparece
+  al pasar el ratón por una fila del Gantt abre «Nueva tarea» con «Empieza
+  después de» ya elegido; ese campo también está en «+ Tarea». Crea la
+  tarjeta y después la dependencia fin → inicio (dos peticiones: si la
+  segunda falla, la tarjeta queda y se avisa). Con predecesora, «Crear y
+  añadir otra» encadena la siguiente tras la recién creada. La tercera forma
+  sigue siendo arrastrar desde el punto al final de una barra.
+- **Bandeja «Sin fechas» plegable**: se abre con el botón «Sin fechas (n)» de
+  la barra o con «n sin fechas» del resumen, y flota sobre la derecha de la
+  línea de tiempo (antes era una columna fija que restaba ~260 px). Mientras
+  se arrastra una tarjeta se vuelve transparente, sin desmontarse (perdería
+  la captura del puntero); la tarjeta arrastrada se dibuja en un portal.
+- **Encajar** (`encaje` en `lib/gantt.ts`): elige el zoom más cercano en el
+  que caben todas las barras visibles (con 2 días de margen) y centra ese
+  tramo. Si no caben ni en «Mes», va al principio en «Mes».
+- **Pantalla completa** (`hooks/usePantallaCompleta`): el Gantt pasa a un
+  portal en `<body>` con `fixed inset-0` (un ancestro con `transform` rompería
+  el `fixed`) y se pide la pantalla completa del **documento**, no del Gantt:
+  diálogos, menús y globos van en portales y quedarían fuera. Oculta
+  `#paldaca-nav-root` (la barra de la Suite, z-index ~1050) con
+  `html[data-pantalla-completa]`. Esc sale, salvo con un diálogo o panel
+  abierto. Al entrar y salir el cuerpo se vuelve a montar: se recupera el
+  desplazamiento. Funciona también dentro del Portal (su iframe tiene
+  `allow="fullscreen"`).
 - **Resumen de avance** (`ResumenAvance`): % terminado, vencidas, por vencer y
   sin fechas del Gantt visible; «vencidas / vencen pronto» filtra el tablero a
   lo atrasado (`onVerAtrasadas`).
@@ -117,8 +142,10 @@ Carga (medida con un tablero de 400 tarjetas y 200 dependencias):
 - En táctil (`pointer-coarse`) las barras y la bandeja usan `touch-action:
   auto`: deslizar desplaza el Gantt y tocar abre la tarjeta. Si el navegador
   toma el gesto, llega `pointercancel` y el arrastre se descarta
-  (`cancelarArrastre`), sin abrir la tarjeta. Tiradores, conector y «Mover
-  sucesoras» se ocultan.
+  (`cancelarArrastre`), sin abrir la tarjeta. Tiradores, conector, «Mover
+  sucesoras» y el «+» de las filas se ocultan (la ayuda «?» y «+ Tarea» con
+  «Empieza después de» siguen). En el teléfono «Sin fechas», «Hoy» y
+  «Encajar» quedan solo con su icono.
 - El panel de una dependencia va en un portal, pero sus eventos suben en React
   hasta el área del Gantt (que cierra la selección): por eso detiene
   `pointerdown`.

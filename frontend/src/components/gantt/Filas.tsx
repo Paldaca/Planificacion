@@ -1,6 +1,6 @@
 /** Filas del Gantt: etiqueta de la tarjeta (izquierda) y su barra (línea de tiempo). */
 
-import { CircleCheck } from "lucide-react";
+import { CircleCheck, Plus } from "lucide-react";
 import { memo, type PointerEvent as ReactPointerEvent } from "react";
 
 import type { CardResumen } from "@/api/tipos";
@@ -22,38 +22,59 @@ export const EtiquetaCard = memo(function EtiquetaCard({
   onAbrir,
   resaltada,
   onResaltar,
+  onNuevaSucesora,
 }: {
   fila: Extract<Fila, { tipo: "card" }>;
   onAbrir: (c: CardResumen) => void;
   resaltada: boolean;
   onResaltar: (id: number | null) => void;
+  /** Sin ella (solo lectura) no se ofrece crear una tarea después de esta. */
+  onNuevaSucesora?: (c: CardResumen) => void;
 }) {
   const { card } = fila;
   const terminada = card.vencimiento === "terminada";
   return (
-    <button
-      type="button"
-      onClick={() => onAbrir(card)}
-      onPointerEnter={() => onResaltar(card.id)}
-      onPointerLeave={() => onResaltar(null)}
+    <div
       className={cn(
-        "absolute inset-x-0 flex items-center gap-2 border-b border-linea/40 px-3 text-left transition-colors",
+        "group absolute inset-x-0 flex items-center border-b border-linea/40 transition-colors",
         resaltada ? "bg-morado/[0.06]" : "hover:bg-morado/[0.04]",
       )}
       style={{ top: fila.y, height: ALTO_FILA }}
+      onPointerEnter={() => onResaltar(card.id)}
+      onPointerLeave={() => onResaltar(null)}
     >
-      <span className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: URGENCIAS[card.urgencia].color }} />
-      {terminada && <CircleCheck className="size-3.5 shrink-0 text-[#059669]" />}
-      <span className={cn("min-w-0 flex-1 truncate text-[0.82rem] font-medium text-texto", terminada && "text-tenue line-through decoration-tenue/40")}>
-        {card.titulo}
-      </span>
-      <span className="hidden sm:block">
-        <PilaAvatares personas={card.responsables} max={2} />
-      </span>
-    </button>
+      <button type="button" onClick={() => onAbrir(card)} className="flex h-full min-w-0 flex-1 items-center gap-2 px-3 text-left">
+        <span className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: URGENCIAS[card.urgencia].color }} />
+        {terminada && <CircleCheck className="size-3.5 shrink-0 text-[#059669]" />}
+        <span className={cn("min-w-0 flex-1 truncate text-[0.82rem] font-medium text-texto", terminada && "text-tenue line-through decoration-tenue/40")}>
+          {card.titulo}
+        </span>
+        <span className={cn("hidden sm:block", onNuevaSucesora && "pointer-fine:group-hover:hidden")}>
+          <PilaAvatares personas={card.responsables} max={2} />
+        </span>
+      </button>
+      {onNuevaSucesora && (
+        // Al pasar el ratón ocupa el sitio de los avatares; en táctil no se ofrece
+        // (se crea desde «+ Tarea» con «Empieza después de»).
+        <button
+          type="button"
+          onClick={() => onNuevaSucesora(card)}
+          aria-label={`Nueva tarea después de «${card.titulo}»`}
+          title="Nueva tarea después de esta"
+          className="-ml-1 mr-2 hidden size-6 shrink-0 place-items-center rounded-full bg-morado/10 text-morado transition-colors group-hover:grid hover:bg-morado hover:text-white pointer-coarse:hidden!"
+        >
+          <Plus className="size-3.5" />
+        </button>
+      )}
+    </div>
   );
 },
-(a, b) => mismaFila(a.fila, b.fila) && a.resaltada === b.resaltada && a.onAbrir === b.onAbrir && a.onResaltar === b.onResaltar);
+(a, b) =>
+  mismaFila(a.fila, b.fila) &&
+  a.resaltada === b.resaltada &&
+  a.onAbrir === b.onAbrir &&
+  a.onResaltar === b.onResaltar &&
+  a.onNuevaSucesora === b.onNuevaSucesora);
 
 export const Barra = memo(function Barra({
   fila,
