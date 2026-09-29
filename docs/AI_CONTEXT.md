@@ -164,7 +164,7 @@ Imagen de producción: `docker build -t planificacion .` (guía en
   por columna (en `tableros`), y app `plantillas`. Queda fuera: automatizaciones
   y vista de carga de trabajo (ver plan §7).
 - **Listo para desplegar** (2026-09-28): MySQL por `DATABASE_URL` (suite en
-  verde contra MySQL 8), caché compartida, `LOGGING`, imagen Docker probada y
+  verde contra MySQL 8.4), caché compartida, `LOGGING`, imagen Docker probada y
   `check --deploy` limpio. Pasos en [`despliegue.md`](despliegue.md); del lado
   del Portal hace falta publicar su rama `feat/modulo-planificacion`.
 - Pendientes: prueba con sesión real del Portal, abrir el XML en MS Project,

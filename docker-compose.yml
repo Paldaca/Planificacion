@@ -31,11 +31,11 @@ services:
       # Sesión propia del módulo (nunca paldaca_sessionid)
       SESSION_COOKIE_NAME: planificacion_sessionid
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
-      PORT: ${PORT:-8007}
+      PORT: ${PORT:-8070}
       GUNICORN_WORKERS: ${GUNICORN_WORKERS:-3}
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:$${PORT:-8007}/api/health/ || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:$${PORT:-8070}/api/health/ || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5
-      start_period: 45s
+      start_period: 180s

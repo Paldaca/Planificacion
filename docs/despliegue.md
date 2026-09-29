@@ -2,7 +2,7 @@
 
 > Cómo poner Planificación en producción (`planificacion.cpaldaca.com`,
 > embebida en `cpaldaca.com/planificacion`). Revisado: 2026-09-28, con la
-> imagen probada contra MySQL 8 (suite completa, `check --deploy`, health,
+> imagen probada contra MySQL 8.4 (suite completa, `check --deploy`, health,
 > SPA, cabeceras y comandos programados).
 >
 > **Diferencia con los satélites viejos** (Activos, HDT, Códigos, Calidad; ver
@@ -16,7 +16,7 @@
 | Archivo | Qué hace |
 |---|---|
 | `Dockerfile` | Etapa 1 (Node 22): `npm ci` + `npm run build` con `frontend/.env.production`. Etapa 2 (Python 3.12): dependencias, `backend/`, la SPA compilada y `collectstatic`. Corre como usuario `app`. `HEALTHCHECK` a `/api/health/`. |
-| `entrypoint.sh` | Exige `DATABASE_URL`; `migrate` (reintenta 15 veces mientras MySQL arranca); `createcachetable`; gunicorn en `0.0.0.0:$PORT`. |
+| `entrypoint.sh` | Exige `DATABASE_URL`; espera a que MySQL acepte conexiones (hasta 30 intentos); `migrate` **una vez** (si falla, muestra el error y sale); `createcachetable`; gunicorn en `0.0.0.0:$PORT` (8070). |
 | `docker-compose.yml` | Mismo contenedor con las variables de producción y sus valores por defecto (para Coolify en modo Compose o para probar en local). |
 | `.dockerignore` | Deja fuera `venv`, `node_modules`, `dist`, `.env`, bases SQLite y `docs`. |
 
@@ -25,16 +25,19 @@ como raíz y `spa_shell` el `index.html`). No hay nginx.
 
 ## 2. Recursos en Coolify
 
-1. **Base de datos**: *New Resource → Database → MySQL 8*, **propia** (nunca
+1. **Base de datos**: *New Resource → Database → MySQL* **8.4 o superior**
+   (Django 6.1 no arranca con 8.0: «MySQL 8.4 or later is required»), **propia** (nunca
    la del Portal). Base `planificacion`, juego de caracteres `utf8mb4`.
    Anota la URL interna: `mysql://USUARIO:CLAVE@HOST:3306/planificacion`
    (URL-encoda `@ # / :` si la clave los trae).
 2. **Aplicación**: *New Resource → Application → Dockerfile* sobre este repo,
    rama `main`.
-   - Ports Exposes: `8007`.
+   - Ports Exposes: `8070` (el puerto del contenedor; `PORT` vale 8070 en la imagen).
    - Domains: `https://planificacion.cpaldaca.com`.
-   - Healthcheck: `GET /api/health/` (responde sin sesión y sin redirección
-     a HTTPS).
+   - Healthcheck: `GET /api/health/` en el puerto `8070` (responde sin sesión
+     y sin redirección a HTTPS), con **Start Period de 180 s** o más: el
+     primer despliegue crea todas las tablas y, si Coolify lo corta a mitad,
+     la base queda a medias (ver §7).
 
 ## 3. Variables de entorno (runtime)
 
@@ -64,7 +67,7 @@ Con valor por defecto correcto para `cpaldaca.com` (solo si cambia algo):
 | `DJANGO_SECURE_HSTS_SECONDS` | `31536000` |
 | `CORS_ALLOWED_ORIGINS` | vacío: la SPA es del mismo origen |
 | `LOG_LEVEL` | `INFO` (registros `planificacion.*` y `paldaca.*`; el resto desde WARNING) |
-| `PORT`, `GUNICORN_WORKERS`, `GUNICORN_TIMEOUT` | `8007`, `3`, `60` |
+| `PORT`, `GUNICORN_WORKERS`, `GUNICORN_TIMEOUT` | `8070`, `3`, `60` |
 
 Sin `DATABASE_URL` el contenedor no arranca (a propósito: un SQLite dentro de
 la imagen se perdería en cada despliegue). Sin DEBUG, una `DJANGO_SECRET_KEY`
@@ -108,8 +111,8 @@ recurso del Portal (rama con el módulo, hoy `feat/modulo-planificacion`):
 ## 6. Orden y comprobación
 
 1. MySQL de Planificación en verde.
-2. Desplegar Planificación. En los logs: migraciones aplicadas, tabla de caché
-   y gunicorn escuchando en 8007.
+2. Desplegar Planificación. En los logs: «Aplicando migraciones…», tabla de
+   caché e «Iniciando gunicorn en el puerto 8070».
 3. `https://planificacion.cpaldaca.com/api/health/` → 200 `{"status":"ok"}`.
 4. Actualizar el Portal (§5) y desplegarlo.
 5. En el navegador, con una cuenta que tenga el módulo:
@@ -133,14 +136,17 @@ recurso del Portal (rama con el módulo, hoy `feat/modulo-planificacion`):
 | `Refused to frame` | `PALDACA_FRAME_ANCESTORS` sin el origen del Portal. |
 | Los avisos no llegan | `PALDACA_NOTIF_SECRET` distinto del `PALDACA_NOTIF_SECRET_PLANIFICACION` del Portal (en los logs: `NOTIFICACION_…` con 401/403), o la tarea `procesar_avisos` no está programada. |
 | SPA en blanco sin errores en el servidor | El catch-all de `urls.py` captura `assets/` (no debe). |
+| «MySQL 8.4 or later is required» | La MySQL es 8.0: Django 6.1 exige 8.4 o superior. |
+| «Las migraciones fallaron» con `Table 'planificacion_…' already exists` (1050) | Un despliegue anterior se cortó a mitad de una migración: MySQL no deshace un `CREATE TABLE`, así que la tabla existe pero la migración no quedó registrada. En el **primer despliegue** (sin datos): en la MySQL **de Planificación** (comprobar antes con `SHOW TABLES` que no hay tablas del Portal como `core_usuario`), con root, `DROP DATABASE planificacion; CREATE DATABASE planificacion CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;` y volver a desplegar con el Start Period del healthcheck en 180 s. **Con datos, nunca**: revisar qué migración quedó a medias y completarla a mano. |
+| Healthcheck `Failed to connect to 127.0.0.1 port 8070` | gunicorn no llegó a arrancar (mira el error anterior en los logs) o `PORT` en Coolify no es `8070`. |
 
 ## 8. Probar la imagen en local
 
 ```powershell
 docker network create plan-prueba
-docker run -d --name plan-mysql --network plan-prueba -e MYSQL_ROOT_PASSWORD=<clave> -e MYSQL_DATABASE=planificacion mysql:8.0
+docker run -d --name plan-mysql --network plan-prueba -e MYSQL_ROOT_PASSWORD=<clave> -e MYSQL_DATABASE=planificacion mysql:8.4
 docker build -t planificacion:local .
-docker run -d --name plan-web --network plan-prueba -p 8027:8007 `
+docker run -d --name plan-web --network plan-prueba -p 8027:8070 `
   -e DATABASE_URL=mysql://root:<clave>@plan-mysql:3306/planificacion `
   -e DJANGO_SECRET_KEY=<clave-de-prueba-de-40-o-mas> `
   -e DJANGO_ALLOWED_HOSTS=localhost -e DJANGO_SECURE_SSL_REDIRECT=false `

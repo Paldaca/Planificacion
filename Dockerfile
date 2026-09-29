@@ -14,7 +14,7 @@ FROM python:3.12-slim-bookworm
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    PORT=8007 \
+    PORT=8070 \
     RUNNING_IN_DOCKER=1
 
 WORKDIR /app
@@ -49,7 +49,9 @@ WORKDIR /app/backend
 
 EXPOSE 8070
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=5 \
+# start-period largo: el primer despliegue crea todas las tablas y no debe
+# darse por fallido (ni cortarse) mientras migra.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=180s --retries=5 \
     CMD curl -fsS "http://127.0.0.1:${PORT:-8070}/api/health/" || exit 1
 
 ENTRYPOINT ["/app/entrypoint.sh"]
