@@ -11,6 +11,7 @@ import {
   useEliminarEtiqueta,
 } from "@/api/configuracion";
 import type { CampoPersonalizado, Etiqueta, TableroDetalle, TipoCampo } from "@/api/tipos";
+import { BotonAyuda, SeccionAyuda } from "@/components/ayuda/BotonAyuda";
 import { SelectorColor } from "@/components/equipos/Dialogos";
 import { Boton } from "@/components/ui/Boton";
 import { Entrada } from "@/components/ui/Campos";
@@ -53,36 +54,39 @@ export function ConfiguracionDialogo({
       icono={Settings2}
       ancho="lg"
     >
-      <div className="mb-4 flex gap-1 rounded-xl bg-fondo p-1" role="tablist">
-        {(
-          [
-            ["etiquetas", "Etiquetas", "", Tag, tablero.etiquetas.length],
-            // En el teléfono no cabe el nombre largo junto a «Etiquetas».
-            ["campos", "Campos", " personalizados", Settings2, tablero.campos.filter((c) => !c.archivado).length],
-          ] as const
-        ).map(([id, texto, resto, Icono, cantidad]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={pestana === id}
-            onClick={() => setPestana(id)}
-            className={cn(
-              "relative flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
-              pestana === id ? "text-morado" : "text-tenue hover:text-morado",
-            )}
-          >
-            {pestana === id && (
-              <motion.span layoutId="pestana-config" className="absolute inset-0 rounded-lg bg-white shadow-sm" />
-            )}
-            <Icono className="relative size-4" />
-            <span className="relative">
-              {texto}
-              {resto && <span className="max-sm:hidden">{resto}</span>}
-            </span>
-            <span className="relative rounded-full bg-columna px-1.5 text-[0.7rem] tabular-nums">{cantidad}</span>
-          </button>
-        ))}
+      <div className="mb-4 flex items-center gap-2">
+        <div className="flex flex-1 gap-1 rounded-xl bg-fondo p-1" role="tablist">
+          {(
+            [
+              ["etiquetas", "Etiquetas", "", Tag, tablero.etiquetas.length],
+              // En el teléfono no cabe el nombre largo junto a «Etiquetas».
+              ["campos", "Campos", " personalizados", Settings2, tablero.campos.filter((c) => !c.archivado).length],
+            ] as const
+          ).map(([id, texto, resto, Icono, cantidad]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={pestana === id}
+              onClick={() => setPestana(id)}
+              className={cn(
+                "relative flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
+                pestana === id ? "text-morado" : "text-tenue hover:text-morado",
+              )}
+            >
+              {pestana === id && (
+                <motion.span layoutId="pestana-config" className="absolute inset-0 rounded-lg bg-white shadow-sm" />
+              )}
+              <Icono className="relative size-4" />
+              <span className="relative">
+                {texto}
+                {resto && <span className="max-sm:hidden">{resto}</span>}
+              </span>
+              <span className="relative rounded-full bg-columna px-1.5 text-[0.7rem] tabular-nums">{cantidad}</span>
+            </button>
+          ))}
+        </div>
+        {pestana === "etiquetas" ? <AyudaEtiquetas /> : <AyudaCampos />}
       </div>
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
@@ -96,6 +100,69 @@ export function ConfiguracionDialogo({
         </motion.div>
       </AnimatePresence>
     </Dialogo>
+  );
+}
+
+function AyudaEtiquetas() {
+  return (
+    <BotonAyuda etiqueta="¿Para qué sirven las etiquetas?" titulo="Etiquetas" align="end" guia={{ tema: "tablero", entrada: "etiquetas" }}>
+      <p>
+        Una marca de color con nombre para <b>clasificar</b> las tarjetas y saber de un vistazo de qué se tratan. Una tarjeta puede tener
+        varias.
+      </p>
+      <SeccionAyuda titulo="Ejemplos">
+        <ul className="list-disc space-y-0.5 pl-4">
+          <li>Disciplina: Civil, Mecánica, Eléctrica.</li>
+          <li>Cliente o proyecto: Cliente A, Planta Norte.</li>
+          <li>Fase: Ingeniería, Procura, Construcción.</li>
+          <li>Estados que no son columnas: Bloqueada, Espera cliente.</li>
+        </ul>
+      </SeccionAyuda>
+      <SeccionAyuda titulo="Para qué sirven">
+        <p>Se ven en el Tablero y en la Lista, y con el filtro «Etiquetas» ves solo lo de una (también al exportar a Excel).</p>
+      </SeccionAyuda>
+      <p className="text-xs text-tenue">
+        Créalas aquí (hasta 30) y márcalas dentro de cada tarjeta con un clic. Borrar una la quita de todas sus tarjetas.
+      </p>
+    </BotonAyuda>
+  );
+}
+
+function AyudaCampos() {
+  return (
+    <BotonAyuda
+      etiqueta="¿Para qué sirven los campos personalizados?"
+      titulo="Campos personalizados"
+      align="end"
+      guia={{ tema: "tablero", entrada: "campos" }}
+    >
+      <p>
+        Un <b>dato propio</b> que tu tablero necesita y la tarjeta no trae: lo defines una vez aquí y cada tarjeta guarda su valor.
+      </p>
+      <SeccionAyuda titulo="Tipos y ejemplos">
+        <ul className="list-disc space-y-0.5 pl-4">
+          <li>
+            <b>Texto</b>: N.º de plano (PLN-CIV-0012), orden de compra.
+          </li>
+          <li>
+            <b>Número</b>: horas estimadas, monto, cantidad.
+          </li>
+          <li>
+            <b>Lista</b>: Etapa (Básica, Detalle, Construcción), Revisión (A, B, 0).
+          </li>
+        </ul>
+      </SeccionAyuda>
+      <SeccionAyuda titulo="Para qué sirven">
+        <p>
+          Cada campo tiene su columna en la Lista (se puede ordenar) y sale en el Excel. Con «Se ve en la tarjeta del tablero» también aparece
+          en el Kanban.
+        </p>
+      </SeccionAyuda>
+      <p className="text-xs text-tenue">
+        ¿Etiqueta o campo? Etiqueta para clasificar y filtrar («Mecánica»); campo para guardar un dato («Horas: 16»). El tipo de un campo no
+        cambia después; se archiva sin perder sus valores.
+      </p>
+    </BotonAyuda>
   );
 }
 

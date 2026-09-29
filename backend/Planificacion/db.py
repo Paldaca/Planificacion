@@ -68,9 +68,9 @@ def _mysql_from_env() -> dict:
     return {
         "default": {
             "ENGINE": MYSQL_ENGINE,
-            "NAME": os.getenv("MYSQL_DB", "planificacion"),
-            "USER": os.getenv("MYSQL_USER", ""),
-            "PASSWORD": os.getenv("MYSQL_PASSWORD", ""),
+            "NAME": os.getenv("MYSQL_DB", "planificacion_db"),
+            "USER": os.getenv("MYSQL_USER", "RAG"),
+            "PASSWORD": os.getenv("MYSQL_PASSWORD", "12345"),
             "HOST": _normalize_mysql_host(os.getenv("MYSQL_HOST", "localhost")),
             "PORT": os.getenv("MYSQL_PORT", "3306"),
             "OPTIONS": _mysql_options(),
