@@ -40,7 +40,7 @@ CI, componentes muy grandes). Ninguno exige rediseñar.
 | A-10 | Media | Sin pruebas de frontend ni integración continua |
 | A-06 | Baja | `gantt` y `exportacion` dependen de la capa HTTP interna de `tableros` |
 | A-07 | Baja | `equipos` traduce ids del Portal sin pasar por `integracion_portal` |
-| A-08 | Baja | `manage.py` de la raíz roto y `Planificacion/db.py` vacío versionado — ✅ resuelto 2026-09-28 |
+| A-08 | Baja | `manage.py` de la raíz roto y `Planificacion/db.py` vacío versionado — ✅ resuelto 2026-09-28 (borrado vacío); `db.py` reintroducido 2026-09-29 con la resolución MySQL |
 | A-09 | Baja | Reglas espejadas en el frontend (vencimiento, filtros) sin prueba de contrato |
 | A-11 | Baja | Componentes y módulos del frontend de más de 800 líneas — `VistaGantt` ✅ dividido 2026-09-28 |
 | A-12 | Baja | Sin configuración de `LOGGING` — ✅ resuelto 2026-09-28 |
@@ -107,6 +107,9 @@ arrancar si `DJANGO_SECRET_KEY` falta o empieza por `django-insecure-`.
 
 > ✅ **Resuelto 2026-09-28.** `DATABASES` desde `DATABASE_URL`
 > (`dj-database-url` + `mysqlclient`; en MySQL `utf8mb4` y modo estricto,
+> `CONN_MAX_AGE`). Actualizado 2026-09-29: la resolución vive en
+> `backend/Planificacion/db.py` (`get_databases`: `DATABASE_URL` → `MYSQL_*`
+> → SQLite), mismo patrón que Nómina.
 > `CONN_MAX_AGE=600` con chequeo de salud). Sin la variable, SQLite solo para
 > desarrollo; en el contenedor (`RUNNING_IN_DOCKER=1`) es obligatoria. Suite
 > completa (133 pruebas) en verde contra MySQL 8. Guía:

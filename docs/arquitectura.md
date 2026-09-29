@@ -44,7 +44,7 @@ Principios (del plan, verificados en el código):
 ```
 Planificacion/
 ├── backend/                 proyecto Django (ejecutar manage.py desde aquí)
-│   ├── Planificacion/       settings.py, urls.py, spa.py (shell SPA), wsgi/asgi
+│   ├── Planificacion/       settings.py, db.py (MySQL), urls.py, spa.py, wsgi/asgi
 │   ├── core/                identidad local, roles, errores, utilidades, base de tests
 │   ├── paldaca_sso/         SSO federado + embed (kit de la Suite, no se toca)
 │   ├── integracion_portal/  avisos (outbox), directorio y personas del Portal
@@ -229,7 +229,7 @@ Todo por variables de entorno (`backend/.env`, plantilla en
 
 | Grupo | Variables |
 |---|---|
-| Base de datos | `DATABASE_URL` (`mysql://…/planificacion`, MySQL **propia**; sin ella, SQLite local). `RUNNING_IN_DOCKER=1` (lo pone la imagen) la vuelve obligatoria y acepta `127.0.0.1`/`localhost` para el healthcheck. Con `DATABASE_URL`, caché compartida `DatabaseCache` (`planificacion_cache`) |
+| Base de datos | Resolución en `backend/Planificacion/db.py`: `DATABASE_URL` (`mysql://…/planificacion`) → `MYSQL_*` local → SQLite. MySQL **propia** (nunca la del Portal). `RUNNING_IN_DOCKER=1` exige `DATABASE_URL` y acepta `127.0.0.1`/`localhost` para el healthcheck. Con MySQL, caché compartida `DatabaseCache` (`planificacion_cache`) |
 | Registro | `LOG_LEVEL` (INFO): `planificacion.*` y `paldaca.*` a la consola; el resto desde WARNING |
 | Servidor | `PORT` (8007), `GUNICORN_WORKERS` (3), `GUNICORN_TIMEOUT` (60) — los lee `entrypoint.sh` |
 | Núcleo | `DJANGO_SECRET_KEY` (≥ 40 caracteres y no `django-insecure-` si no hay DEBUG), `DJANGO_DEBUG` (por defecto **false**), `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `CORS_ALLOWED_ORIGINS` (los dos últimos solo traen orígenes de `localhost` por defecto con DEBUG) |

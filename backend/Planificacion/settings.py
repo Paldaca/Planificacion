@@ -23,6 +23,8 @@ from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
+from .db import get_databases, usa_bd_servidor
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv(BASE_DIR / ".env")
@@ -122,38 +124,15 @@ WSGI_APPLICATION = "Planificacion.wsgi.application"
 
 
 # --- Base de datos ----------------------------------------------------
+# Resolución en `Planificacion/db.py` (patrón Nómina): DATABASE_URL → MYSQL_*
+# → SQLite local. MySQL propia, nunca la del Portal (auditoría A-02).
 
-# Producción: MySQL PROPIA (nunca la del Portal) por `DATABASE_URL`
-# (`mysql://usuario:clave@host:3306/planificacion`), el mismo patrón que
-# Nómina. Sin la variable: SQLite local, solo para desarrollo y pruebas. En el
-# contenedor (`RUNNING_IN_DOCKER=1`) es obligatoria: caer a un SQLite dentro
-# de la imagen perdería los datos en cada despliegue (auditoría A-02).
-DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
-if DATABASE_URL:
-    import dj_database_url
-
-    DATABASES = {"default": dj_database_url.parse(DATABASE_URL, conn_max_age=600, conn_health_checks=True)}
-    if DATABASES["default"]["ENGINE"] == "django.db.backends.mysql":
-        DATABASES["default"].setdefault("OPTIONS", {}).update(
-            {"charset": "utf8mb4", "init_command": "SET sql_mode='STRICT_TRANS_TABLES'"}
-        )
-elif _bool_env("RUNNING_IN_DOCKER", "false"):
-    raise ImproperlyConfigured(
-        "DATABASE_URL es obligatoria en el contenedor: mysql://usuario:clave@host:3306/planificacion"
-    )
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
+DATABASES = get_databases()
 
 # Caché compartida por todos los workers (auditoría A-04): feriados, umbral de
-# «vence pronto» y el breaker del SSO. Con BD de servidor, una tabla en ella
-# (la crea `createcachetable` al arrancar el contenedor); en desarrollo,
-# memoria del proceso.
-if DATABASE_URL:
+# «vence pronto» y el breaker del SSO. Con MySQL, tabla en la BD (la crea
+# `createcachetable` al arrancar el contenedor); con SQLite, memoria del proceso.
+if usa_bd_servidor(DATABASES):
     CACHES = {
         "default": {
             "BACKEND": "django.core.cache.backends.db.DatabaseCache",

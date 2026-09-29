@@ -38,7 +38,7 @@ están **en español**.
 |---|---|
 | Backend | Python 3.12 · Django 6.1 · DRF 3.18 · django-cors-headers · WhiteNoise · gunicorn · openpyxl · requests · python-dotenv |
 | Frontend | React 19 · TypeScript 6 · Vite 8 · Tailwind CSS 4 · TanStack Query 5 · React Router 7 · dnd-kit · Radix UI · Motion · sonner · lucide-react · oxlint |
-| BD | SQLite en desarrollo; MySQL propia en producción por `DATABASE_URL` (D-06) |
+| BD | MySQL propia: `DATABASE_URL` (prod) o `MYSQL_*` (local) en `Planificacion/db.py`; SQLite solo si no hay ninguna (D-06) |
 | Despliegue | Coolify: `Dockerfile` + `entrypoint.sh` (gunicorn) + Scheduled Tasks — [`despliegue.md`](despliegue.md) |
 
 ## 3. Mapa del repositorio
