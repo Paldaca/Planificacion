@@ -108,6 +108,12 @@ class InstalarTests(EscenarioTablero):
         )
         self.assertEqual(cards["M1 · Documentar el módulo"].checklist.count(), 7)
 
+        # Su guía del Centro de ayuda viaja al tablero (y solo a él).
+        detalle = self.cliente(self.beto).get(f"/api/v1/tableros/{tablero.pk}/").json()
+        self.assertEqual(detalle["ayuda"]["titulo"], "Proyecto de software")
+        self.assertIn("hitos", [e["id"] for e in detalle["ayuda"]["entradas"]])
+        self.assertIsNone(self.cliente(self.ana).get(f"/api/v1/tableros/{self.tablero['id']}/").json()["ayuda"])
+
         # La tarjeta de tutorial: la metodología y los primeros pasos, sin fecha.
         tutorial = cards["Tutorial: cómo se trabaja en este tablero"]
         self.assertEqual((tutorial.columna.nombre, tutorial.fecha_inicio), ("Pendientes", None))
@@ -126,6 +132,7 @@ class InstalarTests(EscenarioTablero):
         cards = {c.titulo: c for c in Card.objects.filter(tablero=tablero).prefetch_related("etiquetas")}
         self.assertEqual(len(cards), 2)
         self.assertIn("QUÉ ENTRA", cards["Tutorial: cómo se trabaja en este tablero"].descripcion)
+        self.assertEqual(tablero.ayuda["titulo"], "Soporte")
         ejemplo = cards["Ejemplo · La impresora de Administración no imprime"]
         self.assertEqual((ejemplo.campos[str(sistema.pk)], [e.nombre for e in ejemplo.etiquetas.all()]), ("Equipos y red", ["Incidencia"]))
         self.assertTrue(all(c.fecha_inicio is None and not c.entra_en_gantt for c in cards.values()))

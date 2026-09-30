@@ -1,24 +1,27 @@
 /**
  * Centro de ayuda: panel lateral con una guía por vista del tablero (Tablero,
- * Lista, Calendario, Gantt) y las preguntas frecuentes, con buscador. Se abre
+ * Lista, Calendario, Gantt), la guía propia del tablero si su plantilla la
+ * trae (`useGuiaAyuda`) y las preguntas frecuentes, con buscador. Se abre
  * con el botón «Ayuda» del tablero, con la tecla «?» o desde otras ayudas
  * (`useAyuda().abrir("gantt", "sucesoras")`). El texto vive en `contenido.ts`.
  */
 
-import { CalendarDays, ChartGantt, ChevronDown, LifeBuoy, List, MessageCircleQuestion, Search, SquareKanban, X } from "lucide-react";
+import { BookOpen, CalendarDays, ChartGantt, ChevronDown, LifeBuoy, List, MessageCircleQuestion, Search, SquareKanban, X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import type { GuiaTablero } from "@/api/tipos";
 import { ContextoAyudaReact, type ContextoAyuda } from "@/hooks/useAyuda";
 import { cn } from "@/lib/cn";
 
-import { TEMAS, buscar, type EntradaAyuda, type Tema } from "./contenido";
+import { buscar, temasCon, type EntradaAyuda, type Tema, type TemaAyuda } from "./contenido";
 
 const ICONOS: Record<Tema, typeof List> = {
   tablero: SquareKanban,
   lista: List,
   calendario: CalendarDays,
   gantt: ChartGantt,
+  guia: BookOpen,
   preguntas: MessageCircleQuestion,
 };
 
@@ -32,7 +35,9 @@ export function ProveedorAyuda({ children }: { children: ReactNode }) {
   const [abierto, setAbierto] = useState(false);
   const [tema, setTema] = useState<Tema>("preguntas");
   const [entrada, setEntrada] = useState<string | null>(null);
+  const [guia, setGuia] = useState<GuiaTablero | null>(null);
   const temaPantalla = useRef<Tema | null>(null);
+  const temas = useMemo(() => temasCon(guia), [guia]);
 
   const abrir = useCallback((t?: Tema, e?: string) => {
     setTema(t ?? temaPantalla.current ?? "preguntas");
@@ -42,7 +47,7 @@ export function ProveedorAyuda({ children }: { children: ReactNode }) {
   const fijarTema = useCallback((t: Tema | null) => {
     temaPantalla.current = t;
   }, []);
-  const valor = useMemo<ContextoAyuda>(() => ({ abrir, fijarTema }), [abrir, fijarTema]);
+  const valor = useMemo<ContextoAyuda>(() => ({ abrir, fijarTema, fijarGuia: setGuia }), [abrir, fijarTema]);
 
   useEffect(() => {
     const alTeclear = (e: KeyboardEvent) => {
@@ -61,6 +66,7 @@ export function ProveedorAyuda({ children }: { children: ReactNode }) {
       <CentroAyuda
         abierto={abierto}
         onCambio={setAbierto}
+        temas={temas}
         tema={tema}
         onTema={(t) => {
           setTema(t);
@@ -75,20 +81,23 @@ export function ProveedorAyuda({ children }: { children: ReactNode }) {
 function CentroAyuda({
   abierto,
   onCambio,
+  temas,
   tema,
   onTema,
   entrada,
 }: {
   abierto: boolean;
   onCambio: (v: boolean) => void;
+  temas: TemaAyuda[];
   tema: Tema;
   onTema: (t: Tema) => void;
   entrada: string | null;
 }) {
   const [consulta, setConsulta] = useState("");
   const cuerpo = useRef<HTMLDivElement>(null);
-  const actual = TEMAS.find((t) => t.id === tema)!;
-  const resultados = useMemo(() => buscar(consulta), [consulta]);
+  // Si el tema era la guía de un tablero que ya no está abierto, las preguntas frecuentes.
+  const actual = temas.find((t) => t.id === tema) ?? temas[temas.length - 1];
+  const resultados = useMemo(() => buscar(consulta, temas), [consulta, temas]);
   const buscando = consulta.trim() !== "";
 
   // Cada tema empieza arriba (y la búsqueda se limpia al cerrar).
@@ -145,9 +154,9 @@ function CentroAyuda({
 
             {!buscando && (
               <div className="-mx-1 mt-3 flex gap-1 overflow-x-auto px-1 pb-0.5" role="tablist" aria-label="Temas de ayuda">
-                {TEMAS.map((t) => {
+                {temas.map((t) => {
                   const Icono = ICONOS[t.id];
-                  const activo = t.id === tema;
+                  const activo = t.id === actual.id;
                   return (
                     <button
                       key={t.id}

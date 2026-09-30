@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect } from "react";
 
+import type { GuiaTablero } from "@/api/tipos";
 import type { Tema } from "@/components/ayuda/contenido";
 
 /**
@@ -11,12 +12,23 @@ export type ContextoAyuda = {
   abrir: (tema?: Tema, entrada?: string) => void;
   /** La pantalla actual declara su tema; `null` al salir de ella. */
   fijarTema: (tema: Tema | null) => void;
+  /** El tablero abierto declara su guía propia (si su plantilla la trae); `null` al salir. */
+  fijarGuia: (guia: GuiaTablero | null) => void;
 };
 
-export const ContextoAyudaReact = createContext<ContextoAyuda>({ abrir: () => {}, fijarTema: () => {} });
+export const ContextoAyudaReact = createContext<ContextoAyuda>({ abrir: () => {}, fijarTema: () => {}, fijarGuia: () => {} });
 
 export function useAyuda(): ContextoAyuda {
   return useContext(ContextoAyudaReact);
+}
+
+/** Guía propia del tablero abierto: una pestaña más del Centro de ayuda mientras esté montado. */
+export function useGuiaAyuda(guia: GuiaTablero | null) {
+  const { fijarGuia } = useAyuda();
+  useEffect(() => {
+    fijarGuia(guia);
+    return () => fijarGuia(null);
+  }, [guia, fijarGuia]);
 }
 
 /** Tema con el que abre la ayuda mientras esta pantalla esté montada. */

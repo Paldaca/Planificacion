@@ -527,6 +527,10 @@ crece a mitad de camino: lo nuevo va a la siguiente.
   plantillas del sistema (la metodología en la descripción, los primeros pasos
   en el checklist). `instalar_plantillas --equipo <id>` las crea como
   plantillas de un equipo en vez de globales.
+- **Guía propia por plantilla en el Centro de ayuda**: una plantilla puede
+  traer su guía (`contenido.ayuda`), que se copia al tablero y aparece como
+  una pestaña más solo en él. «Proyecto de software» y «Soporte» traen la
+  suya, escrita a partir de la metodología.
 - **Hitos como rombos**: una etiqueta se marca «Hito» (`Etiqueta.es_hito`) y
   sus tarjetas se dibujan como rombo en el Gantt y en su PDF, y salen como
   hito en MS Project (D-17).

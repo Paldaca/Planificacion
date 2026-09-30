@@ -4,11 +4,18 @@
  * párrafo que empieza por «• » es un punto de lista y `**así**` va en
  * negrita.
  *
+ * Las plantillas pueden traer su propia guía (`Tablero.ayuda`, escrita en
+ * `backend/plantillas/services/guias.py`): se añade como tema `guia` solo en
+ * los tableros que la tienen (`temasCon`).
+ *
  * Si cambias cómo funciona algo que se explica aquí, cambia también el texto
  * (en el mismo cambio, como la documentación).
  */
 
-export type Tema = "tablero" | "lista" | "calendario" | "gantt" | "preguntas";
+import type { GuiaTablero } from "@/api/tipos";
+
+/** `guia`: la guía propia del tablero abierto (la trae su plantilla), si tiene. */
+export type Tema = "tablero" | "lista" | "calendario" | "gantt" | "guia" | "preguntas";
 
 export type EntradaAyuda = { id: string; titulo: string; parrafos: string[] };
 
@@ -445,12 +452,20 @@ const PREGUNTAS: TemaAyuda = {
       titulo: "¿Puedo reutilizar un tablero como modelo?",
       parrafos: [
         "Sí: en el menú «…» del tablero, **Guardar como plantilla…**. Al crear un tablero nuevo elige la plantilla en **Empezar con** y la fecha de inicio: las fechas se recalculan en días hábiles.",
+        "Las plantillas del programa («Proyecto de software», «Soporte») traen además **su propia guía**: en los tableros creados con ellas aparece como una pestaña más de esta ayuda.",
       ],
     },
   ],
 };
 
 export const TEMAS: TemaAyuda[] = [TABLERO, LISTA, CALENDARIO, GANTT, PREGUNTAS];
+
+/** Los temas con la guía del tablero (si tiene) antes de las preguntas frecuentes. */
+export function temasCon(guia: GuiaTablero | null): TemaAyuda[] {
+  if (!guia) return TEMAS;
+  const propio: TemaAyuda = { id: "guia", etiqueta: guia.titulo, resumen: guia.resumen, entradas: guia.entradas };
+  return [TABLERO, LISTA, CALENDARIO, GANTT, propio, PREGUNTAS];
+}
 
 /** Minúsculas y sin acentos: «calendário» encuentra «calendario». */
 export function normalizar(texto: string): string {
@@ -460,11 +475,11 @@ export function normalizar(texto: string): string {
 export type Resultado = { tema: TemaAyuda; entrada: EntradaAyuda };
 
 /** Entradas cuyo título o texto contienen todas las palabras buscadas. */
-export function buscar(consulta: string): Resultado[] {
+export function buscar(consulta: string, temas: TemaAyuda[] = TEMAS): Resultado[] {
   const palabras = normalizar(consulta).split(/\s+/).filter(Boolean);
   if (!palabras.length) return [];
   const resultados: Resultado[] = [];
-  for (const tema of TEMAS) {
+  for (const tema of temas) {
     for (const entrada of tema.entradas) {
       const texto = normalizar(`${entrada.titulo} ${entrada.parrafos.join(" ")}`);
       if (palabras.every((p) => texto.includes(p))) resultados.push({ tema, entrada });

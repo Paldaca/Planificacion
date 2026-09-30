@@ -28,6 +28,10 @@ globales, las propias y las de sus equipos no archivados).
 Descrito en el docstring de `services/plantillas.py`. Lo esencial:
 
 - Columnas por orden con `es_final`, `incluir_en_gantt` y `limite_cards`.
+- `ayuda` (opcional): la guía del Centro de ayuda, {`titulo`, `resumen`,
+  `entradas`: [{`id`, `titulo`, `parrafos`}]}. `foto` la toma del tablero y
+  `crear_tablero_desde` la pasa a `crear_tablero`, que la limpia
+  (`tableros.services.tableros.limpiar_ayuda`: solo texto, con límites).
 - Tarjetas con la columna por **índice**, etiquetas y campos por **nombre**
   (los ids cambian en el tablero nuevo) y dependencias por `ref` interna.
 - `inicio`/`fin`: días hábiles desde el primer día hábil del proyecto (la
@@ -71,6 +75,12 @@ equipo=None)` crea las que falten.
 - Cada una trae una tarjeta **«Tutorial: cómo se trabaja en este tablero»**
   (sin fecha, en la primera columna) con la metodología en la descripción y
   los primeros pasos en el checklist; se archiva al terminar de leerla.
+- Cada una trae además **su propia guía del Centro de ayuda**
+  (`services/guias.py`: `GUIA_PROYECTO`, `GUIA_SOPORTE`), en la clave `ayuda`
+  del contenido. Se copia al tablero (`Tablero.ayuda`) y el Centro de ayuda la
+  muestra como una pestaña más **solo en ese tablero**. Si cambia la
+  metodología, se cambia la guía y se corre `instalar_plantillas
+  --actualizar` (los tableros ya creados conservan la suya).
 - El comando no corre solo al desplegar: hay que ejecutarlo una vez (en
   pruebas, a mano).
 

@@ -8,6 +8,7 @@ Formato del `contenido` (versión `FORMATO`):
       "columnas":  [{"nombre", "es_final", "incluir_en_gantt", "limite_cards"}],
       "etiquetas": [{"nombre", "color", "es_hito" (opcional)}],
       "campos":    [{"nombre", "tipo", "opciones", "visible_en_tarjeta"}],
+      "ayuda":     {"titulo", "resumen", "entradas"} (opcional: la guía del Centro de ayuda),
       "tarjetas":  [{"ref", "titulo", "descripcion", "columna" (índice), "urgencia",
                      "en_gantt", "inicio", "fin" (días hábiles desde el inicio del
                      proyecto, o null), "etiquetas" [nombres], "campos" {nombre: valor},
@@ -70,7 +71,7 @@ def foto(tablero: Tablero) -> dict:
         if d.predecesora_id in ids and d.sucesora_id in ids:
             depende.setdefault(d.sucesora_id, []).append([ids[d.predecesora_id], d.tipo, d.desfase_dias])
 
-    return {
+    contenido = {
         "formato": FORMATO,
         "columnas": [
             {
@@ -104,6 +105,9 @@ def foto(tablero: Tablero) -> dict:
             for c in cards
         ],
     }
+    if tablero.ayuda:
+        contenido["ayuda"] = tablero.ayuda
+    return contenido
 
 
 def resumen(contenido: dict) -> dict:
@@ -178,6 +182,7 @@ def crear_tablero_desde(
         propietario=None if equipo else actor,
         creado_por=actor,
         columnas=c["columnas"] or None,
+        ayuda=c.get("ayuda"),
     )
     columnas = list(tablero.columnas.activas())
     etiquetas = {

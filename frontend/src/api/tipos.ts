@@ -172,6 +172,16 @@ export type TableroDetalle = TableroResumen & {
   etiquetas: Etiqueta[];
   /** Todos los campos, archivados incluidos (para gestionarlos). */
   campos: CampoPersonalizado[];
+  /** Guía propia del Centro de ayuda, la que trae su plantilla (o null). */
+  ayuda: GuiaTablero | null;
+};
+
+/** Guía del Centro de ayuda de un tablero: una pestaña más, solo en ese tablero. */
+export type GuiaTablero = {
+  /** Nombre de la pestaña. */
+  titulo: string;
+  resumen: string;
+  entradas: { id: string; titulo: string; parrafos: string[] }[];
 };
 
 export type Comentario = {

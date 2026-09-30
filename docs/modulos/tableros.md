@@ -18,7 +18,7 @@ interfaz y en los mensajes al usuario es **tarjeta**.
 
 | Modelo | Tabla | Notas |
 |---|---|---|
-| `Tablero` | `planificacion_tablero` | `tipo` personal/equipo, `propietario` (solo personal), `equipo` (solo de equipo), `archivado`, `siguiente_numero_card`. `CheckConstraint` de coherencia tipo↔dueño. |
+| `Tablero` | `planificacion_tablero` | `ayuda` (JSON: guía propia del Centro de ayuda que trae su plantilla; `{}` en la mayoría), `tipo` personal/equipo, `propietario` (solo personal), `equipo` (solo de equipo), `archivado`, `siguiente_numero_card`. `CheckConstraint` de coherencia tipo↔dueño. |
 | `Columna` | `planificacion_columna` | `orden`, `es_final` (sus tarjetas cuentan como terminadas), `incluir_en_gantt`, `limite_cards` (límite **suave**, D-13: se avisa, no se bloquea; `null` = sin límite), `archivada`, `version`. |
 | `Card` | `planificacion_card` | `numero` correlativo por tablero (único), `titulo`, `descripcion`, `fecha_inicio`, `fecha_fin` (solo día, D-01), `urgencia` (baja/media/alta/critica), `orden`, `en_gantt` (heredar/si/no), `etiquetas` (M2M), `campos` (JSON), `completada_en`, `aviso_vencimiento`, `archivada`, `version`. `CheckConstraint` `fecha_fin ≥ fecha_inicio` + `clean()`. |
 | `ResponsableCard` | `planificacion_responsable_card` | Varios por tarjeta; único (card, usuario). |
@@ -48,7 +48,7 @@ historial + avisos + estado de vencimiento). Argumentos por nombre; lanzan
 
 | Archivo | Operaciones |
 |---|---|
-| `tableros.py` | `crear_tablero` (con Tareas / En curso / Hecho, o las `columnas` que se le pasen: así lo usa `plantillas`), `asegurar_tablero_personal` («Mi tablero» en el primer ingreso), `personales_de`, `puede_archivar_personal`, `editar_tablero`, `archivar_tablero` |
+| `tableros.py` | `crear_tablero` (con Tareas / En curso / Hecho, o las `columnas` que se le pasen, y la `ayuda` de la plantilla: así lo usa `plantillas`), `limpiar_ayuda` (la guía, solo como texto y con límites; lo que no tiene la forma esperada se descarta), `asegurar_tablero_personal` («Mi tablero» en el primer ingreso), `personales_de`, `puede_archivar_personal`, `editar_tablero`, `archivar_tablero` |
 | `columnas.py` | `crear_columna`, `reordenar_columnas`, `editar_columna` (con `version`; incluye `limite_cards`), `archivar_columna` (exige destino para sus tarjetas) |
 | `tarjetas.py` | `crear_card` (`avisar=False` para la importación y las plantillas; acepta `etiquetas` y `valores_campos`), `editar_card` (con `version` → `ConflictoDeVersion`; `etiquetas` y `valores_campos` registran su historial), `mover_card`, `archivar_card`, `trasladar_card` (emite la señal `tarjeta_trasladada`; conserva las etiquetas y los campos que existan en el destino con el mismo nombre —y tipo, en los campos—; el resto se pierde, no se crea) |
 | `favoritos.py` | `marcar_favorito` (idempotente; quien llama ya comprobó que lo ve), `ids_favoritos` |
@@ -85,7 +85,7 @@ serializer). Piezas comunes en `api/views/comunes.py`: `obtener_tablero`,
 | Ruta | Operaciones |
 |---|---|
 | `tableros/` | listar (personales + de mis equipos; `?archivados=personales`), crear (sin `equipo` = personal) |
-| `tableros/<id>/` · `archivar/` · `archivadas/` | ver (con columnas y tarjetas), editar · archivar/restaurar · tarjetas archivadas |
+| `tableros/<id>/` · `archivar/` · `archivadas/` | ver (con columnas, tarjetas y `ayuda`: la guía propia o null), editar · archivar/restaurar · tarjetas archivadas |
 | `tableros/<id>/favorito/` | POST marcar, DELETE quitar (basta con **ver** el tablero; responde `{es_favorito}`). Los tableros traen `es_favorito` (una consulta por respuesta, no por tablero) |
 | `equipos/<id>/tableros/` | tableros del equipo |
 | `tableros/<id>/columnas/` · `columnas/reordenar/` | crear · reordenar |

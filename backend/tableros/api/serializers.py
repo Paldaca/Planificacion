@@ -401,10 +401,16 @@ class TableroDetalleSerializer(TableroResumenSerializer):
             "mi_rol",
             "etiquetas",
             "campos",
+            "ayuda",
         ]
 
     etiquetas = serializers.SerializerMethodField()
     campos = serializers.SerializerMethodField()
+    #: Guía propia del Centro de ayuda (de su plantilla) o null.
+    ayuda = serializers.SerializerMethodField()
+
+    def get_ayuda(self, tablero):
+        return tablero.ayuda or None
 
     def get_etiquetas(self, tablero):
         return EtiquetaSerializer(tablero.etiquetas.all(), many=True).data

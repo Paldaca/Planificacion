@@ -156,7 +156,11 @@ un Gantt sino con el Tablero y, para lo que tiene fecha, el Calendario.
 *Tableros → nuevo tablero → Empezar con → «Proyecto de software»*, eligiendo
 la fecha de inicio: sale con las columnas, etiquetas, campos y el plan tipo ya
 fechado en días hábiles, y con una tarjeta «Tutorial» que resume esta
-metodología y lista los primeros pasos.
+metodología y lista los primeros pasos. La guía completa, para quien usa el
+programa, está en el Centro de ayuda, pestaña **Proyecto de software**, que
+solo aparece en los tableros creados con esa plantilla (texto en
+`backend/plantillas/services/guias.py`: si cambia esta sección, cambia
+también ese texto).
 
 Al terminar el proyecto el tablero se **archiva**; lo que quede pendiente y
 los fallos posteriores van al tablero de Soporte.

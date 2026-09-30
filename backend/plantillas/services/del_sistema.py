@@ -3,7 +3,8 @@ Plantillas que trae el programa, escritas aquí y no sacadas de un tablero: así
 quedan versionadas y salen iguales en cada instalación. Son la metodología de
 trabajo del departamento (`docs/metodologia-de-trabajo.md`) llevada a tableros:
 «Proyecto de software» y «Soporte». Cada una trae una tarjeta
-«Tutorial» con la metodología y los primeros pasos.
+«Tutorial» con los primeros pasos y su propia guía para el Centro de ayuda
+(`guias.py`), que solo aparece en los tableros creados con ella.
 
 «Proyecto de software»: el desarrollo por módulos.
 
@@ -31,6 +32,7 @@ from __future__ import annotations
 from django.db import transaction
 
 from plantillas.models import AlcancePlantilla, Plantilla
+from plantillas.services.guias import GUIA_PROYECTO, GUIA_SOPORTE
 from plantillas.services.plantillas import FORMATO
 
 PROYECTO_SOFTWARE = "Proyecto de software"
@@ -185,7 +187,8 @@ _TUTORIAL_PROYECTO = {
     "titulo": "Tutorial: cómo se trabaja en este tablero",
     "descripcion": (
         "Este tablero sigue la metodología de proyectos de software del departamento. Léela una vez, completa "
-        "los primeros pasos del checklist y archiva esta tarjeta.\n\n"
+        "los primeros pasos del checklist y archiva esta tarjeta. La guía completa está en Ayuda → "
+        "«Proyecto de software».\n\n"
         "COLUMNAS: el estado del trabajo\n"
         "- Pendientes: todo lo que falta y aún no tiene fecha. Está fuera del Gantt. Lo nuevo que aparezca a "
         "mitad de una fase entra aquí.\n"
@@ -246,6 +249,7 @@ def contenido_proyecto_software() -> dict:
     tarjetas += _cierre(inicio=inicio, tras=tras)
     return {
         "formato": FORMATO,
+        "ayuda": GUIA_PROYECTO,
         "columnas": [
             {"nombre": "Pendientes", "es_final": False, "incluir_en_gantt": False, "limite_cards": None},
             {"nombre": "Planificado", "es_final": False, "incluir_en_gantt": True, "limite_cards": None},
@@ -311,7 +315,7 @@ def contenido_soporte() -> dict:
         descripcion=(
             "Aquí va lo que el departamento atiende sin ser un proyecto: lo que falla, lo que piden y el "
             "mantenimiento. Hay un solo tablero de soporte y no se archiva. Lee esto una vez, completa los "
-            "primeros pasos del checklist y archiva esta tarjeta.\n\n"
+            "primeros pasos del checklist y archiva esta tarjeta. La guía completa está en Ayuda → «Soporte».\n\n"
             "QUÉ ENTRA\n"
             "- Incidencia: algo que funcionaba y falló.\n"
             "- Solicitud: alguien pide algo nuevo o un cambio pequeño.\n"
@@ -361,6 +365,7 @@ def contenido_soporte() -> dict:
     sin_gantt = {"es_final": False, "incluir_en_gantt": False, "limite_cards": None}
     return {
         "formato": FORMATO,
+        "ayuda": GUIA_SOPORTE,
         "columnas": [
             {"nombre": "Entrada", **sin_gantt},
             {"nombre": "En atención", **sin_gantt},

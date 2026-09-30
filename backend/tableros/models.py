@@ -86,6 +86,9 @@ class TableroQuerySet(models.QuerySet):
 class Tablero(models.Model):
     nombre = models.CharField(max_length=100)
     descripcion = models.TextField(blank=True, max_length=2000)
+    #: Guía propia para el Centro de ayuda (la trae su plantilla): {titulo,
+    #: resumen, entradas}. Vacía en la mayoría de los tableros.
+    ayuda = models.JSONField(default=dict, blank=True)
     tipo = models.CharField(max_length=10, choices=TipoTablero.choices)
     propietario = models.ForeignKey(
         settings.AUTH_USER_MODEL,

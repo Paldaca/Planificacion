@@ -11,6 +11,36 @@ from tableros.models import COLUMNAS_PREDETERMINADAS, Columna, Tablero, TipoTabl
 NOMBRE_TABLERO_PERSONAL = "Mi tablero"
 
 
+MAX_ENTRADAS_AYUDA = 40
+
+
+def limpiar_ayuda(dato) -> dict:
+    """La guía del Centro de ayuda de un tablero (viene de su plantilla), solo
+    como texto y con límites: {titulo, resumen, entradas: [{id, titulo,
+    parrafos}]}. Lo que no tenga esa forma se descarta; sin entradas, `{}`."""
+    if not isinstance(dato, dict):
+        return {}
+
+    def texto(valor, largo: int) -> str:
+        return str(valor).strip()[:largo] if isinstance(valor, (str, int, float)) else ""
+
+    entradas = []
+    for i, entrada in enumerate(dato.get("entradas") or []):
+        if not isinstance(entrada, dict):
+            continue
+        parrafos = [p for p in (texto(v, 2000) for v in (entrada.get("parrafos") or [])) if p][:30]
+        titulo = texto(entrada.get("titulo"), 150)
+        if titulo and parrafos:
+            entradas.append({"id": texto(entrada.get("id"), 60) or f"e{i}", "titulo": titulo, "parrafos": parrafos})
+    if not entradas:
+        return {}
+    return {
+        "titulo": texto(dato.get("titulo"), 40) or "Guía del tablero",
+        "resumen": texto(dato.get("resumen"), 1000),
+        "entradas": entradas[:MAX_ENTRADAS_AYUDA],
+    }
+
+
 @transaction.atomic
 def crear_tablero(
     *,
@@ -21,12 +51,15 @@ def crear_tablero(
     equipo=None,
     descripcion: str = "",
     columnas: list[dict] | None = None,
+    ayuda: dict | None = None,
 ) -> Tablero:
     """Con `columnas` (p. ej. desde una plantilla: nombre, es_final,
-    incluir_en_gantt, limite_cards) en vez de Tareas / En curso / Hecho."""
+    incluir_en_gantt, limite_cards) en vez de Tareas / En curso / Hecho, y con
+    la `ayuda` (guía del Centro de ayuda) que traiga la plantilla."""
     tablero = Tablero.objects.create(
         nombre=nombre,
         descripcion=descripcion,
+        ayuda=limpiar_ayuda(ayuda),
         tipo=tipo,
         propietario=propietario,
         equipo=equipo,

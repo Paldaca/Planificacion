@@ -114,6 +114,33 @@ class UsarTests(Base):
         self.assertEqual([(e.nombre, e.es_hito) for e in nuevo.etiquetas.all()], [("Civil", True)])
         self.assertTrue(Card.objects.get(tablero=nuevo, titulo="Levantamiento").es_hito)
 
+    def test_la_guia_de_ayuda_viaja_en_la_plantilla_y_se_limpia(self):
+        guia = {
+            "titulo": "Obra civil",
+            "resumen": "Cómo llevamos las obras.",
+            "entradas": [
+                {"id": "planos", "titulo": "Planos", "parrafos": ["• **Rev A** primero.", 42, ""]},
+                {"titulo": "Sin párrafos", "parrafos": []},  # se descarta
+                "no es una entrada",
+            ],
+            "otra_cosa": "<script>",
+        }
+        Tablero.objects.filter(pk=self.tablero["id"]).update(ayuda=guia)
+        plantilla = self.guardar().json()
+        self.assertEqual(Plantilla.objects.get(pk=plantilla["id"]).contenido["ayuda"], guia)
+        r = self.usar(plantilla["id"], equipo=self.equipo_id, fecha_inicio="2026-10-09")
+        self.assertEqual(
+            Tablero.objects.get(pk=r.json()["tablero"]).ayuda,
+            {
+                "titulo": "Obra civil",
+                "resumen": "Cómo llevamos las obras.",
+                "entradas": [{"id": "planos", "titulo": "Planos", "parrafos": ["• **Rev A** primero.", "42"]}],
+            },
+        )
+        # Un tablero sin guía no la inventa: la plantilla tampoco la lleva.
+        Tablero.objects.filter(pk=self.tablero["id"]).update(ayuda={})
+        self.assertNotIn("ayuda", Plantilla.objects.get(pk=self.guardar().json()["id"]).contenido)
+
     def test_personal_si_no_hay_equipo_y_permisos(self):
         plantilla = self.guardar(alcance="equipo", equipo=self.equipo_id).json()
         r = self.usar(plantilla["id"], usuario=self.beto)  # beto la ve (es del equipo) y crea uno personal

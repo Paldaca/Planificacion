@@ -50,7 +50,7 @@ import { Entrada, Campo, AreaTexto } from "@/components/ui/Campos";
 import { Esqueleto, Pildora, Vacio } from "@/components/ui/Estados";
 import { ItemMenu, Menu, SeparadorMenu } from "@/components/ui/Menu";
 import { useAlAbrir } from "@/hooks/useAlAbrir";
-import { useAyuda, useTemaAyuda } from "@/hooks/useAyuda";
+import { useAyuda, useGuiaAyuda, useTemaAyuda } from "@/hooks/useAyuda";
 import { moduloDiferido, useModuloDiferido } from "@/hooks/useModuloDiferido";
 import { leerPreferencia } from "@/hooks/usePreferencia";
 import { ContextoConfigTablero, useValorConfigTablero } from "@/hooks/useConfigTablero";
@@ -80,6 +80,7 @@ export default function TableroPage() {
   useTemaAyuda(vista);
   const ayuda = useAyuda();
   const { data: tablero, error, isLoading } = useTablero(id);
+  useGuiaAyuda(tablero?.ayuda ?? null);
   const [filtros, setFiltros] = useState<EstadoFiltros>(FILTROS_VACIOS);
   const [verArchivadas, setVerArchivadas] = useState(false);
   const [editando, setEditando] = useState(false);

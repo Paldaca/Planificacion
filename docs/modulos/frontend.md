@@ -77,7 +77,11 @@ Mismo del Portal: Poppins (títulos) + Geist Sans (texto); tokens
   local), nunca `new Date("YYYY-MM-DD")` (se corre por zona horaria).
 - Textos de interfaz en español, tuteo; a la tarjeta se le dice «tarjeta».
 - **Centro de ayuda** (`components/ayuda/`): panel lateral con una guía por
-  vista (Tablero, Lista, Calendario, Gantt) y preguntas frecuentes, con
+  vista (Tablero, Lista, Calendario, Gantt), la **guía propia del tablero**
+  si su plantilla la trae (`TableroDetalle.ayuda`: `TableroPage` la declara
+  con `useGuiaAyuda` y `temasCon` la añade como tema `guia` antes de las
+  preguntas; el buscador también la recorre; fuera de ese tablero desaparece)
+  y preguntas frecuentes, con
   buscador (sin acentos ni mayúsculas). Se abre con «Ayuda» en la cabecera del
   tablero (en la guía de la vista actual: `useTemaAyuda(vista)`), con la tecla
   `?` fuera de un campo de texto y sin otro diálogo abierto, o desde otra ayuda
