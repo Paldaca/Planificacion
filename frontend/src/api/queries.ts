@@ -31,6 +31,7 @@ import type {
   Equipo,
   Feriado,
   FormatoExportacion,
+  CrearFaltantes,
   ResultadoImportacion,
   VistaPrevia,
   Invitacion,
@@ -992,18 +993,20 @@ export function useDescargarPlantilla(tableroId: number) {
   });
 }
 
-function formularioImportacion(archivo: File, confirmar: boolean): FormData {
+function formularioImportacion(archivo: File, confirmar: boolean, crear?: CrearFaltantes): FormData {
   const datos = new FormData();
   datos.append("archivo", archivo);
   if (confirmar) datos.append("confirmar", "true");
+  if (crear?.columnas) datos.append("crear_columnas", "true");
+  if (crear?.etiquetas) datos.append("crear_etiquetas", "true");
   return datos;
 }
 
 /** Paso 1: lee y valida el archivo sin guardar nada. */
 export function useVistaPreviaImportacion(tableroId: number) {
   return useMutation({
-    mutationFn: (archivo: File) =>
-      api.subir<VistaPrevia>(`${V1}/tableros/${tableroId}/importar/`, formularioImportacion(archivo, false)),
+    mutationFn: ({ archivo, crear }: { archivo: File; crear?: CrearFaltantes }) =>
+      api.subir<VistaPrevia>(`${V1}/tableros/${tableroId}/importar/`, formularioImportacion(archivo, false, crear)),
   });
 }
 
@@ -1011,8 +1014,8 @@ export function useVistaPreviaImportacion(tableroId: number) {
 export function useImportar(tableroId: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (archivo: File) =>
-      api.subir<ResultadoImportacion>(`${V1}/tableros/${tableroId}/importar/`, formularioImportacion(archivo, true)),
+    mutationFn: ({ archivo, crear }: { archivo: File; crear?: CrearFaltantes }) =>
+      api.subir<ResultadoImportacion>(`${V1}/tableros/${tableroId}/importar/`, formularioImportacion(archivo, true, crear)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: claves.tablero(tableroId) });
       qc.invalidateQueries({ queryKey: claves.misTareas });

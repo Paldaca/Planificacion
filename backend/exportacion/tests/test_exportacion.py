@@ -140,7 +140,9 @@ class ImportarTests(Base):
         filas = {f["fila"]: f for f in datos["filas"]}
         self.assertEqual(filas[2]["urgencia"], "critica")
         self.assertEqual(filas[2]["responsables"], ["Beto", "Carla"])
-        self.assertTrue(any("Revisión final" in a for a in filas[3]["avisos"]))  # columna desconocida
+        # Columna desconocida: en el resumen (no un aviso por fila) y cae en la primera.
+        self.assertEqual(datos["faltantes"]["columnas"], ["Revisión final"])
+        self.assertEqual(filas[3]["columna"], "Tareas")
         self.assertTrue(any("fantasma" in a for a in filas[3]["avisos"]))
         self.assertIn("Falta el título.", filas[4]["errores"])
         self.assertTrue(filas[5]["errores"])  # fechas al revés

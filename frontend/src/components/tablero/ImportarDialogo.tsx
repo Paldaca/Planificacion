@@ -5,7 +5,7 @@ import { toast } from "sonner";
 
 import { mensajeError } from "@/api/client";
 import { useDescargarPlantilla, useImportar, useVistaPreviaImportacion } from "@/api/queries";
-import type { FilaVistaPrevia, VistaPrevia } from "@/api/tipos";
+import type { CrearFaltantes, FilaVistaPrevia, VistaPrevia } from "@/api/tipos";
 import { Boton } from "@/components/ui/Boton";
 import { Dialogo } from "@/components/ui/Dialogo";
 import { Pildora } from "@/components/ui/Estados";
@@ -20,18 +20,27 @@ const ACEPTADOS = ".xlsx,.xml";
  * Importar tarjetas en dos pasos: elegir el archivo (Excel de la plantilla,
  * Excel exportado desde Planificación o XML de MS Project) → revisar la vista
  * previa (nada se guarda) → confirmar.
+ *
+ * Las columnas y etiquetas que el archivo nombra y el tablero no tiene salen
+ * resumidas arriba de la vista previa; quien gestiona el tablero puede
+ * crearlas al importar (casillas marcadas por defecto). Cambiar una casilla
+ * vuelve a pedir la vista previa: la decide el servidor.
  */
 export function ImportarDialogo({
   tableroId,
+  puedeCrear,
   abierto,
   onCerrar,
 }: {
   tableroId: number;
+  /** Gestiona el tablero: puede crear columnas y etiquetas (el servidor lo vuelve a comprobar). */
+  puedeCrear: boolean;
   abierto: boolean;
   onCerrar: () => void;
 }) {
   const [archivo, setArchivo] = useState<File | null>(null);
   const [vista, setVista] = useState<VistaPrevia | null>(null);
+  const [crear, setCrear] = useState<CrearFaltantes>({ columnas: puedeCrear, etiquetas: puedeCrear });
   const [soloProblemas, setSoloProblemas] = useState(false);
   const [encima, setEncima] = useState(false);
   const entrada = useRef<HTMLInputElement>(null);
@@ -43,6 +52,7 @@ export function ImportarDialogo({
     setArchivo(null);
     setVista(null);
     setSoloProblemas(false);
+    setCrear({ columnas: puedeCrear, etiquetas: puedeCrear });
     previa.reset();
   });
 
@@ -50,7 +60,14 @@ export function ImportarDialogo({
     if (!nuevo) return;
     setArchivo(nuevo);
     setVista(null);
-    previa.mutate(nuevo, { onSuccess: setVista });
+    previa.mutate({ archivo: nuevo, crear }, { onSuccess: setVista });
+  }
+
+  /** Cambiar una casilla: la vista previa se vuelve a calcular con la decisión nueva. */
+  function cambiarCrear(cambio: Partial<CrearFaltantes>) {
+    const nuevo = { ...crear, ...cambio };
+    setCrear(nuevo);
+    if (archivo) previa.mutate({ archivo, crear: nuevo }, { onSuccess: setVista });
   }
 
   function soltar(e: DragEvent) {
@@ -61,9 +78,11 @@ export function ImportarDialogo({
 
   function confirmar() {
     if (!archivo) return;
-    importar.mutate(archivo, {
+    importar.mutate({ archivo, crear }, {
       onSuccess: (r) => {
         const partes = [
+          r.columnas_creadas.length ? `${r.columnas_creadas.length} columna${r.columnas_creadas.length === 1 ? "" : "s"} nueva${r.columnas_creadas.length === 1 ? "" : "s"}` : null,
+          r.etiquetas_creadas.length ? `${r.etiquetas_creadas.length} etiqueta${r.etiquetas_creadas.length === 1 ? "" : "s"} nueva${r.etiquetas_creadas.length === 1 ? "" : "s"}` : null,
           r.dependencias ? `${r.dependencias} dependencia${r.dependencias === 1 ? "" : "s"}` : null,
           r.omitidas ? `${r.omitidas} fila${r.omitidas === 1 ? "" : "s"} con errores sin importar` : null,
         ].filter(Boolean);
@@ -93,7 +112,7 @@ export function ImportarDialogo({
               <RotateCcw />
               Otro archivo
             </Boton>
-            <Boton onClick={confirmar} cargando={importar.isPending} disabled={!vista.validas}>
+            <Boton onClick={confirmar} cargando={importar.isPending} disabled={!vista.validas || vista.problemas.length > 0 || previa.isPending}>
               <Upload />
               Importar {vista.validas} tarjeta{vista.validas === 1 ? "" : "s"}
             </Boton>
@@ -160,6 +179,13 @@ export function ImportarDialogo({
           </motion.div>
         ) : (
           <motion.div key="revisar" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
+            <Faltantes vista={vista} crear={crear} onCambio={cambiarCrear} recalculando={previa.isPending} />
+            {vista.problemas.map((p) => (
+              <p key={p} className="flex items-start gap-2 rounded-xl bg-[#fef2f2] px-3 py-2.5 text-sm text-[#b91c1c]">
+                <CircleX className="mt-0.5 size-4 shrink-0" />
+                {p}
+              </p>
+            ))}
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <span className="mr-1 truncate font-medium text-texto">{archivo?.name}</span>
               <Pildora color="#059669" icono={CircleCheck}>
@@ -226,14 +252,29 @@ function FilaPrevia({ fila }: { fila: FilaVistaPrevia }) {
             <span className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: URGENCIAS[fila.urgencia].color }} />
             <span className={cn("font-medium", error ? "text-tenue" : "text-texto")}>{fila.titulo || "(sin título)"}</span>
             {fila.depende.length > 0 && <span className="text-xs text-tenue">después de {fila.depende.join(", ")}</span>}
-            {fila.etiquetas.map((e) => (
-              <span key={e} className="shrink-0 rounded-md bg-morado/10 px-1.5 py-px text-[0.66rem] font-semibold text-morado">
-                {e}
-              </span>
-            ))}
+            {fila.etiquetas.map((e) => {
+              const nueva = fila.etiquetas_nuevas.includes(e);
+              return (
+                <span
+                  key={e}
+                  title={nueva ? "Se creará al importar" : undefined}
+                  className={cn(
+                    "shrink-0 rounded-md px-1.5 py-px text-[0.66rem] font-semibold text-morado",
+                    nueva ? "border border-dashed border-morado/50" : "bg-morado/10",
+                  )}
+                >
+                  {e}
+                </span>
+              );
+            })}
           </span>
         </td>
-        <td className="px-2 py-2 text-xs text-tenue">{fila.columna}</td>
+        <td className="px-2 py-2 text-xs text-tenue">
+          {fila.columna}
+          {fila.columna_nueva && (
+            <span className="ml-1.5 rounded border border-dashed border-morado/50 px-1 text-[0.62rem] font-semibold text-morado">nueva</span>
+          )}
+        </td>
         <td className="px-2 py-2 text-xs whitespace-nowrap text-tenue">{rangoCorto(fila.inicio, fila.fin) || "—"}</td>
         <td className="px-2 py-2 text-xs text-tenue">{fila.responsables.join(", ") || "—"}</td>
       </tr>
@@ -252,5 +293,98 @@ function FilaPrevia({ fila }: { fila: FilaVistaPrevia }) {
         </tr>
       )}
     </>
+  );
+}
+
+/**
+ * Resumen de lo que el archivo nombra y el tablero no tiene, con las casillas
+ * para crearlo (solo si se gestiona el tablero). Reemplaza el aviso repetido
+ * en cada fila.
+ */
+function Faltantes({
+  vista,
+  crear,
+  onCambio,
+  recalculando,
+}: {
+  vista: VistaPrevia;
+  crear: CrearFaltantes;
+  onCambio: (cambio: Partial<CrearFaltantes>) => void;
+  recalculando: boolean;
+}) {
+  const { columnas, etiquetas, primera_columna } = vista.faltantes;
+  if (!columnas.length && !etiquetas.length) return null;
+  const puede = vista.puede_crear;
+  const plural = (n: number, uno: string, varios: string) => (n === 1 ? `1 ${uno}` : `${n} ${varios}`);
+  return (
+    <div className={cn("space-y-3 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-4 py-3 text-sm", recalculando && "opacity-70")}>
+      <p className="flex items-start gap-2 font-medium text-[#92400e]">
+        <CircleAlert className="mt-0.5 size-4 shrink-0" />
+        El archivo usa {[columnas.length && plural(columnas.length, "columna", "columnas"), etiquetas.length && plural(etiquetas.length, "etiqueta", "etiquetas")]
+          .filter(Boolean)
+          .join(" y ")}{" "}
+        que este tablero no tiene.
+      </p>
+      {columnas.length > 0 && (
+        <GrupoFaltante
+          nombres={columnas}
+          puede={puede}
+          marcado={crear.columnas}
+          onCambio={(v) => onCambio({ columnas: v })}
+          textoCrear={`Crear ${plural(columnas.length, "columna", "columnas")} (antes de la columna final, dentro del Gantt)`}
+          textoSin={`Sin crearlas, esas tarjetas irán a «${primera_columna}».`}
+        />
+      )}
+      {etiquetas.length > 0 && (
+        <GrupoFaltante
+          nombres={etiquetas}
+          puede={puede}
+          marcado={crear.etiquetas}
+          onCambio={(v) => onCambio({ etiquetas: v })}
+          textoCrear={`Crear ${plural(etiquetas.length, "etiqueta", "etiquetas")} (cada una con su color)`}
+          textoSin="Sin crearlas, no se asignan."
+        />
+      )}
+      {!puede && (
+        <p className="text-xs text-[#92400e]">
+          Solo quien gestiona el tablero puede crearlas: pídeselo a un administrador o importa así.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function GrupoFaltante({
+  nombres,
+  puede,
+  marcado,
+  onCambio,
+  textoCrear,
+  textoSin,
+}: {
+  nombres: string[];
+  puede: boolean;
+  marcado: boolean;
+  onCambio: (v: boolean) => void;
+  textoCrear: string;
+  textoSin: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap gap-1">
+        {nombres.map((n) => (
+          <span key={n} className="rounded-md border border-dashed border-[#d97706]/50 bg-white px-1.5 py-px text-xs font-medium text-[#92400e]">
+            {n}
+          </span>
+        ))}
+      </div>
+      {puede ? (
+        <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-texto pointer-coarse:py-1">
+          <input type="checkbox" checked={marcado} onChange={(e) => onCambio(e.target.checked)} className="size-4 accent-morado" />
+          {textoCrear}
+        </label>
+      ) : null}
+      {(!puede || !marcado) && <p className="text-xs text-[#92400e]">{textoSin}</p>}
+    </div>
   );
 }

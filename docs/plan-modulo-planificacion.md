@@ -505,6 +505,11 @@ crece a mitad de camino: lo nuevo va a la siguiente.
   la configuración de la pantalla (filtros, agrupación, plegados); escala
   ajustada al ancho o el zoom del Gantt, periodo opcional y hoja Carta u
   11×17 (ReportLab en el servidor).
+- **Importar crea lo que falta**: columnas y etiquetas que el archivo nombra
+  y el tablero no tiene salen resumidas una vez en la vista previa (no un
+  aviso por fila) y, si quien importa gestiona el tablero, se crean al
+  importar (casillas marcadas por defecto) en la misma transacción. Las
+  columnas nuevas entran en el Gantt: no se adivina por el nombre.
 - **Tableros favoritos**: estrella en cada tablero (solo para quien la
   marca); los favoritos salen primero en *Tableros*. No dan acceso.
 - **Arranque local**: `iniciar.ps1` / `iniciar.sh` del Portal abren todo como

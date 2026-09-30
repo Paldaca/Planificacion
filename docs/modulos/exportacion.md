@@ -38,7 +38,7 @@ Llevar un tablero a las herramientas de la empresa y traerlo de vuelta:
 | `services/mspdi.py` | `exportar`, `leer`. Proyecto = tablero; tareas resumen = columnas; tareas = tarjetas del Gantt con inicio y fin; tareas **programadas manualmente**; calendario «Planificación» lun–vie 8–12 y 13–17 con feriados como excepciones; vínculos FC=1, CC=3, FF=0 con desfase; responsables → recursos; urgencia ↔ prioridad (baja 300, media 500, alta 700, crítica 900); avance = checklist; descripción → notas. Elementos en el orden del esquema MSPDI; sin caracteres de control. `leer` rechaza XML con `DOCTYPE`/`ENTITY`. |
 | `services/pdf.py` | `exportar(contenido, OpcionesPdf)` y `planificar` (páginas antes de dibujar, para «hoja x de y»). Opciones (`OpcionesPdf.desde_query`): `escala` ajustar\|zoom, `zoom` dia\|semana\|mes (14 / 5,5 / 1,8 pt por día), `agrupar`, `plegado` (claves de grupo, repetible), `desde`/`hasta` (las dos o ninguna; solo tareas que tocan el periodo, recortadas en los bordes) y `hoja` carta\|tabloide (11×17), siempre horizontal. Filas y flechas son **espejo** de `frontend/src/lib/gantt.ts` (`grupoDe`, `construirFilas`, `rutaFlecha`). Con zoom, un plan largo se reparte en tramos de hojas; muchas filas siguen en más hojas repitiendo la escala. Flechas solo si las dos puntas caen en la hoja (debajo de barras y títulos). Más de 150 hojas → `ReglaDeNegocio`. Texto en las fuentes base del PDF (Windows-1252): lo que no cabe en ella sale como «?». |
 | `services/modelo.py` | `FilaEntrada`: una fila leída antes de validar (incluye `etiquetas` y `campos` por nombre de encabezado). |
-| `services/importacion.py` | `vista_previa` (valida sin tocar la BD: errores y avisos por fila) e `importar` (revalida y crea en **una** transacción las filas válidas y sus dependencias). Límites: 5 MB y 1000 filas. Los responsables reciben **un** aviso agrupado en vez de uno por tarjeta (`crear_card(avisar=False)`). Etiquetas desconocidas y valores de campo inválidos se ignoran **con aviso** (no son error); las columnas que no son campos del tablero se ignoran sin más. |
+| `services/importacion.py` | `vista_previa` (valida sin tocar la BD: errores y avisos por fila) e `importar` (revalida y crea en **una** transacción las filas válidas y sus dependencias). Límites: 5 MB y 1000 filas. Los responsables reciben **un** aviso agrupado en vez de uno por tarjeta (`crear_card(avisar=False)`). Valores de campo inválidos se ignoran **con aviso** (no son error); las columnas del Excel que no son campos del tablero se ignoran sin más. **Columnas y etiquetas que el tablero no tiene** no dan un aviso por fila: `faltantes` las resume una vez (sin repetir, grafía de su primera aparición) en `vista_previa`. Con `Crear` (casillas del diálogo; solo quien **gestiona** el tablero, `puede_crear`), la vista previa las marca como nuevas y `importar` las crea en la **misma transacción** que las tarjetas (`_crear_faltantes`): columnas antes de la columna final, **dentro del Gantt y no finales** (no se adivina por el nombre: «Pendientes» se saca del Gantt a mano) y etiquetas con colores de `COLORES_ETIQUETA` (primero los no usados). Pasar el cupo de 30 etiquetas es un `problemas` en la vista previa y un 400 al importar, sin crear nada. Sin crearlas: las tarjetas van a la primera columna y sin esas etiquetas. |
 
 No se guarda nada entre vista previa y confirmación: el navegador reenvía el
 archivo.
@@ -49,7 +49,7 @@ archivo.
 |---|---|
 | `tableros/<id>/exportar/?formato=xlsx\|xml\|pdf` (+ `q`, `urgencia`, `responsable`, `etiqueta`, `vencidas`; el PDF además `escala`, `zoom`, `agrupar`, `plegado`, `desde`, `hasta`, `hoja`) | descarga (requiere ver el tablero). El PDF se llama `gantt-<tablero>-<fecha>.pdf` |
 | `tableros/<id>/importar/plantilla/` | descarga la plantilla |
-| `tableros/<id>/importar/` (multipart `archivo`, `confirmar`) | sin `confirmar`: vista previa · con `confirmar=true`: crea (requiere editar) |
+| `tableros/<id>/importar/` (multipart `archivo`, `confirmar`, `crear_columnas`, `crear_etiquetas`) | sin `confirmar`: vista previa (con `faltantes`, `puede_crear`, `problemas`) · con `confirmar=true`: crea y devuelve `columnas_creadas` / `etiquetas_creadas` (requiere editar; `crear_*` requiere gestionar, si no 403) |
 
 ## Dependencias
 
@@ -60,7 +60,8 @@ archivo.
 ## Pruebas
 
 `tests/test_exportacion.py` (incluye la ida y vuelta y `EtiquetasYCamposTests`) y
-`tests/test_pdf.py` (hojas, filas como la pantalla, plegados, filtros, periodo,
+`tests/test_importar_faltantes.py` (resumen, crear columnas y etiquetas, permisos,
+cupo sin crear nada) y `tests/test_pdf.py` (hojas, filas como la pantalla, plegados, filtros, periodo,
 tramos, límite de hojas, permisos). Criterios de aceptación
 de la fase 4: un tablero exportado a XML e importado de nuevo conserva
 tarjetas, fechas y dependencias; el XML abre en MS Project sin advertencias

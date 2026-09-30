@@ -6,7 +6,7 @@ from urllib.parse import quote
 
 from django.http import HttpResponse
 from rest_framework import status
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -15,6 +15,7 @@ from core.api import booleano
 from core.errores import ReglaDeNegocio
 from exportacion.services import excel, importacion, mspdi, pdf
 from exportacion.services.datos import Filtros, contenido, nombre_archivo
+from tableros import permisos
 from tableros.api.views.comunes import obtener_tablero
 
 TIPOS = {
@@ -61,7 +62,9 @@ class PlantillaView(APIView):
 
 class ImportarView(APIView):
     """Multipart con `archivo`. Sin `confirmar`: vista previa (nada se guarda).
-    Con `confirmar=true`: crea las filas válidas y sus dependencias."""
+    Con `confirmar=true`: crea las filas válidas y sus dependencias.
+    `crear_columnas` / `crear_etiquetas`: crear las que el archivo nombra y el
+    tablero no tiene (solo quien gestiona el tablero)."""
 
     parser_classes = [MultiPartParser]
 
@@ -73,7 +76,14 @@ class ImportarView(APIView):
         if archivo.size > importacion.MAX_BYTES:
             raise ReglaDeNegocio("El archivo supera los 5 MB.")
         datos = archivo.read()
+        puede_crear = permisos.puede_gestionar_tablero(request.user, tablero)
+        crear = importacion.Crear(
+            etiquetas=booleano(request, "crear_etiquetas", False),
+            columnas=booleano(request, "crear_columnas", False),
+        )
+        if (crear.etiquetas or crear.columnas) and not puede_crear:
+            raise PermissionDenied("Solo quien gestiona el tablero puede crear columnas y etiquetas.")
         if booleano(request, "confirmar", False):
-            resultado = importacion.importar(tablero, archivo.name, datos, actor=request.user)
+            resultado = importacion.importar(tablero, archivo.name, datos, actor=request.user, crear=crear)
             return Response(resultado, status=status.HTTP_201_CREATED)
-        return Response(importacion.vista_previa(tablero, archivo.name, datos))
+        return Response(importacion.vista_previa(tablero, archivo.name, datos, crear=crear, puede_crear=puede_crear))

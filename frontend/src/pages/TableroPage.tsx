@@ -341,7 +341,12 @@ export default function TableroPage() {
           <Esqueleto className="h-[60vh] rounded-2xl" />
         ))}
 
-      <ImportarDialogo tableroId={id} abierto={importando} onCerrar={() => setImportando(false)} />
+      <ImportarDialogo
+        tableroId={id}
+        puedeCrear={permisos.gestionar}
+        abierto={importando}
+        onCerrar={() => setImportando(false)}
+      />
       <ConfiguracionDialogo tablero={tablero} abierto={configurando} onCerrar={() => setConfigurando(false)} />
       <GuardarPlantillaDialogo tablero={tablero} abierto={guardandoPlantilla} onCerrar={() => setGuardandoPlantilla(false)} />
       {ultimoPdf && (

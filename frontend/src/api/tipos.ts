@@ -228,11 +228,15 @@ export type FilaVistaPrevia = {
   ref: number | null;
   titulo: string;
   columna: string | null;
+  /** La columna no existe y se creará al importar. */
+  columna_nueva: boolean;
   urgencia: Urgencia;
   inicio: string | null;
   fin: string | null;
   responsables: string[];
   etiquetas: string[];
+  /** Etiquetas (incluidas en `etiquetas`) que se crearán al importar. */
+  etiquetas_nuevas: string[];
   depende: string[];
   /** Con errores la fila no se importa; con avisos, se importa con un ajuste. */
   errores: string[];
@@ -245,13 +249,23 @@ export type VistaPrevia = {
   validas: number;
   con_errores: number;
   dependencias: number;
+  /** Lo que el archivo nombra y el tablero no tiene (sin repetir). */
+  faltantes: { columnas: string[]; etiquetas: string[]; primera_columna: string };
+  /** Quien importa gestiona el tablero: puede crear columnas y etiquetas. */
+  puede_crear: boolean;
+  /** Impiden importar tal como se pide (p. ej. más etiquetas que el cupo). */
+  problemas: string[];
 };
+
+export type CrearFaltantes = { columnas: boolean; etiquetas: boolean };
 
 export type ResultadoImportacion = {
   creadas: number;
   omitidas: number;
   dependencias: number;
   avisos: string[];
+  columnas_creadas: string[];
+  etiquetas_creadas: string[];
 };
 
 // --- Plantillas (fase 5) -------------------------------------------------------------
