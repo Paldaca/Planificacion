@@ -25,7 +25,10 @@ class EtiquetasView(APIView):
         if not datos.validated_data.get("nombre"):
             raise ValidationError({"nombre": "Ponle un nombre a la etiqueta."})
         etiqueta = servicio_etiquetas.crear_etiqueta(
-            tablero, nombre=datos.validated_data["nombre"], color=datos.validated_data.get("color", "#2563eb")
+            tablero,
+            nombre=datos.validated_data["nombre"],
+            color=datos.validated_data.get("color", "#2563eb"),
+            es_hito=datos.validated_data.get("es_hito", False),
         )
         return Response(EtiquetaSerializer(etiqueta).data, status=status.HTTP_201_CREATED)
 

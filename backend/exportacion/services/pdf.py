@@ -9,7 +9,7 @@ fecha a otra), en hoja Carta u 11×17 (tabloide), siempre horizontal.
 
 Qué dibuja: cabecera con el tablero y la configuración, resumen de avance,
 el diagrama (grupos con su avance y barra resumen, barras con el color de la
-urgencia y el avance del checklist, flechas de dependencias, hoy, fines de
+urgencia y el avance del checklist, hitos como rombos, flechas de dependencias, hoy, fines de
 semana y feriados) y una leyenda en cada hoja.
 
 La agrupación y el orden de las filas son un espejo de
@@ -645,6 +645,9 @@ class _Hoja:
         )
 
         x1_real, x2_real, centro = self.cajas[card.pk]
+        if card.es_hito:
+            self.hito(card, x1_real, x2_real, centro, color, vencida)
+            return
         tramo = self.recorte(x1_real, x2_real)
         if not tramo:
             return
@@ -669,6 +672,34 @@ class _Hoja:
                 # Fondo blanco: que una flecha que pase por debajo no tache el título.
                 self.rect(x1 + ancho + 2.5, centro - 3.6, stringWidth(recortado, FUENTE, 6) + 3, 6.4, relleno=white)
                 self.texto(x1 + ancho + 4, centro + 2.1, recortado, tamano=6, color=TENUE)
+
+    def rombo(self, xc: float, yc: float, radio: float, relleno, borde, grosor: float = 0.8) -> None:
+        ruta = self.l.beginPath()
+        ruta.moveTo(xc, self.Y(yc - radio))
+        for x, y in ((xc + radio, yc), (xc, yc + radio), (xc - radio, yc)):
+            ruta.lineTo(x, self.Y(y))
+        ruta.close()
+        self.l.setFillColor(relleno)
+        self.l.setStrokeColor(borde)
+        self.l.setLineWidth(grosor)
+        self.l.drawPath(ruta, fill=1, stroke=1)
+
+    def hito(self, card, x1_real: float, x2_real: float, centro: float, color: str, vencida: bool) -> None:
+        """Un hito (tarjeta con una etiqueta `es_hito`) es un rombo en su último
+        día, como en la pantalla; si dura varios días, una línea fina hasta él."""
+        xc = x2_real - self.plan.pt_dia / 2
+        radio = ALTO_BARRA / 2 + 1
+        previo = self.recorte(x1_real, xc - radio)
+        if previo:
+            self.linea(previo[0], centro, previo[1], centro, mezcla(color, 60), grosor=1.4)
+        if not self.x_tiempo <= xc <= self.x_tiempo + self.ancho_tiempo:
+            return
+        self.rombo(xc, centro, radio, HexColor(color), HexColor(ROJO) if vencida else white)
+        libre = self.x_tiempo + self.ancho_tiempo - (xc + radio) - 6
+        if libre > 30:
+            recortado = _recortar(_seguro(card.titulo), FUENTE_NEGRITA, 6, libre)
+            self.rect(xc + radio + 2.5, centro - 3.6, stringWidth(recortado, FUENTE_NEGRITA, 6) + 3, 6.4, relleno=white)
+            self.texto(xc + radio + 4, centro + 2.1, recortado, tamano=6, color=TEXTO, negrita=True)
 
     # --- Dependencias (espejo de rutaFlecha) ---
     def flechas(self) -> None:
@@ -727,6 +758,7 @@ class _Hoja:
             ("terminada", "Terminada"),
             ("vencida", "Vencida (borde rojo)"),
             ("avance", "Avance del checklist"),
+            ("hito", "Hito"),
             ("hoy", "Hoy"),
             ("feriado", "Feriado"),
             ("dep", "Dependencia"),
@@ -740,6 +772,8 @@ class _Hoja:
             elif tipo == "avance":
                 self.rect(x, y - 6, 14, 6, relleno=mezcla("#2563eb", 16), borde=mezcla("#2563eb", 45), radio=2)
                 self.rect(x, y - 6, 8, 6, relleno=mezcla("#2563eb", 34), radio=2)
+            elif tipo == "hito":
+                self.rombo(x + 7, y - 3, 4, HexColor("#2563eb"), white)
             elif tipo == "hoy":
                 self.linea(x + 7, y - 8, x + 7, y + 1, HexColor("#ed2546"), grosor=0.9)
             elif tipo == "feriado":

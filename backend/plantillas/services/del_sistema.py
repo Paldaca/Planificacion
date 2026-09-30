@@ -1,20 +1,29 @@
 """
-Plantillas que trae el programa (globales), escritas aquí y no sacadas de un
-tablero: así quedan versionadas y salen iguales en cada instalación.
+Plantillas que trae el programa, escritas aquí y no sacadas de un tablero: así
+quedan versionadas y salen iguales en cada instalación. Son la metodología de
+trabajo del departamento (`docs/metodologia-de-trabajo.md`) llevada a tableros:
+«Proyecto de software» y «Soporte». Cada una trae una tarjeta
+«Tutorial» con la metodología y los primeros pasos.
 
-Por ahora una: «Proyecto de software», la metodología de desarrollo por
-módulos del departamento llevada a tarjetas, sin nada nuevo en el programa:
+«Proyecto de software»: el desarrollo por módulos.
 
 - El **estado** son las columnas; «Pendientes» es el backlog y queda fuera del
   Gantt (lo que no está planificado no lleva fecha).
 - La **fase** (Fase 0 y un módulo por fase) es el campo de lista «Fase».
 - La **tarea** es la tarjeta y sus pasos van en el checklist.
 - El **hito** que cierra cada fase es una tarjeta de un día con la etiqueta
-  «Hito»: filtrar por ella deja el Gantt solo con los hitos.
+  «Hito» (marcada `es_hito`: se dibuja como un rombo); filtrar por ella deja
+  el Gantt solo con los hitos.
 
-Se instalan con `manage.py instalar_plantillas`. Se reconocen por el nombre:
-una plantilla global con ese nombre no se vuelve a crear ni se pisa, salvo que
-se pida actualizarla.
+«Soporte»: incidencias, solicitudes y mantenimiento, sin Gantt (columnas
+Entrada · En atención · Esperando · Resuelto). Es solo soporte: el día a día
+del departamento que no viene de una solicitud no se lleva en este tablero.
+
+Se instalan con `manage.py instalar_plantillas`: globales (para todo el
+módulo) o, con `--equipo`, como plantillas de ese equipo (solo las ven sus
+miembros y las gestionan sus administradores). Se reconocen por el nombre y el
+alcance: la que ya existe no se vuelve a crear ni se pisa, salvo que se pida
+actualizarla.
 """
 
 from __future__ import annotations
@@ -171,21 +180,43 @@ def _cierre(*, inicio: int, tras: int) -> list[dict]:
     ]
 
 
-_LEEME = {
+_TUTORIAL_PROYECTO = {
     "ref": 0,
-    "titulo": "Cómo se usa este tablero (léeme y archívame)",
+    "titulo": "Tutorial: cómo se trabaja en este tablero",
     "descripcion": (
-        "Este tablero sigue la metodología de proyectos de software.\n\n"
-        "- «Pendientes» es la lista de todo lo que falta por planificar: sin fecha y fuera del Gantt. "
-        "Lo nuevo que aparezca a mitad de una fase va aquí.\n"
+        "Este tablero sigue la metodología de proyectos de software del departamento. Léela una vez, completa "
+        "los primeros pasos del checklist y archiva esta tarjeta.\n\n"
+        "COLUMNAS: el estado del trabajo\n"
+        "- Pendientes: todo lo que falta y aún no tiene fecha. Está fuera del Gantt. Lo nuevo que aparezca a "
+        "mitad de una fase entra aquí.\n"
+        "- Planificado: tiene fecha y responsable, no ha empezado.\n"
+        "- En curso: alguien lo está haciendo.\n"
+        "- En revisión: quien lo hizo terminó; falta que otro lo revise o lo valide.\n"
+        "- Hecho: cumple su criterio de aceptación y su documentación está al día.\n\n"
+        "TARJETAS\n"
         "- Una tarjeta es algo que se entrega en 1 a 10 días hábiles. Los pasos van en el checklist.\n"
-        "- Cada tarjeta lleva su «Fase». Renombra las opciones con el nombre real de cada módulo "
-        "(menú «…» → Etiquetas y campos) y archiva las fases que sobren.\n"
-        "- «Requisito» dice qué historia de usuario cubre la tarjeta.\n"
+        "- Solo lleva fecha lo planificado. Nunca se inventan fechas.\n"
         "- La fecha de fin es un compromiso: si cambia, se mueve y se comenta el motivo.\n"
-        "- Filtra por la etiqueta «Hito» para ver solo los cierres de fase.\n"
-        "- Error menor: tarjeta en «Pendientes» con la etiqueta «Error». Error que detiene al equipo: "
-        "etiqueta «Hotfix», urgencia crítica y directo a «En curso»."
+        "- Dependencias solo donde una tarjeta espera de verdad a otra.\n\n"
+        "CAMPOS\n"
+        "- Fase: la fase de la tarjeta (Fase 0, una por módulo y Cierre). En el Gantt, «Agrupar: Fase» muestra "
+        "cada fase con su avance.\n"
+        "- Requisito: el código de la historia de usuario o requisito que cubre (HU-1.2, RF-3.1).\n"
+        "- Rama: la rama o el PR donde está el trabajo.\n\n"
+        "ETIQUETAS\n"
+        "- Documentación, Desarrollo, Pruebas: qué produce la tarjeta.\n"
+        "- Hito: cierre de una fase. Se ve como un rombo en el Gantt; su fecha es el compromiso de la fase.\n"
+        "- Error: fallo que no detiene el trabajo; entra en Pendientes y se planifica después.\n"
+        "- Hotfix: fallo que detiene al equipo; urgencia crítica y directo a En curso.\n"
+        "- Cambio mayor: corrección que deja vieja la documentación; primero se actualiza el documento del módulo.\n"
+        "- Bloqueada: no puede avanzar; el motivo va en un comentario.\n\n"
+        "CADA FASE DE MÓDULO\n"
+        "Documentar el módulo → historias de usuario → pruebas → revisión (el hito). El alcance de una fase no "
+        "crece a mitad de camino.\n\n"
+        "RITMO\n"
+        "- Cada día: cada quien mueve sus tarjetas y marca su checklist (las ve todas en Mis tareas).\n"
+        "- Lunes: revisar lo vencido y pasar de Pendientes a Planificado lo de la semana.\n"
+        "- Viernes: enviar el Gantt en PDF agrupado por Fase."
     ),
     "columna": PENDIENTES,
     "urgencia": "baja",
@@ -194,13 +225,20 @@ _LEEME = {
     "fin": None,
     "etiquetas": [],
     "campos": {},
-    "checklist": [],
+    "checklist": [
+        "Renombrar las fases con los módulos reales («…» → Etiquetas y campos → Fase)",
+        "Archivar las tarjetas de los módulos que sobren",
+        "Poner responsable a las tarjetas de la Fase 0",
+        "Revisar las fechas en el Gantt con «Agrupar: Fase»",
+        "Adjuntar en «Documentación general del proyecto» lo que todo el equipo deba leer",
+        "Archivar esta tarjeta",
+    ],
     "depende": [],
 }
 
 
 def contenido_proyecto_software() -> dict:
-    tarjetas = [_LEEME, *_fase_0()]
+    tarjetas = [_TUTORIAL_PROYECTO, *_fase_0()]
     inicio, tras = 8, 5
     for n in range(1, MODULOS + 1):
         tarjetas += _modulo(n, inicio=inicio, tras=tras)
@@ -219,7 +257,7 @@ def contenido_proyecto_software() -> dict:
             {"nombre": "Documentación", "color": "#2563eb"},
             {"nombre": "Desarrollo", "color": "#7c3aed"},
             {"nombre": "Pruebas", "color": "#0d9488"},
-            {"nombre": "Hito", "color": "#d97706"},
+            {"nombre": "Hito", "color": "#d97706", "es_hito": True},
             {"nombre": "Error", "color": "#dc2626"},
             {"nombre": "Hotfix", "color": "#be123c"},
             {"nombre": "Cambio mayor", "color": "#db2777"},
@@ -239,6 +277,114 @@ def contenido_proyecto_software() -> dict:
     }
 
 
+# --- «Soporte» -------------------------------------------------------------------------
+
+SOPORTE = "Soporte"
+
+# Índice de su primera columna.
+ENTRADA = 0
+
+
+def _de_soporte(ref, titulo, *, columna, descripcion="", etiquetas=(), campos=None, checklist=(), urgencia="media"):
+    return {
+        "ref": ref,
+        "titulo": titulo,
+        "descripcion": descripcion,
+        "columna": columna,
+        "urgencia": urgencia,
+        "en_gantt": "heredar",
+        "inicio": None,
+        "fin": None,
+        "etiquetas": list(etiquetas),
+        "campos": campos or {},
+        "checklist": list(checklist),
+        "depende": [],
+    }
+
+
+def contenido_soporte() -> dict:
+    tutorial = _de_soporte(
+        0,
+        "Tutorial: cómo se trabaja en este tablero",
+        columna=ENTRADA,
+        urgencia="baja",
+        descripcion=(
+            "Aquí va lo que el departamento atiende sin ser un proyecto: lo que falla, lo que piden y el "
+            "mantenimiento. Hay un solo tablero de soporte y no se archiva. Lee esto una vez, completa los "
+            "primeros pasos del checklist y archiva esta tarjeta.\n\n"
+            "QUÉ ENTRA\n"
+            "- Incidencia: algo que funcionaba y falló.\n"
+            "- Solicitud: alguien pide algo nuevo o un cambio pequeño.\n"
+            "- Mantenimiento: trabajo preventivo o programado (respaldos, actualizaciones, equipos).\n\n"
+            "COLUMNAS\n"
+            "- Entrada: llegó y nadie lo ha tomado.\n"
+            "- En atención: alguien lo está haciendo (tiene responsable). Lleva un límite de tarjetas: si se pasa, "
+            "se está empezando más de lo que se termina.\n"
+            "- Esperando: no depende del departamento; falta una respuesta del usuario o de un tercero. Se pasa "
+            "aquí con un comentario que diga qué se espera y de quién.\n"
+            "- Resuelto: se entregó y el solicitante lo sabe.\n\n"
+            "CAMPOS\n"
+            "- Sistema: a qué sistema o área pertenece.\n"
+            "- Solicitante: quién lo pidió, para avisarle al resolver.\n\n"
+            "URGENCIA\n"
+            "- Crítica: algo está detenido; se atiende de inmediato.\n"
+            "- Alta: afecta a varias personas o tiene una fecha cercana; hoy o mañana.\n"
+            "- Media: trabajo normal.\n"
+            "- Baja: cuando haya hueco.\n\n"
+            "REGLAS\n"
+            "- Todo lo que se atiende se registra, aunque se resuelva en diez minutos.\n"
+            "- Solo lleva fechas lo que tiene día fijado. Este tablero no usa el Gantt: se sigue con el Tablero y, "
+            "para lo que tiene fecha, el Calendario.\n"
+            "- Si algo necesita más de 10 días hábiles o varias entregas, deja de ser soporte: se traslada al "
+            "tablero de su proyecto o se abre uno.\n\n"
+            "RITMO\n"
+            "- Cada día: registrar lo que llega y mover las tarjetas.\n"
+            "- Lunes: revisar Entrada, lo vencido y lo que lleva más de una semana en Esperando.\n"
+            "- Viernes: archivar lo resuelto de la semana."
+        ),
+        checklist=[
+            "Ajustar las opciones del campo «Sistema» («…» → Etiquetas y campos)",
+            "Poner el límite de tarjetas de «En atención» (menú de la columna; sugerido: dos por persona)",
+            "Marcar el tablero como favorito",
+            "Archivar el ejemplo y esta tarjeta",
+        ],
+    )
+    ejemplo = _de_soporte(
+        1,
+        "Ejemplo · La impresora de Administración no imprime",
+        columna=ENTRADA,
+        urgencia="alta",
+        etiquetas=["Incidencia"],
+        campos={"Sistema": "Equipos y red", "Solicitante": "Administración"},
+        descripcion="Ejemplo de una incidencia recién llegada: qué pasa, desde cuándo y a quién afecta. Archívame.",
+    )
+    sin_gantt = {"es_final": False, "incluir_en_gantt": False, "limite_cards": None}
+    return {
+        "formato": FORMATO,
+        "columnas": [
+            {"nombre": "Entrada", **sin_gantt},
+            {"nombre": "En atención", **sin_gantt},
+            {"nombre": "Esperando", **sin_gantt},
+            {"nombre": "Resuelto", **sin_gantt, "es_final": True},
+        ],
+        "etiquetas": [
+            {"nombre": "Incidencia", "color": "#dc2626"},
+            {"nombre": "Solicitud", "color": "#2563eb"},
+            {"nombre": "Mantenimiento", "color": "#0d9488"},
+        ],
+        "campos": [
+            {
+                "nombre": "Sistema",
+                "tipo": "lista",
+                "opciones": ["Portal", "Nómina", "Hoja de Tiempo", "Planificación", "Equipos y red", "Otro"],
+                "visible_en_tarjeta": True,
+            },
+            {"nombre": "Solicitante", "tipo": "texto", "opciones": [], "visible_en_tarjeta": True},
+        ],
+        "tarjetas": [tutorial, ejemplo],
+    }
+
+
 PLANTILLAS = [
     {
         "nombre": PROYECTO_SOFTWARE,
@@ -248,20 +394,29 @@ PLANTILLAS = [
         ),
         "contenido": contenido_proyecto_software,
     },
+    {
+        "nombre": SOPORTE,
+        "descripcion": (
+            "Un solo tablero para lo que el departamento atiende sin ser un proyecto: incidencias, "
+            "solicitudes y mantenimiento. Sin Gantt."
+        ),
+        "contenido": contenido_soporte,
+    },
 ]
 
 
 @transaction.atomic
-def instalar(*, actualizar: bool = False) -> dict[str, list[str]]:
-    """Crea las plantillas del sistema que falten. Con `actualizar`, además
-    repone la descripción y el contenido de las que ya existen (los tableros
-    creados con ellas no cambian)."""
+def instalar(*, actualizar: bool = False, equipo=None) -> dict[str, list[str]]:
+    """Crea las plantillas del sistema que falten: globales, o del `equipo` si
+    se indica. Con `actualizar`, además repone la descripción y el contenido
+    de las que ya existen (los tableros creados con ellas no cambian)."""
+    alcance = AlcancePlantilla.EQUIPO if equipo else AlcancePlantilla.GLOBAL
     resultado: dict[str, list[str]] = {"creadas": [], "actualizadas": [], "sin_cambios": []}
     for definicion in PLANTILLAS:
         nombre, descripcion, contenido = definicion["nombre"], definicion["descripcion"], definicion["contenido"]()
-        existente = Plantilla.objects.filter(alcance=AlcancePlantilla.GLOBAL, nombre=nombre).first()
+        existente = Plantilla.objects.filter(alcance=alcance, equipo=equipo, nombre=nombre).first()
         if existente is None:
-            Plantilla.objects.create(nombre=nombre, descripcion=descripcion, alcance=AlcancePlantilla.GLOBAL, contenido=contenido)
+            Plantilla.objects.create(nombre=nombre, descripcion=descripcion, alcance=alcance, equipo=equipo, contenido=contenido)
             resultado["creadas"].append(nombre)
         elif actualizar:
             existente.descripcion, existente.contenido = descripcion, contenido

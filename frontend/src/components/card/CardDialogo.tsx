@@ -42,6 +42,7 @@ import { cn } from "@/lib/cn";
 import { LISTA_URGENCIAS, URGENCIAS, VENCIMIENTOS } from "@/lib/estilos";
 import { haceCuanto, relativoFin } from "@/lib/fechas";
 
+import { Adjuntos } from "./Adjuntos";
 import { Checklist } from "./Checklist";
 import { Comentarios } from "./Comentarios";
 import { CamposTarjeta, EtiquetasTarjeta } from "./EtiquetasYCampos";
@@ -211,6 +212,7 @@ function Detalle({
       <div className="grid flex-1 gap-8 overflow-y-auto px-6 pt-4 pb-8 sm:px-8 md:grid-cols-[minmax(0,1fr)_270px]">
         <div className="min-w-0 space-y-8">
           <Descripcion card={card} puede={puede} onGuardar={(descripcion) => guardar({ descripcion })} />
+          <Adjuntos card={card} tableroId={tablero.id} puede={puede} />
           <Checklist card={card} tableroId={tablero.id} puede={puede} />
           <Conversacion card={card} tablero={tablero} yo={yo} puede={puede} />
         </div>

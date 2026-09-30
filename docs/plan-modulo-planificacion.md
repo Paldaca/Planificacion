@@ -523,6 +523,15 @@ crece a mitad de camino: lo nuevo va a la siguiente.
   de Excel), se ordenan con flechas y se renombran en su sitio. Renombrar una
   opción cambia también las tarjetas que la tenían (antes quedaban con el
   valor viejo, fuera de la lista).
+- **Plantilla «Soporte»** y tarjeta de **tutorial** en las dos
+  plantillas del sistema (la metodología en la descripción, los primeros pasos
+  en el checklist). `instalar_plantillas --equipo <id>` las crea como
+  plantillas de un equipo en vez de globales.
+- **Hitos como rombos**: una etiqueta se marca «Hito» (`Etiqueta.es_hito`) y
+  sus tarjetas se dibujan como rombo en el Gantt y en su PDF, y salen como
+  hito en MS Project (D-17).
+- **Adjuntos en las tarjetas**, bajo la descripción: hasta 10 MB por archivo
+  y 20 por tarjeta, guardados en la base (D-16), siempre como descarga.
 - **Tableros favoritos**: estrella en cada tablero (solo para quien la
   marca); los favoritos salen primero en *Tableros*. No dan acceso.
 - **Arranque local**: `iniciar.ps1` / `iniciar.sh` del Portal abren todo como
@@ -752,7 +761,8 @@ en esta fase):
 
 - ✅ **Plantillas de tablero:** crear un tablero desde una plantilla (columnas
   y cards con duraciones relativas) y **guardar un tablero como plantilla**.
-- **Adjuntos** en las cards (requiere almacenamiento de archivos y límites).
+- ✅ **Adjuntos** en las cards (hecho después, fuera de la fase: contenido en
+  la base, con límites; D-16).
 - ✅ **Campos personalizados** por tablero (texto, número, lista).
 - ✅ **Etiquetas** por tablero (por ejemplo, disciplina o cliente).
 - ✅ **Límite de cards por columna** (estilo Kanban).
@@ -843,6 +853,8 @@ cabecera `X-CSRFToken`.
 | D-12 | Tareas en MS Project | Programadas manualmente, para conservar las fechas del tablero (**decidido**) |
 | D-13 | ¿El límite por columna bloquea? | No: es suave, marca y avisa; el trabajo real no se frena por una regla del tablero (**decidido**) |
 | D-14 | ¿Dónde viven los valores de campos personalizados? | En `Card.campos` (JSON por id de campo), validados en el servicio; los campos se archivan, no se borran (**decidido**) |
+| D-16 | ¿Dónde se guardan los adjuntos? | En la base (`planificacion_adjunto.contenido`), hasta 10 MB por archivo y 20 por tarjeta: el despliegue no necesita un volumen persistente y el respaldo de la base los incluye. Si el uso crece (archivos pesados, muchos GB), pasar a almacenamiento de archivos (**decidido**) |
+| D-17 | ¿Qué es un hito? | Una tarjeta con una etiqueta marcada `es_hito`; no se deduce del nombre ni de la duración. Se dibuja como rombo y sale como `Milestone` en Project (**decidido**) |
 | D-15 | ¿Qué guarda una plantilla? | Una foto JSON con fechas relativas en días hábiles, etiquetas y campos por nombre; sin personas, comentarios ni historial (**decidido**) |
 
 ---

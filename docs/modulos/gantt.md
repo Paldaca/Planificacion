@@ -91,6 +91,16 @@ cambian de uno a otro; donde el campo no existe, `agrupacionVigente` vuelve a
 «columna» sin tocar lo guardado. Una tarea creada desde el Gantt nace sin ese
 campo y cae en «Sin …». El PDF recibe lo mismo (`agrupar=campo:Fase`).
 
+**Hitos** (rombos): una tarjeta es un hito si lleva una etiqueta con
+`es_hito` (ver [`tableros.md`](tableros.md)); `VistaGantt` lo calcula con las
+etiquetas del tablero (`esHito`) y lo pasa a `Barra` y `EtiquetaCard` (prop
+`hito`, dentro de su comparación de `memo`). `Barra` dibuja un rombo centrado
+en el **último día** (por eso recibe `dia`, los px de un día), con el título a
+la derecha y, si la tarjeta dura varios días, una línea fina desde el inicio.
+Un hito se mueve arrastrándolo pero no se estira. Las flechas usan la misma
+caja que una barra. La leyenda muestra «Hito» si el tablero tiene alguna
+etiqueta de hito. El PDF dibuja lo mismo (`pdf.hito`).
+
 Pensado para que un equipo cargue su plan y quien lo dirige siga el avance
 sin esfuerzo:
 

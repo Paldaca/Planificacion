@@ -1,4 +1,4 @@
-import { Archive, ArchiveRestore, ChevronDown, Eye, EyeOff, Hash, List, Plus, Settings2, Tag, Trash2, Type } from "lucide-react";
+import { Archive, ArchiveRestore, ChevronDown, Diamond, Eye, EyeOff, Hash, List, Plus, Settings2, Tag, Trash2, Type } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -121,6 +121,12 @@ function AyudaEtiquetas() {
       </SeccionAyuda>
       <SeccionAyuda titulo="Para qué sirven">
         <p>Se ven en el Tablero y en la Lista, y con el filtro «Etiquetas» ves solo lo de una (también al exportar a Excel).</p>
+      </SeccionAyuda>
+      <SeccionAyuda titulo="Etiqueta de hito">
+        <p>
+          Con «Hito» activado, las tarjetas que lleven esa etiqueta se dibujan como un <b>rombo</b> en el Gantt y en su PDF: el cierre de
+          una fase, una entrega, una aprobación.
+        </p>
       </SeccionAyuda>
       <p className="text-xs text-tenue">
         Créalas aquí (hasta 30) y márcalas dentro de cada tarjeta con un clic. Borrar una la quita de todas sus tarjetas.
@@ -259,7 +265,24 @@ function FilaEtiqueta({ tableroId, etiqueta, usos }: { tableroId: number; etique
           onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
           className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-sm font-medium text-texto outline-none hover:border-linea focus:border-morado/40"
         />
-        <span className="text-xs text-tenue tabular-nums">{usos === 1 ? "1 tarjeta" : `${usos} tarjetas`}</span>
+        <button
+          type="button"
+          onClick={() => editar.mutate({ id: etiqueta.id, cambios: { es_hito: !etiqueta.es_hito } })}
+          aria-pressed={etiqueta.es_hito}
+          title={
+            etiqueta.es_hito
+              ? "Etiqueta de hito: sus tarjetas son un rombo en el Gantt"
+              : "Marcar como etiqueta de hito: sus tarjetas se dibujarán como un rombo en el Gantt"
+          }
+          className={cn(
+            "flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition-colors",
+            etiqueta.es_hito ? "bg-morado/10 text-morado" : "text-tenue hover:bg-columna",
+          )}
+        >
+          <Diamond className={cn("size-3.5", etiqueta.es_hito && "fill-current")} />
+          Hito
+        </button>
+        <span className="text-xs text-tenue tabular-nums max-sm:hidden">{usos === 1 ? "1 tarjeta" : `${usos} tarjetas`}</span>
         {confirmar ? (
           <Boton
             variante="peligro"

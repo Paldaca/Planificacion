@@ -154,6 +154,12 @@ export function VistaGantt({
   const [agruparGuardado, setAgrupar] = usePreferencia<string>("gantt:agrupar", "columna");
   const agrupar = agrupacionVigente(agruparGuardado, tablero.campos);
   const camposLista = useMemo(() => camposAgrupables(tablero.campos), [tablero.campos]);
+  // Hito = tarjeta con una etiqueta marcada como tal (no se adivina por el nombre).
+  const etiquetasHito = useMemo(
+    () => new Set(tablero.etiquetas.filter((e) => e.es_hito).map((e) => e.id)),
+    [tablero.etiquetas],
+  );
+  const esHito = (card: CardResumen) => etiquetasHito.size > 0 && card.etiquetas.some((e) => etiquetasHito.has(e));
   const [moverSucesoras, setMoverSucesoras] = usePreferencia<boolean>("gantt:mover-sucesoras", true);
   const [plegados, setPlegados] = useState<Set<string>>(() => new Set());
   const [arrastre, setArrastre] = useState<Arrastre | null>(null);
@@ -654,6 +660,7 @@ export function VistaGantt({
                       <EtiquetaCard
                         key={f.card.id}
                         fila={f}
+                        hito={esHito(f.card)}
                         onAbrir={alAbrir}
                         resaltada={resaltada === f.card.id}
                         onResaltar={setResaltada}
@@ -706,6 +713,8 @@ export function VistaGantt({
                         key={f.card.id}
                         fila={f}
                         caja={posiciones.get(f.card.id)!}
+                        hito={esHito(f.card)}
+                        dia={px}
                         puede={puede}
                         arrastrando={arrastre?.movido === true && arrastre.card.id === f.card.id}
                         destinoEnlace={enlace !== null && enlace.desde !== f.card.id}
@@ -760,6 +769,11 @@ export function VistaGantt({
           <span className="inline-flex items-center gap-1.5">
             <span className="size-3 rounded-sm bg-rojo/10" /> Feriado
           </span>
+          {etiquetasHito.size > 0 && (
+            <span className="inline-flex items-center gap-2">
+              <span className="size-2.5 rotate-45 rounded-[2px] bg-morado" /> Hito
+            </span>
+          )}
           <span className="inline-flex items-center gap-1.5">
             <svg width="22" height="6" aria-hidden>
               <line x1="0" y1="3" x2="22" y2="3" stroke="#dc2626" strokeWidth="1.5" strokeDasharray="4 3" />

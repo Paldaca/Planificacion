@@ -49,12 +49,24 @@ const TABLERO: TemaAyuda = {
       titulo: "Qué hay dentro de una tarjeta",
       parrafos: [
         "Haz clic en una tarjeta para abrirla. Ahí tienes:",
-        "• **Descripción** y **checklist** (su avance se ve en la tarjeta).",
+        "• **Descripción**, **adjuntos** y **checklist** (su avance se ve en la tarjeta).",
         "• **Fechas** de inicio y fin, **urgencia**, **etiquetas** y los **campos** propios del tablero.",
         "• **Responsables**: reciben un aviso en la campana del Portal.",
         "• **Comentarios** con @menciones, y la **Actividad**: el historial de todo lo que cambió.",
         "• **Gantt**: si la tarjeta entra en el Gantt «Según columna», siempre o nunca.",
         "Cada tarjeta tiene un número (#12): puedes buscarla por él o compartir su enlace.",
+      ],
+    },
+    {
+      id: "adjuntos",
+      titulo: "Adjuntar archivos a una tarjeta",
+      parrafos: [
+        "Dentro de la tarjeta, bajo la descripción, está **Adjuntos**: pulsa **Adjuntar** (puedes elegir varios) o suelta los archivos encima.",
+        "Sirve para el documento de requisitos, un plano, una captura: lo que acompaña a esa tarjeta. Se descargan con un clic; quien solo consulta el tablero también puede descargarlos.",
+        "• Hasta **10 MB** por archivo y 20 archivos por tarjeta. Lo más pesado va a la carpeta del proyecto y se pega el enlace en la descripción.",
+        "• No se aceptan programas ni scripts (.exe, .bat, .ps1…).",
+        "• **Quitar** un adjunto lo borra de verdad; en la Actividad queda quién lo subió y quién lo quitó.",
+        "• Los adjuntos no viajan en las plantillas ni en el Excel.",
       ],
     },
     {
@@ -81,6 +93,7 @@ const TABLERO: TemaAyuda = {
         "• **Estados que no son columnas**: Bloqueada, Espera cliente, Revisión interna.",
         "Para qué sirven: se ven como píldoras en el Tablero y en la Lista, y con el filtro **Etiquetas** ves solo, por ejemplo, lo de Mecánica. El filtro vale para las cuatro vistas y para exportar a Excel.",
         "Cómo se crean: en el menú «…» del tablero, **Etiquetas y campos…** (hasta 30 por tablero, cada una con su color). Luego, dentro de cada tarjeta, se marcan o desmarcan con un clic.",
+        "**Etiqueta de hito**: en la misma pantalla, el botón **Hito** de una etiqueta hace que las tarjetas que la lleven se dibujen como un **rombo** en el Gantt y en su PDF (el cierre de una fase, una entrega). Se marca a mano: el nombre de la etiqueta no influye.",
         "Ojo: borrar una etiqueta la quita de todas las tarjetas que la tenían.",
       ],
     },
@@ -243,6 +256,15 @@ const GANTT: TemaAyuda = {
         "• **Agrupar** por columna, responsable o urgencia. Por responsable ves cómo va cada persona.",
         "• Si el tablero tiene un **campo de tipo lista** (por ejemplo «Fase»), también puedes agrupar por él: un grupo por cada opción, en el orden de la lista, y al final las tarjetas que no lo tienen.",
         "• **Hoy** vuelve a la fecha actual; el botón de la esquina pone el Gantt en **pantalla completa** (Esc para salir).",
+      ],
+    },
+    {
+      id: "hitos",
+      titulo: "Hitos: los rombos del Gantt",
+      parrafos: [
+        "Un **hito** marca un logro con fecha: el cierre de una fase, una entrega, una aprobación. En el Gantt y en su PDF se dibuja como un **rombo** en su último día, y en MS Project sale como hito.",
+        "Una tarjeta es un hito cuando lleva una **etiqueta de hito**. Se marca en «…» → **Etiquetas y campos…**, con el botón **Hito** de la etiqueta. Las plantillas del programa ya traen la etiqueta «Hito» así.",
+        "Filtrando por esa etiqueta el Gantt queda solo con los hitos: la vista para informar fechas.",
       ],
     },
     {

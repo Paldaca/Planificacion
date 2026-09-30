@@ -202,6 +202,9 @@ class Etiqueta(models.Model):
     nombre = models.CharField(max_length=40)
     color = models.CharField(max_length=7, default="#2563eb")
     orden = models.PositiveIntegerField(default=0)
+    #: Las tarjetas con esta etiqueta son hitos: un rombo en el Gantt y en su
+    #: PDF, y «Milestone» en MS Project. Se marca a mano, no por el nombre.
+    es_hito = models.BooleanField(default=False)
 
     class Meta:
         db_table = "planificacion_etiqueta"
@@ -350,6 +353,11 @@ class Card(models.Model):
             return self.columna.incluir_en_gantt
         return self.en_gantt == EnGantt.SI
 
+    @property
+    def es_hito(self) -> bool:
+        """Tiene alguna etiqueta de hito (usa las etiquetas ya precargadas)."""
+        return any(e.es_hito for e in self.etiquetas.all())
+
     def alinear_con_columna(self, columna: Columna, ahora) -> None:
         """En la columna final cuenta como terminada; fuera de ella, no."""
         if columna.es_final:
@@ -417,6 +425,36 @@ class ItemChecklist(models.Model):
         return f"{'[x]' if self.hecho else '[ ]'} {self.texto}"
 
 
+class AdjuntoQuerySet(models.QuerySet):
+    def sin_contenido(self):
+        """Para listar: sin traer los archivos de la base."""
+        return self.defer("contenido")
+
+
+class Adjunto(models.Model):
+    """Archivo adjunto a una tarjeta. El contenido vive en la base (D-16): el
+    despliegue no necesita un volumen y el respaldo de la base lo incluye. A
+    cambio, el tamaño está acotado (`services/adjuntos.py`)."""
+
+    card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="adjuntos")
+    nombre = models.CharField(max_length=200)
+    #: Tipo MIME deducido del nombre (no el que dice el navegador).
+    tipo = models.CharField(max_length=100, blank=True)
+    tamano = models.PositiveIntegerField()
+    contenido = models.BinaryField()
+    subido_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    objects = AdjuntoQuerySet.as_manager()
+
+    class Meta:
+        db_table = "planificacion_adjunto"
+        ordering = ["creado_en", "id"]
+
+    def __str__(self):
+        return self.nombre
+
+
 class Actividad(models.Model):
     """Historial de una card. Lo escribe el backend; nunca se edita."""
 
@@ -432,6 +470,7 @@ class Actividad(models.Model):
         RESTAURO = "restauro", "Restauró la tarjeta"
         TRASLADO = "traslado", "Trasladó la tarjeta de tablero"
         DEPENDENCIA = "dependencia", "Cambió una dependencia"
+        ADJUNTO = "adjunto", "Cambió un adjunto"
 
     card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="actividad")
     actor = models.ForeignKey(

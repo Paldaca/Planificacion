@@ -42,6 +42,19 @@ class EtiquetasTests(Base):
         self.assertEqual(self.cliente(self.ana).delete(f"/api/v1/etiquetas/{civil['id']}/").status_code, 204)
         self.assertEqual(list(Card.objects.get(pk=card["id"]).etiquetas.all()), [])
 
+    def test_una_etiqueta_de_hito_se_marca_a_mano(self):
+        # El nombre no decide nada: «Hito» sin marcar no lo es.
+        por_nombre = self.cliente(self.ana).post(self.url("etiquetas"), {"nombre": "Hito"}, format="json").json()
+        cierre = self.cliente(self.ana).post(self.url("etiquetas"), {"nombre": "Cierre", "es_hito": True}, format="json").json()
+        self.assertEqual((por_nombre["es_hito"], cierre["es_hito"]), (False, True))
+        r = self.cliente(self.ana).patch(f"/api/v1/etiquetas/{por_nombre['id']}/", {"es_hito": True}, format="json")
+        self.assertEqual((r.status_code, r.json()["es_hito"], r.json()["nombre"]), (200, True, "Hito"))
+        self.assertEqual({e["nombre"]: e["es_hito"] for e in self.detalle()["etiquetas"]}, {"Hito": True, "Cierre": True})
+        self.assertEqual(self.cliente(self.beto).patch(f"/api/v1/etiquetas/{cierre['id']}/", {"es_hito": False}, format="json").status_code, 403)
+        card = self.crear_card()
+        self.patch_card(card, etiquetas=[cierre["id"]])
+        self.assertTrue(Card.objects.get(pk=card["id"]).es_hito)
+
     def test_nombre_repetido_sin_distinguir_mayusculas(self):
         # Igual en SQLite y en MySQL (que compara sin mayúsculas).
         self.cliente(self.ana).post(self.url("etiquetas"), {"nombre": "Cliente"}, format="json")

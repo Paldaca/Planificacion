@@ -35,7 +35,14 @@ export type Columna = {
 };
 
 /** Etiqueta de un tablero (fase 5). */
-export type Etiqueta = { id: number; nombre: string; color: string; orden: number };
+export type Etiqueta = {
+  id: number;
+  nombre: string;
+  color: string;
+  orden: number;
+  /** Las tarjetas con esta etiqueta son hitos: un rombo en el Gantt. */
+  es_hito: boolean;
+};
 
 export type TipoCampo = "texto" | "numero" | "lista";
 
@@ -100,14 +107,27 @@ export type Actividad = {
     | "archivo"
     | "restauro"
     | "traslado"
-    | "dependencia";
+    | "dependencia"
+    | "adjunto";
   detalle: Record<string, unknown>;
+  creado_en: string;
+};
+
+/** Archivo adjunto a una tarjeta (el contenido se pide aparte, al descargarlo). */
+export type Adjunto = {
+  id: number;
+  nombre: string;
+  /** Tipo MIME deducido del nombre. */
+  tipo: string;
+  tamano: number;
+  subido_por: Persona | null;
   creado_en: string;
 };
 
 export type CardDetalle = CardResumen & {
   descripcion: string;
   items: ItemChecklist[];
+  adjuntos: Adjunto[];
   creada_por: Persona | null;
   creado_en: string;
   tablero: { id: number; nombre: string; tipo: TipoTablero; equipo: EquipoBreve | null };

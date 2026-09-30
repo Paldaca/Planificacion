@@ -28,7 +28,7 @@ export function useCrearEtiqueta(tableroId: number) {
 export function useEditarEtiqueta(tableroId: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, cambios }: { id: number; cambios: { nombre?: string; color?: string } }) =>
+    mutationFn: ({ id, cambios }: { id: number; cambios: { nombre?: string; color?: string; es_hito?: boolean } }) =>
       api.patch<Etiqueta>(`${V1}/etiquetas/${id}/`, cambios),
     onSuccess: (etiqueta) =>
       editarTablero(qc, tableroId, (t) => ({

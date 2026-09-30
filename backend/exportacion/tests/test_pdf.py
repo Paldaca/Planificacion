@@ -2,12 +2,13 @@
 
 import datetime
 import re
+import xml.etree.ElementTree as ET
 
 from exportacion.services import pdf
 from exportacion.services.datos import Filtros, contenido
 from tableros.models import Tablero
 
-from .test_exportacion import Base
+from .test_exportacion import NS, Base
 
 PAGINA = re.compile(rb"/Type /Page\b(?!s)")
 
@@ -70,6 +71,22 @@ class PdfTests(Base):
         # Solo campos de lista que existan en el tablero.
         for nombre in ("Horas", "Disciplina"):
             self.assertEqual(self.exportar("pdf", agrupar=f"campo:{nombre}").status_code, 400)
+
+    def test_un_hito_sale_en_el_pdf_y_como_milestone_en_project(self):
+        url = f"/api/v1/tableros/{self.tablero['id']}/etiquetas/"
+        hito = self.cliente(self.ana).post(url, {"nombre": "Cierre", "color": "#d97706", "es_hito": True}, format="json").json()
+        r = self.cliente(self.ana).patch(
+            f"/api/v1/cards/{self.a['id']}/", {"etiquetas": [hito["id"]], "version": self.a["version"]}, format="json"
+        )
+        self.assertEqual(r.status_code, 200, r.content)
+        # «Levantamiento» dura tres días: rombo en el último y línea hasta él.
+        self.assertEqual(self.exportar("pdf").status_code, 200)
+        raiz = ET.fromstring(self.exportar("xml").content)
+        hitos = {
+            t.findtext("p:Name", namespaces=NS): t.findtext("p:Milestone", namespaces=NS)
+            for t in raiz.iter(f"{{{NS['p']}}}Task")
+        }
+        self.assertEqual((hitos["Levantamiento"], hitos["Planos"]), ("1", "0"))
 
     def test_respeta_los_filtros(self):
         plan = self.plan(filtros=Filtros(responsables=(self.beto.pk,)))

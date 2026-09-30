@@ -7,8 +7,8 @@
 ## Responsabilidad
 
 Tableros, columnas (con límite de tarjetas), tarjetas (*cards*),
-responsables, etiquetas, campos personalizados, comentarios con menciones,
-checklist, historial (actividad), vencimientos y avisos de colaboración, *Mis
+responsables, etiquetas (con etiquetas de hito), campos personalizados,
+adjuntos, comentarios con menciones, checklist, historial (actividad), vencimientos y avisos de colaboración, *Mis
 tareas* y traslado de tarjetas entre tableros.
 
 Nota de vocabulario: en el código y en la API es `Card`/`cards`; en la
@@ -22,12 +22,13 @@ interfaz y en los mensajes al usuario es **tarjeta**.
 | `Columna` | `planificacion_columna` | `orden`, `es_final` (sus tarjetas cuentan como terminadas), `incluir_en_gantt`, `limite_cards` (límite **suave**, D-13: se avisa, no se bloquea; `null` = sin límite), `archivada`, `version`. |
 | `Card` | `planificacion_card` | `numero` correlativo por tablero (único), `titulo`, `descripcion`, `fecha_inicio`, `fecha_fin` (solo día, D-01), `urgencia` (baja/media/alta/critica), `orden`, `en_gantt` (heredar/si/no), `etiquetas` (M2M), `campos` (JSON), `completada_en`, `aviso_vencimiento`, `archivada`, `version`. `CheckConstraint` `fecha_fin ≥ fecha_inicio` + `clean()`. |
 | `ResponsableCard` | `planificacion_responsable_card` | Varios por tarjeta; único (card, usuario). |
-| `Etiqueta` | `planificacion_etiqueta` | Por tablero (`related_name="etiquetas"`): `nombre` (único en el tablero sin distinguir mayúsculas ni acentos: `core.texto.clave_nombre`), `color`, `orden`. `Card.etiquetas` es M2M (`planificacion_card_etiqueta`). Borrar una etiqueta la quita de sus tarjetas. |
+| `Etiqueta` | `planificacion_etiqueta` | Por tablero (`related_name="etiquetas"`): `nombre` (único en el tablero sin distinguir mayúsculas ni acentos: `core.texto.clave_nombre`), `color`, `orden`, `es_hito` (las tarjetas que la llevan son **hitos**: `Card.es_hito`, un rombo en el Gantt y su PDF y `Milestone` en MS Project; se marca a mano, nunca por el nombre). `Card.etiquetas` es M2M (`planificacion_card_etiqueta`). Borrar una etiqueta la quita de sus tarjetas. |
 | `CampoPersonalizado` | `planificacion_campo_personalizado` | Por tablero (`related_name="campos"`): `tipo` texto/numero/lista, `opciones` (lista), `orden`, `visible_en_tarjeta`, `archivado`. Nombre único entre los activos (sin mayúsculas ni acentos): lo cumple `campos._guardar` con el tablero bloqueado, porque MySQL no crea la restricción con condición `campo_activo_unico_por_tablero`. No se borran: se archivan. Los valores viven en `Card.campos` (JSON `{"<id del campo>": valor}`, D-14). |
+| `Adjunto` | `planificacion_adjunto` | Archivo de una tarjeta: `nombre`, `tipo` (MIME deducido del nombre), `tamano`, `contenido` (**en la base**, `BinaryField`: decisión D-16), `subido_por`. Listar siempre con `Adjunto.objects.sin_contenido()` para no traer los archivos. |
 | `Comentario` | `planificacion_comentario` | `menciones` M2M, `editado_en`, `eliminado` (borrado lógico). |
 | `ItemChecklist` | `planificacion_item_checklist` | `texto`, `hecho`, `orden`. |
 | `TableroFavorito` | `planificacion_tablero_favorito` | `usuario`, `tablero`, `creado_en`; único (usuario, tablero). Solo lo ve esa persona y **no da acceso**: los listados parten de `visibles_para`, así que un favorito de un tablero que ya no ve no aparece. |
-| `Actividad` | `planificacion_actividad` | Historial inmutable: `accion` ∈ creo, movio, edito, asigno, desasigno, comento, checklist, archivo, restauro, traslado, dependencia; `detalle` (antes/después). Etiquetas: `edito` con `campo="etiquetas"` (nombres separados por coma); campos: `campo="personalizado"` con `nombre`, `antes`, `despues` en texto. |
+| `Actividad` | `planificacion_actividad` | Historial inmutable: `accion` ∈ creo, movio, edito, asigno, desasigno, comento, checklist, archivo, restauro, traslado, dependencia, adjunto (`cambio` agrego/quito y `nombre`); `detalle` (antes/después). Etiquetas: `edito` con `campo="etiquetas"` (nombres separados por coma); campos: `campo="personalizado"` con `nombre`, `antes`, `despues` en texto. |
 
 Lecturas reutilizables en QuerySet: `Tablero.objects.activos()`,
 `.visibles_para(u)`; `Columna.objects.activas()`; `Card.objects.activas()`,
@@ -50,7 +51,8 @@ historial + avisos + estado de vencimiento). Argumentos por nombre; lanzan
 | `columnas.py` | `crear_columna`, `reordenar_columnas`, `editar_columna` (con `version`; incluye `limite_cards`), `archivar_columna` (exige destino para sus tarjetas) |
 | `tarjetas.py` | `crear_card` (`avisar=False` para la importación y las plantillas; acepta `etiquetas` y `valores_campos`), `editar_card` (con `version` → `ConflictoDeVersion`; `etiquetas` y `valores_campos` registran su historial), `mover_card`, `archivar_card`, `trasladar_card` (emite la señal `tarjeta_trasladada`; conserva las etiquetas y los campos que existan en el destino con el mismo nombre —y tipo, en los campos—; el resto se pierde, no se crea) |
 | `favoritos.py` | `marcar_favorito` (idempotente; quien llama ya comprobó que lo ve), `ids_favoritos` |
-| `etiquetas.py` | `crear_etiqueta` (máx. 30 por tablero; nombre repetido → `ReglaDeNegocio`), `editar_etiqueta`, `eliminar_etiqueta` |
+| `etiquetas.py` | `crear_etiqueta` (máx. 30 por tablero; nombre repetido → `ReglaDeNegocio`; `es_hito`), `editar_etiqueta` (nombre, color, `es_hito`), `eliminar_etiqueta` |
+| `adjuntos.py` | `adjuntar` (hasta `MAX_BYTES` = 10 MB y `MAX_POR_TARJETA` = 20; nombre sin carpetas; rechaza vacíos y `EXTENSIONES_BLOQUEADAS`: programas y scripts), `comprobar_peticion` (la vista la llama con el `Content-Length` **antes** de leer el cuerpo: una subida que ya anuncia más del límite no llega a escribirse en el disco temporal), `quitar` (borra de verdad, para liberar el espacio; ambos quedan en el historial) |
 | `campos.py` | `crear_campo` (máx. 20 activos; una lista exige opciones), `editar_campo` (el tipo no cambia; `renombrar={vieja: nueva}` en una lista cambia también el valor de las tarjetas que tenían esa opción, sin historial por tarjeta, como borrar una etiqueta; quitar una opción no toca las tarjetas), `valor_valido` (número con coma o punto → int/float; lista: una de sus opciones; texto ≤ 500), `validar_valores` (solo campos activos del tablero; `null`/vacío borra), `texto_valor`, `remapear` (valores de un tablero a otro) |
 | `comentarios.py` | `extraer_menciones`, `comentar`, `editar_comentario`, `eliminar_comentario` |
 | `checklist.py` | `agregar_item`, `editar_item`, `eliminar_item` |
@@ -87,11 +89,12 @@ serializer). Piezas comunes en `api/views/comunes.py`: `obtener_tablero`,
 | `equipos/<id>/tableros/` | tableros del equipo |
 | `tableros/<id>/columnas/` · `columnas/reordenar/` | crear · reordenar |
 | `columnas/<id>/` · `columnas/<id>/archivar/` | editar (con `version`) · archivar con destino |
-| `tableros/<id>/etiquetas/` · `etiquetas/<id>/` | crear · renombrar/recolorear, eliminar (gestionar) |
+| `tableros/<id>/etiquetas/` · `etiquetas/<id>/` | crear · renombrar/recolorear, marcar `es_hito`, eliminar (gestionar) |
 | `tableros/<id>/campos/` · `campos/<id>/` | crear · editar nombre, opciones (con `renombrar: {vieja: nueva}` para que las tarjetas sigan a la opción renombrada), visibilidad, archivar (gestionar; cambiar `tipo` → 400) |
 | `tableros/<id>/cards/` · `cards/<numero>/` | crear · ver por número (deep link) |
 | `cards/<id>/` | ver, editar (PATCH con `version`; `etiquetas` = lista de ids, `campos` = `{id: valor\|null}` y solo cambia los que vienen) |
 | `cards/<id>/mover/` · `archivar/` · `trasladar/` · `actividad/` | mover (columna + posición) · archivar/restaurar · llevar a otro tablero · historial |
+| `cards/<id>/adjuntos/` · `adjuntos/<id>/` | listar (ver), subir multipart `archivo` (editar) · descargar (ver; siempre `attachment` + `nosniff`), quitar (editar). La tarjeta abierta ya trae `adjuntos` (sin contenido) |
 | `cards/<id>/checklist/` · `checklist/<id>/` | añadir · marcar, renombrar, eliminar |
 | `cards/<id>/comentarios/` · `comentarios/<id>/` | listar, crear · editar, borrar |
 | `mis-tareas/` | tarjetas donde soy responsable |
@@ -123,8 +126,9 @@ administra, beto y carla son miembros, `lector` solo consulta, `ajeno` no está
 (ids del Portal fijos 11/22/33 para verificar destinatarios). Archivos por
 funcionalidad: `test_tableros`, `test_columnas`, `test_tarjetas`,
 `test_comentarios`, `test_checklist`, `test_avisos`, `test_vencimientos`,
-`test_mis_tareas`, `test_configuracion` (etiquetas, campos y límite),
-`test_favoritos`.
+`test_mis_tareas`, `test_configuracion` (etiquetas, etiqueta de hito, campos y límite),
+`test_favoritos`, `test_adjuntos` (subir, listar, descargar, quitar, límites y
+permisos).
 
 ## Cuidado al modificar
 
@@ -144,6 +148,13 @@ funcionalidad: `test_tableros`, `test_columnas`, `test_tarjetas`,
 - Valores de campos: siempre por `campos.validar_valores` (el serializer ya
   lo hace); nunca escribir `Card.campos` a mano. Un campo archivado conserva
   sus valores y deja de aceptarlos.
+- Adjuntos: nunca `card.adjuntos.all()` para listar (trae los archivos):
+  `sin_contenido()`. Se sirven solo como descarga; no añadir vista previa en
+  línea sin limitar los tipos (un HTML o SVG subido se ejecutaría en el origen
+  de la aplicación). «Nada se borra» no aplica a los adjuntos: quitar uno lo
+  borra (queda el historial). No viajan en plantillas ni exportaciones.
+- Hito: depende solo de `Etiqueta.es_hito`. No deducirlo del nombre de la
+  etiqueta ni de que la tarjeta dure un día.
 - Una regla nueva sobre etiquetas o campos que afecte a la exportación o a
   las plantillas debe revisarse también en `exportacion` y `plantillas`.
 

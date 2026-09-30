@@ -251,7 +251,7 @@ def _tarea_card(tareas, card, uid_de_card, deps, esquema, c: Contenido) -> None:
         ("ManualFinish", _fin(card.fecha_fin)),
         ("ManualDuration", _duracion(dias)),
         ("DurationFormat", 7),
-        ("Milestone", 0),
+        ("Milestone", 1 if card.es_hito else 0),
         ("Summary", 0),
         ("PercentComplete", avance),
     ]:

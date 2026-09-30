@@ -6,10 +6,10 @@
 ## Responsabilidad
 
 Plantillas de tablero: guardar un tablero como molde y crear tableros nuevos
-desde él. Una plantilla es una **foto** (JSON) de columnas, etiquetas, campos
+desde él. Una plantilla es una **foto** (JSON) de columnas, etiquetas (con su marca de hito), campos
 personalizados y tarjetas con fechas **relativas en días hábiles**, checklist
-y dependencias (D-15). No guarda personas, comentarios, historial ni tarjetas
-archivadas.
+y dependencias (D-15). No guarda personas, comentarios, adjuntos, historial ni
+tarjetas archivadas.
 
 No confundir con la *plantilla de importación* (un Excel vacío) de
 [`exportacion`](exportacion.md).
@@ -48,20 +48,29 @@ Si alguna vez cambia el formato, subir `FORMATO` y seguir leyendo el anterior
 
 ## Plantillas del sistema (`services/del_sistema.py`)
 
-Plantillas **globales escritas en el código** (no sacadas de un tablero), para
-que queden versionadas y salgan iguales en cada instalación. `PLANTILLAS` es
-la lista; `instalar(*, actualizar=False)` crea las que falten.
+Plantillas **escritas en el código** (no sacadas de un tablero), para que
+queden versionadas y salgan iguales en cada instalación. Son la metodología
+del departamento ([`metodologia-de-trabajo.md`](../metodologia-de-trabajo.md))
+llevada a tableros. `PLANTILLAS` es la lista; `instalar(*, actualizar=False,
+equipo=None)` crea las que falten.
 
 ```powershell
-..\venv\Scripts\python.exe manage.py instalar_plantillas              # crea las que falten
+..\venv\Scripts\python.exe manage.py instalar_plantillas              # globales: las ve todo el módulo
+..\venv\Scripts\python.exe manage.py instalar_plantillas --equipo 3   # del equipo 3: solo sus miembros
 ..\venv\Scripts\python.exe manage.py instalar_plantillas --actualizar # repone el contenido desde el código
 ```
 
-- Se reconocen **por el nombre** entre las globales: la que existe no se
-  vuelve a crear ni se pisa sin `--actualizar`. Si el administrador la
-  renombra, la siguiente instalación crea otra.
-- No tienen `creada_por`. Las gestiona el administrador del módulo, como
-  cualquier global.
+- **Globales o de un equipo.** Sin `--equipo` son globales (las gestiona el
+  administrador del módulo). Con `--equipo <id>` se crean como plantillas de
+  ese equipo: solo las ven sus miembros y las gestionan sus administradores.
+  Las dos formas conviven; un id que no existe lista los equipos activos.
+- Se reconocen **por el nombre y el alcance**: la que existe no se vuelve a
+  crear ni se pisa sin `--actualizar`. Si se renombra, la siguiente
+  instalación crea otra.
+- No tienen `creada_por`.
+- Cada una trae una tarjeta **«Tutorial: cómo se trabaja en este tablero»**
+  (sin fecha, en la primera columna) con la metodología en la descripción y
+  los primeros pasos en el checklist; se archiva al terminar de leerla.
 - El comando no corre solo al desplegar: hay que ejecutarlo una vez (en
   pruebas, a mano).
 
@@ -74,8 +83,21 @@ desarrollo por módulos llevada a tarjetas sin nada nuevo en el programa.
 | Fase | Campo de lista «Fase»: `Fase 0 · Configuración`, `Fase 1…3 · Módulo n`, `Cierre` (se renombran en cada tablero) |
 | Requisito | Campo de texto «Requisito» (`HU-1.1`…); «Rama» para la rama o el PR |
 | Tipo de trabajo | Etiquetas Documentación, Desarrollo, Pruebas, Error, Hotfix, Cambio mayor, Bloqueada |
-| Hito | Tarjeta de un día con la etiqueta «Hito» al cierre de cada fase (filtrar por ella deja el Gantt solo con los hitos) |
-| Tareas | 27 tarjetas: 1 de instrucciones en Pendientes, 5 de Fase 0, 6 por módulo (documentar, 3 historias, pruebas, revisión) y 3 de cierre; 67 días hábiles |
+| Hito | Tarjeta de un día con la etiqueta «Hito» (marcada `es_hito`: un rombo en el Gantt) al cierre de cada fase; filtrar por ella deja el Gantt solo con los hitos |
+| Tareas | 27 tarjetas: el tutorial en Pendientes, 5 de Fase 0, 6 por módulo (documentar, 3 historias, pruebas, revisión) y 3 de cierre; 67 días hábiles |
+
+**«Soporte»**: un solo tablero para lo que el departamento atiende sin ser un
+proyecto. Es solo soporte: no lleva el día a día del departamento.
+
+| Pieza | Cómo queda |
+|---|---|
+| Estado | Columnas Entrada · En atención · Esperando · Resuelto (final), **todas fuera del Gantt** |
+| Tipo | Etiquetas Incidencia, Solicitud, Mantenimiento |
+| Datos | Campo de lista «Sistema» (Portal, Nómina, Hoja de Tiempo, Planificación, Equipos y red, Otro: se ajusta en cada tablero) y de texto «Solicitante» |
+| Tarjetas | El tutorial y un ejemplo de incidencia, sin fechas |
+
+El límite de «En atención» no viene puesto (depende de cuántas personas sean):
+es uno de los primeros pasos del tutorial.
 
 Para cambiar el plan tipo se edita `del_sistema.py` y se corre el comando con
 `--actualizar`. En el Gantt, «Agrupar: Fase» muestra el resumen de cada fase
@@ -122,8 +144,10 @@ listar, usar, renombrar, eliminar) y el selector «Empezar con» de
 alcance según rol, quién ve y gestiona) y `UsarTests` (tablero con todo y
 fechas recalculadas; personal sin equipo y permisos).
 `tests/test_del_sistema.py`: instalar es idempotente, `--actualizar` repone,
-la ven todos y el tablero sale completo (columnas, fases, hitos, fechas con
-feriado y ninguna dependencia perdida ni incumplida).
+las globales las ven todos, las de un equipo solo sus miembros (`--equipo`),
+el tablero de proyecto sale completo (columnas, fases, hitos por la etiqueta
+marcada, fechas con feriado, ninguna dependencia perdida ni incumplida y el
+tutorial) y el de soporte queda fuera del Gantt.
 
 ## Cuidado al modificar
 

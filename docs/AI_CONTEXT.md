@@ -79,6 +79,8 @@ integracion_portal → paldaca_sso → core`. Para reaccionar «hacia arriba» s
 | Días hábiles | Lunes a viernes que no son feriado (`calendario`); los móviles se calculan desde la Pascua. |
 | Cuenta espejo | Usuario local creado desde el Portal (`CuentaPortal.portal_user_id` es la clave de unión). |
 | Admin del módulo | Rol del Portal: administra todos los equipos y el calendario; no ve tableros personales ajenos. |
+| Hito | Tarjeta con una etiqueta marcada `es_hito`: un rombo en el Gantt. No se deduce del nombre ni de la duración. |
+| Adjunto | Archivo de una tarjeta, guardado en la base (≤ 10 MB), siempre servido como descarga. |
 | Aviso | Notificación en la campana del Portal, emitida con firma HMAC y bandeja de salida. |
 
 ## 5. Reglas de oro
@@ -92,7 +94,8 @@ integracion_portal → paldaca_sso → core`. Para reaccionar «hacia arriba» s
    respuestas HTTP.
 3. **Concurrencia optimista:** tarjetas y columnas llevan `version`; versión
    vieja → 409 con el estado actual.
-4. **Nada se borra físicamente** en la operación normal: se archiva.
+4. **Nada se borra físicamente** en la operación normal: se archiva (salvo
+   los adjuntos, que se borran al quitarlos, y las etiquetas).
 5. **Tablas de negocio con prefijo `planificacion_`** (`Meta.db_table`); FK a
    personas contra `settings.AUTH_USER_MODEL`.
 6. **Días hábiles solo desde `calendario`.**
@@ -123,6 +126,7 @@ integracion_portal → paldaca_sso → core`. Para reaccionar «hacia arriba» s
 | `backend/Planificacion/` (settings, urls, spa) | [`arquitectura.md`](arquitectura.md) §3.3, §4.5, §6 y [`auditoria-arquitectura.md`](auditoria-arquitectura.md) |
 | Un cambio que cruza varios módulos | [`arquitectura.md`](arquitectura.md) + el documento de cada módulo |
 | Alcance, fases, decisiones | [`plan-modulo-planificacion.md`](plan-modulo-planificacion.md) |
+| Cómo usa AIT el programa (Soporte, un tablero por proyecto, etiquetas) | [`metodologia-de-trabajo.md`](metodologia-de-trabajo.md) |
 | Integración con la Suite | [`guia-integracion-programas-satelite.md`](guia-integracion-programas-satelite.md) |
 
 ## 7. Comandos
@@ -133,13 +137,13 @@ Rutas relativas a la raíz del repo; en Windows (PowerShell) el venv está en
 ```powershell
 # Backend (desde backend/)
 ..\venv\Scripts\python.exe manage.py runserver 127.0.0.1:8007
-..\venv\Scripts\python.exe manage.py test                    # 161 pruebas, ~30 s
+..\venv\Scripts\python.exe manage.py test                    # 170 pruebas, ~30 s
 ..\venv\Scripts\python.exe manage.py test tableros.tests.test_tarjetas
 ..\venv\Scripts\python.exe manage.py makemigrations <app>
 ..\venv\Scripts\python.exe manage.py migrate
 ..\venv\Scripts\python.exe manage.py procesar_avisos          # cron cada 5 min
 ..\venv\Scripts\python.exe manage.py revisar_vencimientos     # cron diario
-..\venv\Scripts\python.exe manage.py instalar_plantillas      # plantillas globales del programa (una vez)
+..\venv\Scripts\python.exe manage.py instalar_plantillas      # plantillas del programa (una vez; --equipo <id> para un equipo)
 
 # Frontend (desde frontend/)
 npm run dev        # http://localhost:5181  (usar localhost, no 127.0.0.1)

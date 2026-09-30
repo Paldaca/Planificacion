@@ -55,6 +55,7 @@ class GuardarTests(Base):
         self.assertEqual(tarjetas["Planos"]["depende"], [[self.a["numero"], "fin_inicio", 0]])
         self.assertEqual(contenido["columnas"][1]["limite_cards"], 3)
         self.assertNotIn("responsables", tarjetas["Levantamiento"])  # las personas no viajan
+        self.assertEqual(contenido["etiquetas"], [{"nombre": "Civil", "color": "#0d9488", "es_hito": False}])
 
     def test_alcance_segun_rol(self):
         self.assertEqual(self.guardar(usuario=self.beto, alcance="equipo", equipo=self.equipo_id).status_code, 403)
@@ -92,7 +93,7 @@ class UsarTests(Base):
         self.assertEqual((nuevo.tipo, nuevo.equipo_id), ("equipo", self.equipo_id))
         self.assertEqual([c.nombre for c in nuevo.columnas.activas()], ["Tareas", "En curso", "Hecho"])
         self.assertEqual(nuevo.columnas.activas()[1].limite_cards, 3)
-        self.assertEqual([e.nombre for e in nuevo.etiquetas.all()], ["Civil"])
+        self.assertEqual([(e.nombre, e.es_hito) for e in nuevo.etiquetas.all()], [("Civil", False)])
         cards = {c.titulo: c for c in Card.objects.filter(tablero=nuevo)}
         # Día 0 = vie 9/10; día 1 = mar 13/10 (el lunes 12 es feriado); días 2 y 4 = 14/10 y 16/10.
         self.assertEqual((cards["Levantamiento"].fecha_inicio, cards["Levantamiento"].fecha_fin), (D(2026, 10, 9), D(2026, 10, 13)))
@@ -105,6 +106,13 @@ class UsarTests(Base):
         self.assertEqual([i.texto for i in cards["Planos"].checklist.all()], ["Planta"])
         dep = Dependencia.objects.get(sucesora=cards["Planos"])
         self.assertEqual(dep.predecesora, cards["Levantamiento"])
+
+    def test_la_etiqueta_de_hito_viaja_en_la_plantilla(self):
+        self.cliente(self.ana).patch(f"/api/v1/etiquetas/{self.civil['id']}/", {"es_hito": True}, format="json")
+        r = self.usar(self.guardar().json()["id"], equipo=self.equipo_id, fecha_inicio="2026-10-09")
+        nuevo = Tablero.objects.get(pk=r.json()["tablero"])
+        self.assertEqual([(e.nombre, e.es_hito) for e in nuevo.etiquetas.all()], [("Civil", True)])
+        self.assertTrue(Card.objects.get(tablero=nuevo, titulo="Levantamiento").es_hito)
 
     def test_personal_si_no_hay_equipo_y_permisos(self):
         plantilla = self.guardar(alcance="equipo", equipo=self.equipo_id).json()

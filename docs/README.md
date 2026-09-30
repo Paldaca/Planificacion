@@ -8,6 +8,7 @@
 | [`auditoria-arquitectura.md`](auditoria-arquitectura.md) | Auditoría de septiembre 2026: fortalezas, hallazgos con severidad, plan de acción y checklist de despliegue. |
 | [`modulos/`](modulos/) | Un documento por módulo. **Leer el del módulo antes de modificarlo.** |
 | [`plan-modulo-planificacion.md`](plan-modulo-planificacion.md) | Diseño funcional, modelo de datos conceptual, permisos, sincronización con el Portal, plan por fases y decisiones. |
+| [`metodologia-de-trabajo.md`](metodologia-de-trabajo.md) | Cómo usa el departamento AIT el programa: un tablero de Soporte, un tablero por proyecto, qué significa cada columna, etiqueta y campo, y el ritmo semanal. Propuesta, pendiente de aprobar. |
 | [`guia-integracion-programas-satelite.md`](guia-integracion-programas-satelite.md) | Guía de la Suite para integrar satélites con el Portal (SSO, avisos). |
 
 ## Documentos por módulo

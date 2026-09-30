@@ -1,5 +1,6 @@
 """Etiquetas de un tablero (fase 5). Las define quien gestiona el tablero; las
-asigna a las tarjetas quien las edita (`tarjetas.editar_card`)."""
+asigna a las tarjetas quien las edita (`tarjetas.editar_card`). Una etiqueta
+marcada `es_hito` convierte en hitos a las tarjetas que la llevan."""
 
 from __future__ import annotations
 
@@ -32,7 +33,7 @@ def _validar(nombre: str | None, color: str | None) -> None:
 
 
 @transaction.atomic
-def crear_etiqueta(tablero: Tablero, *, nombre: str, color: str) -> Etiqueta:
+def crear_etiqueta(tablero: Tablero, *, nombre: str, color: str, es_hito: bool = False) -> Etiqueta:
     _validar(nombre, color)
     if tablero.etiquetas.count() >= MAX_ETIQUETAS:
         raise ReglaDeNegocio(f"Un tablero admite hasta {MAX_ETIQUETAS} etiquetas.")
@@ -41,12 +42,16 @@ def crear_etiqueta(tablero: Tablero, *, nombre: str, color: str) -> Etiqueta:
         raise ReglaDeNegocio(f"Ya hay una etiqueta «{nombre.strip()}» en este tablero.")
     try:
         with transaction.atomic():
-            return Etiqueta.objects.create(tablero=tablero, nombre=nombre.strip()[:40], color=color.lower(), orden=orden)
+            return Etiqueta.objects.create(
+                tablero=tablero, nombre=nombre.strip()[:40], color=color.lower(), orden=orden, es_hito=es_hito
+            )
     except IntegrityError:
         raise ReglaDeNegocio(f"Ya hay una etiqueta «{nombre.strip()}» en este tablero.")
 
 
-def editar_etiqueta(etiqueta: Etiqueta, *, nombre: str | None = None, color: str | None = None) -> Etiqueta:
+def editar_etiqueta(
+    etiqueta: Etiqueta, *, nombre: str | None = None, color: str | None = None, es_hito: bool | None = None
+) -> Etiqueta:
     _validar(nombre, color)
     if nombre is not None:
         etiqueta.nombre = nombre.strip()[:40]
@@ -54,6 +59,8 @@ def editar_etiqueta(etiqueta: Etiqueta, *, nombre: str | None = None, color: str
             raise ReglaDeNegocio(f"Ya hay una etiqueta «{etiqueta.nombre}» en este tablero.")
     if color is not None:
         etiqueta.color = color.lower()
+    if es_hito is not None:
+        etiqueta.es_hito = es_hito
     try:
         with transaction.atomic():
             etiqueta.save()

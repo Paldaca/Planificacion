@@ -6,6 +6,7 @@ import {
   ListChecks,
   MessageSquare,
   MoveRight,
+  Paperclip,
   Pencil,
   UserMinus,
   UserPlus,
@@ -33,6 +34,7 @@ const ICONOS: Record<Actividad["accion"], LucideIcon> = {
   restauro: ArchiveRestore,
   traslado: ArrowRightLeft,
   dependencia: Waypoints,
+  adjunto: Paperclip,
 };
 
 const texto = (v: unknown) => (typeof v === "string" ? v : "");
@@ -61,6 +63,8 @@ function frase(a: Actividad): string {
       return texto(d.cambio) === "quito"
         ? `quitó la dependencia de «${texto(d.despues_de)}»`
         : `hizo que vaya después de «${texto(d.despues_de)}»`;
+    case "adjunto":
+      return texto(d.cambio) === "quito" ? `quitó el adjunto «${texto(d.nombre)}»` : `adjuntó «${texto(d.nombre)}»`;
     case "checklist": {
       const item = `«${texto(d.texto)}»`;
       return {

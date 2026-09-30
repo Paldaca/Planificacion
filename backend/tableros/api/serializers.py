@@ -8,6 +8,7 @@ from integracion_portal.services.personas import persona
 from tableros import permisos
 from tableros.models import (
     Actividad,
+    Adjunto,
     CampoPersonalizado,
     Card,
     Columna,
@@ -143,8 +144,20 @@ class ActividadSerializer(serializers.ModelSerializer):
         return persona(actividad.actor)
 
 
+class AdjuntoSerializer(serializers.ModelSerializer):
+    subido_por = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Adjunto
+        fields = ["id", "nombre", "tipo", "tamano", "subido_por", "creado_en"]
+
+    def get_subido_por(self, adjunto):
+        return persona(adjunto.subido_por)
+
+
 class CardDetalleSerializer(CardResumenSerializer):
     items = serializers.SerializerMethodField()
+    adjuntos = serializers.SerializerMethodField()
     creada_por = serializers.SerializerMethodField()
     tablero = serializers.SerializerMethodField()
     columna_nombre = serializers.CharField(source="columna.nombre")
@@ -154,6 +167,7 @@ class CardDetalleSerializer(CardResumenSerializer):
         fields = CardResumenSerializer.Meta.fields + [
             "descripcion",
             "items",
+            "adjuntos",
             "creada_por",
             "creado_en",
             "tablero",
@@ -164,6 +178,9 @@ class CardDetalleSerializer(CardResumenSerializer):
 
     def get_items(self, card):
         return ItemChecklistSerializer(card.checklist.select_related("hecho_por"), many=True).data
+
+    def get_adjuntos(self, card):
+        return AdjuntoSerializer(card.adjuntos.sin_contenido().select_related("subido_por"), many=True).data
 
     def get_creada_por(self, card):
         return persona(card.creada_por)
@@ -238,12 +255,13 @@ class CardEscrituraSerializer(serializers.Serializer):
 class EtiquetaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Etiqueta
-        fields = ["id", "nombre", "color", "orden"]
+        fields = ["id", "nombre", "color", "orden", "es_hito"]
 
 
 class EtiquetaEscrituraSerializer(serializers.Serializer):
     nombre = serializers.CharField(max_length=40, required=False)
     color = serializers.CharField(max_length=7, required=False)
+    es_hito = serializers.BooleanField(required=False)
 
 
 class CampoSerializer(serializers.ModelSerializer):

@@ -6,7 +6,7 @@ Formato del `contenido` (versión `FORMATO`):
     {
       "formato": 1,
       "columnas":  [{"nombre", "es_final", "incluir_en_gantt", "limite_cards"}],
-      "etiquetas": [{"nombre", "color"}],
+      "etiquetas": [{"nombre", "color", "es_hito" (opcional)}],
       "campos":    [{"nombre", "tipo", "opciones", "visible_en_tarjeta"}],
       "tarjetas":  [{"ref", "titulo", "descripcion", "columna" (índice), "urgencia",
                      "en_gantt", "inicio", "fin" (días hábiles desde el inicio del
@@ -81,7 +81,7 @@ def foto(tablero: Tablero) -> dict:
             }
             for c in columnas
         ],
-        "etiquetas": [{"nombre": e.nombre, "color": e.color} for e in tablero.etiquetas.all()],
+        "etiquetas": [{"nombre": e.nombre, "color": e.color, "es_hito": e.es_hito} for e in tablero.etiquetas.all()],
         "campos": [
             {"nombre": c.nombre, "tipo": c.tipo, "opciones": c.opciones, "visible_en_tarjeta": c.visible_en_tarjeta}
             for c in campos
@@ -181,7 +181,9 @@ def crear_tablero_desde(
     )
     columnas = list(tablero.columnas.activas())
     etiquetas = {
-        e["nombre"]: servicio_etiquetas.crear_etiqueta(tablero, nombre=e["nombre"], color=e["color"])
+        e["nombre"]: servicio_etiquetas.crear_etiqueta(
+            tablero, nombre=e["nombre"], color=e["color"], es_hito=e.get("es_hito", False)
+        )
         for e in c.get("etiquetas", [])
     }
     campos = {
