@@ -18,10 +18,12 @@ export const MAX_BYTES_ADJUNTO = 10 * 1024 * 1024;
 
 /**
  * Dirección de una imagen adjunta para un `<img>`: el servidor solo la sirve en
- * línea si `es_imagen`, y con la misma sesión y permiso que la descarga.
+ * línea si `es_imagen`, y con la misma sesión y permiso que la descarga. La
+ * miniatura (JPEG de ~480 px) es para la cuadrícula y la portada; la completa,
+ * para el visor.
  */
-export const urlImagen = (adjunto: Adjunto | number) =>
-  urlApi(`${V1}/adjuntos/${typeof adjunto === "number" ? adjunto : adjunto.id}/?ver=1`);
+export const urlImagen = (adjunto: Adjunto | number, tamano: "completa" | "miniatura" = "completa") =>
+  urlApi(`${V1}/adjuntos/${typeof adjunto === "number" ? adjunto : adjunto.id}/?ver=${tamano === "miniatura" ? "miniatura" : "1"}`);
 
 type Tarjeta = { id: number; numero: number };
 

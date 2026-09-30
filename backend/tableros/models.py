@@ -439,7 +439,7 @@ TIPOS_IMAGEN = ("image/png", "image/jpeg", "image/gif", "image/webp")
 class AdjuntoQuerySet(models.QuerySet):
     def sin_contenido(self):
         """Para listar: sin traer los archivos de la base."""
-        return self.defer("contenido")
+        return self.defer("contenido", "miniatura")
 
 
 class Adjunto(models.Model):
@@ -451,8 +451,14 @@ class Adjunto(models.Model):
     nombre = models.CharField(max_length=200)
     #: Tipo MIME deducido del nombre (no el que dice el navegador).
     tipo = models.CharField(max_length=100, blank=True)
+    #: Bytes guardados (una imagen, ya reducida).
     tamano = models.PositiveIntegerField()
     contenido = models.BinaryField()
+    #: JPEG pequeño de una imagen, para la cuadrícula y la portada (null: no es
+    #: imagen, no se pudo leer o se subió antes de que existieran).
+    miniatura = models.BinaryField(null=True, blank=True)
+    #: SHA-256 de lo que se subió: para no adjuntar dos veces el mismo archivo.
+    huella = models.CharField(max_length=64, blank=True, db_index=True)
     subido_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
     creado_en = models.DateTimeField(auto_now_add=True)
 

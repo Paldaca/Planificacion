@@ -119,7 +119,8 @@ Mismo del Portal: Poppins (títulos) + Geist Sans (texto); tokens
   en la caché del tablero con la lista de la tarjeta abierta (la misma regla
   que el servidor: la imagen más antigua).
 - **Imágenes adjuntas**: se piden con un `<img>` directo a
-  `adjuntos/<id>/?ver=1` (`urlImagen`; la cookie de sesión viaja sola), no con
+  `adjuntos/<id>/?ver=miniatura` en la cuadrícula y la portada, y
+  `?ver=1` en el visor (`urlImagen(adjunto, tamano)`; la cookie de sesión viaja sola), no con
   `fetch`: el navegador las guarda en caché y carga solo las visibles
   (`loading="lazy"`). Solo para adjuntos con `es_imagen`; lo decide el
   servidor. El visor va en `z-[1100]`, por encima de la barra de la Suite.

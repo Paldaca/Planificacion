@@ -46,14 +46,20 @@ class AdjuntosView(APIView):
 
 class AdjuntoDetalleView(APIView):
     """GET: el archivo, como descarga. Con `?ver=1`, una imagen de las
-    permitidas se sirve en línea (para mostrarla en la tarjeta)."""
+    permitidas se sirve en línea (para mostrarla en la tarjeta); con
+    `?ver=miniatura`, su miniatura JPEG (o la imagen, si no tiene)."""
 
     def get(self, request, pk):
-        adjunto = get_object_or_404(Adjunto, pk=pk)
+        ver = request.query_params.get("ver")
+        campos = ["id", "card_id", "nombre", "tipo", "miniatura" if ver == "miniatura" else "contenido"]
+        adjunto = get_object_or_404(Adjunto.objects.only(*campos), pk=pk)
         obtener_card(request, adjunto.card_id)
-        contenido = bytes(adjunto.contenido)
-        en_linea = request.query_params.get("ver") == "1" and servicio.se_puede_mostrar(adjunto.tipo, contenido)
-        respuesta = HttpResponse(contenido, content_type=adjunto.tipo or servicio.TIPO_GENERICO)
+        if ver == "miniatura" and adjunto.miniatura:
+            contenido, tipo = bytes(adjunto.miniatura), "image/jpeg"
+        else:
+            contenido, tipo = bytes(adjunto.contenido), adjunto.tipo or servicio.TIPO_GENERICO
+        en_linea = ver in ("1", "miniatura") and servicio.se_puede_mostrar(tipo, contenido)
+        respuesta = HttpResponse(contenido, content_type=tipo)
         # Como descarga y sin que el navegador adivine el tipo: un HTML o un
         # SVG subido no debe ejecutarse en el origen de la aplicación. Solo una
         # imagen comprobada va en línea, y aun así sin permiso para ejecutar nada.

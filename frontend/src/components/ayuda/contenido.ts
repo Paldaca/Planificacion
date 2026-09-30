@@ -64,6 +64,7 @@ const TABLERO: TemaAyuda = {
         "Dentro de la tarjeta, bajo la descripción, está **Adjuntos**: pulsa **Adjuntar** (puedes elegir varios), suelta los archivos encima o **pega una captura con Ctrl+V**.",
         "Las **imágenes** (PNG, JPG, GIF, WebP) se ven ahí mismo como miniaturas; al pulsar una se abre a pantalla completa, con flechas para pasar a la siguiente. Lo demás (un Word, un PDF) se descarga con un clic. Quien solo consulta el tablero también los ve y los descarga.",
         "En el tablero, la tarjeta muestra un **clip** con cuántos adjuntos tiene y, si tiene imágenes, la primera como **portada**.",
+        "• Las imágenes grandes se reducen al subirlas (1920 px de lado, de sobra para verlas en pantalla). Si necesitas el original a máxima resolución, déjalo en la carpeta del proyecto.",
         "• Hasta **10 MB** por archivo y 20 archivos por tarjeta. Lo más pesado va a la carpeta del proyecto y se pega el enlace en la descripción.",
         "• No se aceptan programas ni scripts (.exe, .bat, .ps1…).",
         "• Un archivo que ya está adjunto a la tarjeta no se sube otra vez, aunque tenga otro nombre.",

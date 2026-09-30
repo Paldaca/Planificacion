@@ -194,7 +194,7 @@ function Miniatura({ adjunto, card, tableroId, puede, onVer }: PropsAdjunto & { 
     <li className="group relative overflow-hidden rounded-xl border border-linea bg-fondo">
       <button type="button" onClick={onVer} aria-label={`Ver ${adjunto.nombre}`} className="block w-full text-left">
         <img
-          src={urlImagen(adjunto)}
+          src={urlImagen(adjunto, "miniatura")}
           alt=""
           loading="lazy"
           // Arrastrar la miniatura la soltaría sobre la sección como un archivo nuevo.

@@ -84,7 +84,7 @@ export function CuerpoTarjeta({
         // de la tarjeta). Sin arrastre nativo: el que manda es el de dnd-kit.
         <div className="-mt-3 mb-2.5 -mr-3 -ml-4 h-32 overflow-hidden bg-columna">
           <img
-            src={urlImagen(card.portada)}
+            src={urlImagen(card.portada, "miniatura")}
             alt=""
             loading="lazy"
             draggable={false}

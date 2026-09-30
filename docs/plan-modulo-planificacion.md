@@ -857,7 +857,7 @@ cabecera `X-CSRFToken`.
 | D-12 | Tareas en MS Project | Programadas manualmente, para conservar las fechas del tablero (**decidido**) |
 | D-13 | ¿El límite por columna bloquea? | No: es suave, marca y avisa; el trabajo real no se frena por una regla del tablero (**decidido**) |
 | D-14 | ¿Dónde viven los valores de campos personalizados? | En `Card.campos` (JSON por id de campo), validados en el servicio; los campos se archivan, no se borran (**decidido**) |
-| D-16 | ¿Dónde se guardan los adjuntos? | En la base (`planificacion_adjunto.contenido`), hasta 10 MB por archivo y 20 por tarjeta: el despliegue no necesita un volumen persistente y el respaldo de la base los incluye. Si el uso crece (archivos pesados, muchos GB), pasar a almacenamiento de archivos (**decidido**) |
+| D-16 | ¿Dónde se guardan los adjuntos? | En la base (`planificacion_adjunto.contenido`), hasta 10 MB por archivo y 20 por tarjeta; las imágenes se reducen al subirlas a 1920 px y se guarda una miniatura de 480 px para la cuadrícula y la portada: el despliegue no necesita un volumen persistente y el respaldo de la base los incluye. Si el uso crece (archivos pesados, muchos GB), pasar a almacenamiento de archivos (**decidido**) |
 | D-17 | ¿Qué es un hito? | Una tarjeta con una etiqueta marcada `es_hito`; no se deduce del nombre ni de la duración. Se dibuja como rombo y sale como `Milestone` en Project (**decidido**) |
 | D-15 | ¿Qué guarda una plantilla? | Una foto JSON con fechas relativas en días hábiles, etiquetas y campos por nombre; sin personas, comentarios ni historial (**decidido**) |
 

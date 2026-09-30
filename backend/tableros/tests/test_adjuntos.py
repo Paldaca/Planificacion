@@ -1,6 +1,9 @@
 """Adjuntos de una tarjeta: subir, listar, descargar, quitar, límites y permisos."""
 
+import io
 from unittest import mock
+
+from PIL import Image
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 
@@ -104,6 +107,52 @@ class AdjuntosTests(EscenarioTablero):
         from tableros.models import TIPOS_IMAGEN
 
         self.assertEqual(set(servicio.FIRMAS_IMAGEN), set(TIPOS_IMAGEN))
+
+    def imagen(self, formato="PNG", tamano=(3000, 2000), modo="RGB"):
+        salida = io.BytesIO()
+        Image.new(modo, tamano, (50, 64, 123) if modo == "RGB" else (50, 64, 123, 128)).save(salida, formato)
+        return salida.getvalue()
+
+    def test_las_imagenes_se_reducen_y_tienen_miniatura(self):
+        grande = self.imagen("JPEG")
+        adjunto = self.subir("foto.jpg", grande).json()
+        guardado = Adjunto.objects.get(pk=adjunto["id"])
+        with Image.open(io.BytesIO(bytes(guardado.contenido))) as im:
+            self.assertEqual((im.format, im.size), ("JPEG", (1920, 1280)))
+        self.assertEqual(adjunto["tamano"], len(bytes(guardado.contenido)))
+        mini = self.cliente(self.lector).get(f"/api/v1/adjuntos/{adjunto['id']}/?ver=miniatura")
+        self.assertEqual((mini.status_code, mini["Content-Type"]), (200, "image/jpeg"))
+        self.assertTrue(mini["Content-Disposition"].startswith("inline"))
+        with Image.open(io.BytesIO(mini.content)) as im:
+            self.assertEqual(im.size, (480, 320))
+        # La huella es la del original: volver a elegirlo se rechaza aunque lo guardado sea otro.
+        self.assertEqual(self.subir("foto.jpg", grande).status_code, 400)
+
+        # PNG con transparencia: sigue siendo PNG; la miniatura, JPEG sobre blanco.
+        png = self.subir("captura.png", self.imagen("PNG", (2400, 1200), "RGBA")).json()
+        with Image.open(io.BytesIO(bytes(Adjunto.objects.get(pk=png["id"]).contenido))) as im:
+            self.assertEqual((im.format, im.size, im.mode), ("PNG", (1920, 960), "RGBA"))
+        # Pequeña: no se toca. GIF: tal cual (puede ser animado), con miniatura.
+        chica = self.imagen("PNG", (800, 600))
+        self.assertEqual(bytes(Adjunto.objects.get(pk=self.subir("chica.png", chica).json()["id"]).contenido), chica)
+        gif = self.imagen("GIF", (2500, 2500))
+        guardado_gif = Adjunto.objects.get(pk=self.subir("anim.gif", gif).json()["id"])
+        self.assertEqual((bytes(guardado_gif.contenido), guardado_gif.miniatura is not None), (gif, True))
+
+    def test_una_imagen_que_pillow_no_lee_se_guarda_sin_miniatura(self):
+        rota = b"\x89PNG\r\n\x1a\n" + b"\x00" * 40
+        adjunto = self.subir("rota.png", rota).json()
+        self.assertEqual((adjunto["tipo"], adjunto["es_imagen"]), ("image/png", True))
+        self.assertIsNone(Adjunto.objects.get(pk=adjunto["id"]).miniatura)
+        # Sin miniatura, `?ver=miniatura` sirve la imagen tal cual.
+        r = self.cliente(self.beto).get(f"/api/v1/adjuntos/{adjunto['id']}/?ver=miniatura")
+        self.assertEqual((r.status_code, r.content), (200, rota))
+
+    def test_demasiados_pixeles_se_rechaza(self):
+        with mock.patch.object(servicio, "MAX_PIXELES", 100):
+            r = self.subir("enorme.png", self.imagen("PNG", (20, 20)))
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("píxeles", r.json()["detail"])
 
     def test_el_mismo_archivo_no_se_adjunta_dos_veces(self):
         png = b"\x89PNG\r\n\x1a\n" + b"\x01" * 30

@@ -12,18 +12,27 @@ de requisitos, un plano, una captura).
   servirlas (`se_puede_mostrar`).
 - Un archivo que ya está adjunto a la tarjeta (mismo contenido, aunque se
   llame distinto) no se vuelve a guardar: elegirlo otra vez, soltar una
-  miniatura sobre la tarjeta o pegar la misma captura lo duplicaría.
+  miniatura sobre la tarjeta o pegar la misma captura lo duplicaría. Se
+  compara la `huella` (SHA-256) de lo que se subió, no lo guardado: una
+  imagen reducida ya no es igual a su original.
+- Las **imágenes se reducen al subirlas** (`_preparar_imagen`): como mucho
+  `LADO_MAXIMO` px de lado, y se guarda aparte una `miniatura` JPEG de
+  `LADO_MINIATURA` px para la cuadrícula y la portada. Así ocupan menos en la
+  base y abrir un tablero con portadas no descarga las imágenes completas.
 - Quitar un adjunto lo borra de verdad (es la única forma de liberar el
   espacio); queda en el historial de la tarjeta quién lo quitó.
 """
 
 from __future__ import annotations
 
+import hashlib
+import io
 import mimetypes
 import os
 import re
 
 from django.db import transaction
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 from core.errores import ReglaDeNegocio
 from tableros.models import TIPOS_IMAGEN, Actividad, Adjunto, Card
@@ -104,6 +113,63 @@ def _tipo_de(nombre: str, contenido: bytes) -> str:
     return tipo
 
 
+#: Lado mayor de una imagen guardada (Full HD): de sobra para verla en pantalla.
+LADO_MAXIMO = 1920
+#: Lado mayor de la miniatura (la portada mide ~250 px de ancho; el doble para pantallas densas).
+LADO_MINIATURA = 480
+#: Más píxeles que esto no se procesa: una imagen pequeña en bytes puede
+#: descomprimirse en gigas de memoria («bomba» de descompresión).
+MAX_PIXELES = 50_000_000
+_FORMATO_PIL = {"image/png": "PNG", "image/jpeg": "JPEG", "image/webp": "WEBP"}
+
+
+def _a_rgb(imagen: Image.Image) -> Image.Image:
+    """Sin transparencia (JPEG no la admite): sobre fondo blanco."""
+    if imagen.mode in ("RGBA", "LA") or (imagen.mode == "P" and "transparency" in imagen.info):
+        fondo = Image.new("RGB", imagen.size, "white")
+        rgba = imagen.convert("RGBA")
+        fondo.paste(rgba, mask=rgba.getchannel("A"))
+        return fondo
+    return imagen.convert("RGB")
+
+
+def _preparar_imagen(tipo: str, contenido: bytes) -> tuple[bytes, bytes | None]:
+    """(contenido a guardar, miniatura JPEG). Reduce la imagen a `LADO_MAXIMO`
+    en su mismo formato (y se queda con la original si reducirla no la hace
+    más liviana); un GIF se guarda tal cual (puede ser animado). Si Pillow no
+    la puede leer, se guarda sin tocar y sin miniatura."""
+    try:
+        with Image.open(io.BytesIO(contenido)) as abierta:
+            ancho, alto = abierta.size
+            if ancho * alto > MAX_PIXELES:
+                raise ReglaDeNegocio("La imagen tiene demasiados píxeles para procesarla. Redúcela antes de adjuntarla.")
+            imagen = ImageOps.exif_transpose(abierta)  # la foto del teléfono, derecha
+            imagen.load()
+    except ReglaDeNegocio:
+        raise
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
+        return contenido, None
+
+    guardado = contenido
+    formato = _FORMATO_PIL.get(tipo)
+    if formato and max(imagen.size) > LADO_MAXIMO:
+        reducida = imagen.copy()
+        reducida.thumbnail((LADO_MAXIMO, LADO_MAXIMO), Image.Resampling.LANCZOS)
+        if formato == "JPEG":
+            reducida = _a_rgb(reducida)
+        salida = io.BytesIO()
+        opciones = {"PNG": {"optimize": True}, "JPEG": {"quality": 85, "optimize": True}, "WEBP": {"quality": 85}}[formato]
+        reducida.save(salida, formato, **opciones)
+        if salida.tell() < len(contenido):
+            guardado = salida.getvalue()
+
+    mini = _a_rgb(imagen.copy())
+    mini.thumbnail((LADO_MINIATURA, LADO_MINIATURA), Image.Resampling.LANCZOS)
+    salida = io.BytesIO()
+    mini.save(salida, "JPEG", quality=80, optimize=True)
+    return guardado, salida.getvalue()
+
+
 def nombre_limpio(nombre: str) -> str:
     """Solo el nombre (sin carpetas ni caracteres de control), hasta 200."""
     base = os.path.basename((nombre or "").replace("\\", "/"))
@@ -131,17 +197,22 @@ def adjuntar(card: Card, *, archivo, actor) -> Adjunto:
     if card.adjuntos.count() >= MAX_POR_TARJETA:
         raise ReglaDeNegocio(f"Una tarjeta admite hasta {MAX_POR_TARJETA} adjuntos.")
     contenido = archivo.read()
-    # Solo se leen los de igual tamaño (casi nunca hay): así no se traen los
-    # archivos de la tarjeta para comparar, ni hace falta guardar un hash.
-    for nombre_existente, existente in card.adjuntos.filter(tamano=archivo.size).values_list("nombre", "contenido"):
-        if bytes(existente) == contenido:
-            raise ReglaDeNegocio(f"Ese archivo ya está adjunto a esta tarjeta («{nombre_existente}»).")
+    huella = hashlib.sha256(contenido).hexdigest()
+    repetido = card.adjuntos.filter(huella=huella).values_list("nombre", flat=True).first()
+    if repetido is not None:
+        raise ReglaDeNegocio(f"Ese archivo ya está adjunto a esta tarjeta («{repetido}»).")
+    tipo = _tipo_de(nombre, contenido)
+    miniatura = None
+    if es_imagen(tipo):
+        contenido, miniatura = _preparar_imagen(tipo, contenido)
     adjunto = Adjunto.objects.create(
         card=card,
         nombre=nombre,
-        tipo=_tipo_de(nombre, contenido),
-        tamano=archivo.size,
+        tipo=tipo,
+        tamano=len(contenido),
         contenido=contenido,
+        miniatura=miniatura,
+        huella=huella,
         subido_por=actor,
     )
     actividad.registrar(card, actor, Actividad.Accion.ADJUNTO, cambio="agrego", nombre=nombre)
