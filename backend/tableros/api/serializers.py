@@ -256,6 +256,8 @@ class CampoEscrituraSerializer(serializers.Serializer):
     nombre = serializers.CharField(max_length=60, required=False)
     tipo = serializers.ChoiceField(choices=TipoCampo.choices, required=False)
     opciones = serializers.ListField(child=serializers.CharField(max_length=60), required=False, max_length=30)
+    #: {opción vieja: nueva}: las tarjetas que tenían la vieja pasan a la nueva.
+    renombrar = serializers.DictField(child=serializers.CharField(max_length=60), required=False)
     visible_en_tarjeta = serializers.BooleanField(required=False)
     orden = serializers.IntegerField(required=False, min_value=0)
     archivado = serializers.BooleanField(required=False)

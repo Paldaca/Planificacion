@@ -518,6 +518,11 @@ crece a mitad de camino: lo nuevo va a la siguiente.
 - **Agrupar el Gantt (y su PDF) por un campo de lista** del tablero, como
   «Fase»: un grupo por opción en el orden de la lista, con su avance y barra
   resumen; lo que no tiene valor va al final.
+- **Cargar las opciones de un campo de lista**: una por fila en vez de un
+  texto separado por comas; se añaden con Enter o pegando varias (una columna
+  de Excel), se ordenan con flechas y se renombran en su sitio. Renombrar una
+  opción cambia también las tarjetas que la tenían (antes quedaban con el
+  valor viejo, fuera de la lista).
 - **Tableros favoritos**: estrella en cada tablero (solo para quien la
   marca); los favoritos salen primero en *Tableros*. No dan acceso.
 - **Arranque local**: `iniciar.ps1` / `iniciar.sh` del Portal abren todo como

@@ -95,6 +95,10 @@ const TABLERO: TemaAyuda = {
         "• **Lista**: una opción entre varias fijas, por ejemplo Etapa (Básica, Detalle, Construcción) o Revisión (A, B, 0, 1).",
         "Para qué sirven: se rellenan dentro de la tarjeta, cada campo tiene **su columna en la Lista** (ordenable: por ejemplo, de más a menos horas) y sale en el **Excel** exportado. Si lo pones en «Se ve en la tarjeta del tablero», su valor también aparece en el Kanban.",
         "Cómo se crean: en el menú «…» del tablero, **Etiquetas y campos…** (hasta 20 activos). El tipo no se puede cambiar después. Un campo no se borra: se **archiva** y conserva los valores que ya tenía.",
+        "Las **opciones de una lista** se cargan una por fila: escribe una y pulsa Enter para seguir con la siguiente, o **pega varias de una vez** (una por línea, como una columna de Excel, o separadas por comas). Hasta 30 por lista.",
+        "• Con las flechas cambias el **orden**: es el de los desplegables y el de los grupos del Gantt cuando agrupas por ese campo.",
+        "• Si **renombras** una opción, las tarjetas que la tenían pasan al nombre nuevo.",
+        "• Si **quitas** una opción que alguna tarjeta usa, esas tarjetas conservan el valor, pero ya no se puede elegir en otras.",
       ],
     },
     {

@@ -101,6 +101,32 @@ class CamposTests(Base):
         cambios = [h["detalle"] for h in historial if h["detalle"].get("campo") == "personalizado"]
         self.assertIn({"campo": "personalizado", "nombre": "Horas", "antes": "12.5", "despues": "8"}, cambios)
 
+    def test_renombrar_una_opcion_cambia_las_tarjetas_que_la_tenian(self):
+        fase = self.crear_campo(nombre="Fase", tipo="lista", opciones=["Fase 1 · Módulo 1", "Fase 2 · Módulo 2"])
+        una, otra, sin_valor = self.crear_card(), self.crear_card(), self.crear_card()
+        self.patch_card(una, campos={fase["id"]: "Fase 1 · Módulo 1"})
+        self.patch_card(otra, campos={fase["id"]: "Fase 2 · Módulo 2"})
+        url = f"/api/v1/campos/{fase['id']}/"
+        r = self.cliente(self.ana).patch(
+            url,
+            {"opciones": ["Fase 1 · Inventario", "Fase 2 · Módulo 2"], "renombrar": {"Fase 1 · Módulo 1": "Fase 1 · Inventario"}},
+            format="json",
+        )
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json()["opciones"], ["Fase 1 · Inventario", "Fase 2 · Módulo 2"])
+        valores = {c.pk: c.campos for c in Card.objects.filter(pk__in=[una["id"], otra["id"], sin_valor["id"]])}
+        self.assertEqual(valores[una["id"]], {str(fase["id"]): "Fase 1 · Inventario"})
+        self.assertEqual(valores[otra["id"]], {str(fase["id"]): "Fase 2 · Módulo 2"})
+        self.assertEqual(valores[sin_valor["id"]], {})
+        # La opción nueva ya se puede elegir; quitar una opción no toca las tarjetas.
+        self.assertEqual(self.patch_card(sin_valor, campos={fase["id"]: "Fase 1 · Inventario"}).status_code, 200)
+        self.cliente(self.ana).patch(url, {"opciones": ["Fase 1 · Inventario"]}, format="json")
+        self.assertEqual(Card.objects.get(pk=otra["id"]).campos, {str(fase["id"]): "Fase 2 · Módulo 2"})
+        # Solo de una opción que existía a una que queda en la lista, y solo quien gestiona.
+        for malo in ({"No existe": "Fase 1 · Inventario"}, {"Fase 1 · Inventario": "Fuera de la lista"}):
+            self.assertEqual(self.cliente(self.ana).patch(url, {"renombrar": malo}, format="json").status_code, 400, malo)
+        self.assertEqual(self.cliente(self.beto).patch(url, {"renombrar": {}}, format="json").status_code, 403)
+
     def test_archivar_conserva_los_valores_y_el_tipo_no_cambia(self):
         horas = self.crear_campo(nombre="Horas", tipo="numero")
         card = self.crear_card()

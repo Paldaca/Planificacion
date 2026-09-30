@@ -7,6 +7,9 @@ Campos personalizados de un tablero (fase 5): texto, número o lista.
   restauran al desarchivarlo).
 - El tipo no cambia después de creado: los valores guardados dejarían de
   tener sentido.
+- Renombrar una opción de una lista (`renombrar` en `editar_campo`) cambia
+  también el valor de las tarjetas que la tenían; quitarla no: esas tarjetas
+  conservan el valor hasta que se elija otro.
 """
 
 from __future__ import annotations
@@ -18,7 +21,7 @@ from django.db.models import Max
 
 from core.errores import ReglaDeNegocio
 from core.texto import clave_nombre
-from tableros.models import CampoPersonalizado, Tablero, TipoCampo
+from tableros.models import CampoPersonalizado, Card, Tablero, TipoCampo
 
 MAX_CAMPOS = 20
 MAX_OPCIONES = 30
@@ -77,14 +80,46 @@ def crear_campo(
     return _guardar(campo)
 
 
+def _renombrar_opciones(campo: CampoPersonalizado, renombrar: dict, anteriores: list[str]) -> None:
+    """{opción vieja: nueva}: las tarjetas con la vieja pasan a la nueva. Es
+    configuración del tablero (como borrar una etiqueta): sin historial por
+    tarjeta."""
+    cambios = {}
+    for vieja, nueva in renombrar.items():
+        nueva = str(nueva).strip()[:60]
+        if vieja not in anteriores:
+            raise ReglaDeNegocio(f"«{vieja}» no es una opción de «{campo.nombre}».")
+        if nueva not in campo.opciones:
+            raise ReglaDeNegocio(f"«{nueva}» no está entre las opciones nuevas de «{campo.nombre}».")
+        if nueva != vieja:
+            cambios[vieja] = nueva
+    if not cambios:
+        return
+    clave = str(campo.pk)
+    # En Python y no con un filtro JSON: una clave numérica se leería como índice de lista.
+    tarjetas = [
+        c
+        for c in Card.objects.filter(tablero_id=campo.tablero_id).only("id", "campos")
+        if (c.campos or {}).get(clave) in cambios
+    ]
+    for card in tarjetas:
+        card.campos[clave] = cambios[card.campos[clave]]
+    Card.objects.bulk_update(tarjetas, ["campos"])
+
+
+@transaction.atomic
 def editar_campo(campo: CampoPersonalizado, **cambios) -> CampoPersonalizado:
-    """`cambios`: nombre, opciones (solo lista), visible_en_tarjeta, orden, archivado."""
+    """`cambios`: nombre, opciones (solo lista), renombrar ({opción vieja:
+    nueva}, solo lista), visible_en_tarjeta, orden, archivado."""
+    anteriores = list(campo.opciones)
     if "nombre" in cambios:
         if not cambios["nombre"].strip():
             raise ReglaDeNegocio("El nombre no puede quedar vacío.")
         campo.nombre = cambios["nombre"].strip()[:60]
     if "opciones" in cambios and campo.tipo == TipoCampo.LISTA:
         campo.opciones = _opciones_limpias(cambios["opciones"])
+    if cambios.get("renombrar") and campo.tipo == TipoCampo.LISTA:
+        _renombrar_opciones(campo, cambios["renombrar"], anteriores)
     for atributo in ("visible_en_tarjeta", "orden", "archivado"):
         if atributo in cambios:
             setattr(campo, atributo, cambios[atributo])

@@ -1,6 +1,6 @@
 # Módulo `tableros`
 
-> Leer antes de modificar `backend/tableros/`. Revisado: 2026-09-28.
+> Leer antes de modificar `backend/tableros/`. Revisado: 2026-09-30.
 >
 > Es el núcleo del dominio: casi todo cambio funcional pasa por aquí.
 
@@ -51,7 +51,7 @@ historial + avisos + estado de vencimiento). Argumentos por nombre; lanzan
 | `tarjetas.py` | `crear_card` (`avisar=False` para la importación y las plantillas; acepta `etiquetas` y `valores_campos`), `editar_card` (con `version` → `ConflictoDeVersion`; `etiquetas` y `valores_campos` registran su historial), `mover_card`, `archivar_card`, `trasladar_card` (emite la señal `tarjeta_trasladada`; conserva las etiquetas y los campos que existan en el destino con el mismo nombre —y tipo, en los campos—; el resto se pierde, no se crea) |
 | `favoritos.py` | `marcar_favorito` (idempotente; quien llama ya comprobó que lo ve), `ids_favoritos` |
 | `etiquetas.py` | `crear_etiqueta` (máx. 30 por tablero; nombre repetido → `ReglaDeNegocio`), `editar_etiqueta`, `eliminar_etiqueta` |
-| `campos.py` | `crear_campo` (máx. 20 activos; una lista exige opciones), `editar_campo` (el tipo no cambia), `valor_valido` (número con coma o punto → int/float; lista: una de sus opciones; texto ≤ 500), `validar_valores` (solo campos activos del tablero; `null`/vacío borra), `texto_valor`, `remapear` (valores de un tablero a otro) |
+| `campos.py` | `crear_campo` (máx. 20 activos; una lista exige opciones), `editar_campo` (el tipo no cambia; `renombrar={vieja: nueva}` en una lista cambia también el valor de las tarjetas que tenían esa opción, sin historial por tarjeta, como borrar una etiqueta; quitar una opción no toca las tarjetas), `valor_valido` (número con coma o punto → int/float; lista: una de sus opciones; texto ≤ 500), `validar_valores` (solo campos activos del tablero; `null`/vacío borra), `texto_valor`, `remapear` (valores de un tablero a otro) |
 | `comentarios.py` | `extraer_menciones`, `comentar`, `editar_comentario`, `eliminar_comentario` |
 | `checklist.py` | `agregar_item`, `editar_item`, `eliminar_item` |
 | `actividad.py` | `registrar`, `registrar_ediciones`, `registrar_responsables` |
@@ -88,7 +88,7 @@ serializer). Piezas comunes en `api/views/comunes.py`: `obtener_tablero`,
 | `tableros/<id>/columnas/` · `columnas/reordenar/` | crear · reordenar |
 | `columnas/<id>/` · `columnas/<id>/archivar/` | editar (con `version`) · archivar con destino |
 | `tableros/<id>/etiquetas/` · `etiquetas/<id>/` | crear · renombrar/recolorear, eliminar (gestionar) |
-| `tableros/<id>/campos/` · `campos/<id>/` | crear · editar nombre, opciones, visibilidad, archivar (gestionar; cambiar `tipo` → 400) |
+| `tableros/<id>/campos/` · `campos/<id>/` | crear · editar nombre, opciones (con `renombrar: {vieja: nueva}` para que las tarjetas sigan a la opción renombrada), visibilidad, archivar (gestionar; cambiar `tipo` → 400) |
 | `tableros/<id>/cards/` · `cards/<numero>/` | crear · ver por número (deep link) |
 | `cards/<id>/` | ver, editar (PATCH con `version`; `etiquetas` = lista de ids, `campos` = `{id: valor\|null}` y solo cambia los que vienen) |
 | `cards/<id>/mover/` · `archivar/` · `trasladar/` · `actividad/` | mover (columna + posición) · archivar/restaurar · llevar a otro tablero · historial |

@@ -1,6 +1,6 @@
-import { Archive, ArchiveRestore, Check, Eye, EyeOff, Hash, List, Plus, Settings2, Tag, Trash2, Type } from "lucide-react";
+import { Archive, ArchiveRestore, ChevronDown, Eye, EyeOff, Hash, List, Plus, Settings2, Tag, Trash2, Type } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import {
@@ -20,14 +20,15 @@ import { Pildora } from "@/components/ui/Estados";
 import { useAlAbrir } from "@/hooks/useAlAbrir";
 import { cn } from "@/lib/cn";
 import { COLORES_EQUIPO } from "@/lib/estilos";
+import { MAX_OPCIONES, opcionesDeTexto } from "@/lib/opciones";
+
+import { EditorOpciones } from "./EditorOpciones";
 
 const TIPOS: Record<TipoCampo, { etiqueta: string; icono: typeof Type }> = {
   texto: { etiqueta: "Texto", icono: Type },
   numero: { etiqueta: "Número", icono: Hash },
   lista: { etiqueta: "Lista", icono: List },
 };
-
-const opcionesDeTexto = (texto: string) => texto.split(",").map((o) => o.trim()).filter(Boolean);
 
 /**
  * Configuración del tablero (fase 5): etiquetas y campos personalizados.
@@ -303,20 +304,38 @@ function Campos({ tablero }: { tablero: TableroDetalle }) {
   const crear = useCrearCampo(tablero.id);
   const [nombre, setNombre] = useState("");
   const [tipo, setTipo] = useState<TipoCampo>("texto");
-  const [opciones, setOpciones] = useState("");
+  const [opciones, setOpciones] = useState<string[]>([]);
+  /** Lo escrito en «Añadir opción» sin pulsar Enter: también cuenta al crear el campo. */
+  const [borrador, setBorrador] = useState("");
   const [verArchivados, setVerArchivados] = useState(false);
   const activos = tablero.campos.filter((c) => !c.archivado);
   const archivados = tablero.campos.filter((c) => c.archivado);
-  const valido = nombre.trim() && (tipo !== "lista" || opcionesDeTexto(opciones).length > 0);
+  const todas = [...new Set([...opciones, ...opcionesDeTexto(borrador)])].slice(0, MAX_OPCIONES);
+  const valido = nombre.trim() && (tipo !== "lista" || todas.length > 0);
+  // Cuántas tarjetas tienen cada opción de cada lista: para avisar antes de quitar una.
+  const usos = useMemo(() => {
+    const porCampo = new Map<number, Map<string, number>>();
+    for (const campo of tablero.campos) {
+      if (campo.tipo !== "lista") continue;
+      const cuenta = new Map<string, number>();
+      for (const card of tablero.cards) {
+        const valor = card.campos[String(campo.id)];
+        if (valor !== undefined) cuenta.set(String(valor), (cuenta.get(String(valor)) ?? 0) + 1);
+      }
+      porCampo.set(campo.id, cuenta);
+    }
+    return porCampo;
+  }, [tablero.campos, tablero.cards]);
 
   function agregar() {
     if (!valido) return;
     crear.mutate(
-      { nombre: nombre.trim(), tipo, opciones: tipo === "lista" ? opcionesDeTexto(opciones) : undefined },
+      { nombre: nombre.trim(), tipo, opciones: tipo === "lista" ? todas : undefined },
       {
         onSuccess: () => {
           setNombre("");
-          setOpciones("");
+          setOpciones([]);
+          setBorrador("");
         },
       },
     );
@@ -327,7 +346,7 @@ function Campos({ tablero }: { tablero: TableroDetalle }) {
       {activos.length ? (
         <ul className="divide-y divide-linea/70 rounded-xl border border-linea">
           {activos.map((c) => (
-            <FilaCampo key={c.id} tableroId={tablero.id} campo={c} />
+            <FilaCampo key={c.id} tableroId={tablero.id} campo={c} usos={usos.get(c.id)} />
           ))}
         </ul>
       ) : (
@@ -389,11 +408,7 @@ function Campos({ tablero }: { tablero: TableroDetalle }) {
             </div>
           </div>
           {tipo === "lista" && (
-            <Entrada
-              value={opciones}
-              placeholder="Opciones separadas por comas: Básica, Detalle, Construcción"
-              onChange={(e) => setOpciones(e.target.value)}
-            />
+            <EditorOpciones opciones={opciones} borrador={borrador} onBorrador={setBorrador} onCambio={setOpciones} />
           )}
           <p className="text-xs text-tenue">El tipo no se puede cambiar después; un campo se archiva sin perder sus valores.</p>
           <div className="flex justify-end">
@@ -408,22 +423,31 @@ function Campos({ tablero }: { tablero: TableroDetalle }) {
   );
 }
 
-function FilaCampo({ tableroId, campo }: { tableroId: number; campo: CampoPersonalizado }) {
+function FilaCampo({
+  tableroId,
+  campo,
+  usos,
+}: {
+  tableroId: number;
+  campo: CampoPersonalizado;
+  /** Tarjetas que tienen cada opción (solo listas). */
+  usos?: Map<string, number>;
+}) {
   const editar = useEditarCampo(tableroId);
   const [nombre, setNombre] = useState(campo.nombre);
-  const [opciones, setOpciones] = useState(campo.opciones.join(", "));
+  // Con el editor abierto manda esta copia, no la caché: cada cambio envía la
+  // lista entera, y un refresco del tablero a mitad de varios cambios seguidos
+  // la dejaría vieja (el siguiente clic caería en otra opción). null = cerrado.
+  const [locales, setLocales] = useState<string[] | null>(null);
+  const [borrador, setBorrador] = useState("");
+  const editando = locales !== null;
+  const opciones = locales ?? campo.opciones;
   const { etiqueta, icono: Icono } = TIPOS[campo.tipo];
 
   function guardarNombre() {
     const limpio = nombre.trim();
     if (!limpio) setNombre(campo.nombre);
     else if (limpio !== campo.nombre) editar.mutate({ id: campo.id, cambios: { nombre: limpio } });
-  }
-
-  function guardarOpciones() {
-    const nuevas = opcionesDeTexto(opciones);
-    if (!nuevas.length) setOpciones(campo.opciones.join(", "));
-    else if (nuevas.join("|") !== campo.opciones.join("|")) editar.mutate({ id: campo.id, cambios: { opciones: nuevas } });
   }
 
   return (
@@ -466,17 +490,37 @@ function FilaCampo({ tableroId, campo }: { tableroId: number; campo: CampoPerson
         </button>
       </div>
       {campo.tipo === "lista" && !campo.archivado && (
-        <div className="mt-2 flex items-center gap-2 pl-1">
-          <span className="text-xs text-tenue">Opciones</span>
-          <input
-            value={opciones}
-            aria-label="Opciones de la lista"
-            onChange={(e) => setOpciones(e.target.value)}
-            onBlur={guardarOpciones}
-            onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-            className="min-w-0 flex-1 rounded-lg border border-linea bg-white px-2 py-1 text-xs text-texto outline-none focus:border-morado/40"
-          />
-          {editar.isSuccess && <Check className="size-3.5 text-[#059669]" />}
+        <div className="mt-1.5 pl-1">
+          <button
+            type="button"
+            aria-expanded={editando}
+            onClick={() => setLocales((v) => (v ? null : campo.opciones))}
+            className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-left text-xs text-tenue transition-colors hover:bg-morado/8 hover:text-morado"
+          >
+            <ChevronDown className={cn("size-3.5 shrink-0 transition-transform", !editando && "-rotate-90")} />
+            <span className="shrink-0 font-semibold">
+              {opciones.length === 1 ? "1 opción" : `${opciones.length} opciones`}
+            </span>
+            {!editando && <span className="truncate">{opciones.join(" · ")}</span>}
+          </button>
+          {editando && (
+            <div className="mt-2">
+              <EditorOpciones
+                opciones={opciones}
+                usos={usos}
+                borrador={borrador}
+                onBorrador={setBorrador}
+                onCambio={(nuevas, renombrar) => {
+                  setLocales(nuevas);
+                  editar.mutate(
+                    { id: campo.id, cambios: renombrar ? { opciones: nuevas, renombrar } : { opciones: nuevas } },
+                    // Si el servidor lo rechaza, se cierra: al reabrir muestra lo que quedó guardado.
+                    { onError: () => setLocales(null) },
+                  );
+                }}
+              />
+            </div>
+          )}
         </div>
       )}
     </li>

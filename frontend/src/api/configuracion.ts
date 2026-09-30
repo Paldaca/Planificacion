@@ -59,7 +59,10 @@ export function useEliminarEtiqueta(tableroId: number) {
 
 // --- Campos personalizados ------------------------------------------------------------
 
-export type CambiosCampo = Partial<Pick<CampoPersonalizado, "nombre" | "opciones" | "visible_en_tarjeta" | "orden" | "archivado">>;
+export type CambiosCampo = Partial<Pick<CampoPersonalizado, "nombre" | "opciones" | "visible_en_tarjeta" | "orden" | "archivado">> & {
+  /** {opción vieja: nueva} de una lista: el servidor la cambia también en las tarjetas que la tenían. */
+  renombrar?: Record<string, string>;
+};
 
 export function useCrearCampo(tableroId: number) {
   const qc = useQueryClient();
@@ -71,18 +74,44 @@ export function useCrearCampo(tableroId: number) {
   });
 }
 
+/**
+ * Optimista y **en serie** (`scope`): el editor de opciones manda la lista
+ * entera en cada cambio (añadir, renombrar, ordenar, quitar), así que dos
+ * cambios seguidos deben llegar en orden. La respuesta de uno no pisa la
+ * caché mientras haya otro en cola, y al vaciarse la cola se vuelve a pedir el
+ * tablero (un refresco a medias pudo traer un estado intermedio, y renombrar
+ * una opción cambia tarjetas).
+ */
 export function useEditarCampo(tableroId: number) {
   const qc = useQueryClient();
+  const clave = ["campos", tableroId];
   return useMutation({
+    mutationKey: clave,
+    scope: { id: `campos-${tableroId}` },
     mutationFn: ({ id, cambios }: { id: number; cambios: CambiosCampo }) =>
       api.patch<CampoPersonalizado>(`${V1}/campos/${id}/`, cambios),
-    onMutate: ({ id, cambios }) =>
+    onMutate: ({ id, cambios: { renombrar, ...cambios } }) => {
+      // Un refresco en vuelo traería el estado anterior a este cambio.
+      void qc.cancelQueries({ queryKey: claves.tablero(tableroId), exact: true });
       editarTablero(qc, tableroId, (t) => ({
         ...t,
         campos: t.campos.map((c) => (c.id === id ? { ...c, ...cambios } : c)),
-      })),
-    onSuccess: (campo) =>
-      editarTablero(qc, tableroId, (t) => ({ ...t, campos: t.campos.map((c) => (c.id === campo.id ? campo : c)) })),
+        cards: renombrar
+          ? t.cards.map((c) => {
+              const nueva = renombrar[String(c.campos[String(id)] ?? "")];
+              return nueva ? { ...c, campos: { ...c.campos, [String(id)]: nueva } } : c;
+            })
+          : t.cards,
+      }));
+    },
+    onSuccess: (campo, { cambios }) => {
+      // Las tarjetas abiertas guardan su propia copia de los valores.
+      if (cambios.renombrar) qc.invalidateQueries({ queryKey: ["card", tableroId] });
+      // Esta mutación todavía cuenta como en curso: más de una = hay cambios posteriores en cola.
+      if (qc.isMutating({ mutationKey: clave }) > 1) return;
+      editarTablero(qc, tableroId, (t) => ({ ...t, campos: t.campos.map((c) => (c.id === campo.id ? campo : c)) }));
+      if (cambios.opciones) qc.invalidateQueries({ queryKey: claves.tablero(tableroId), exact: true });
+    },
     onError: (error) => {
       avisarError(error);
       qc.invalidateQueries({ queryKey: claves.tablero(tableroId) });
