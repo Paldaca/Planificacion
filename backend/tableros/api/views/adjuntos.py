@@ -1,5 +1,5 @@
-"""Adjuntos de una tarjeta: listar y descargar (quien ve el tablero); subir y
-quitar (quien lo edita)."""
+"""Adjuntos de una tarjeta: listar, descargar y ver las imágenes (quien ve el
+tablero); subir y quitar (quien lo edita)."""
 
 from __future__ import annotations
 
@@ -45,15 +45,27 @@ class AdjuntosView(APIView):
 
 
 class AdjuntoDetalleView(APIView):
+    """GET: el archivo, como descarga. Con `?ver=1`, una imagen de las
+    permitidas se sirve en línea (para mostrarla en la tarjeta)."""
+
     def get(self, request, pk):
         adjunto = get_object_or_404(Adjunto, pk=pk)
         obtener_card(request, adjunto.card_id)
-        respuesta = HttpResponse(bytes(adjunto.contenido), content_type=adjunto.tipo or "application/octet-stream")
-        # Siempre como descarga y sin que el navegador adivine el tipo: un HTML
-        # o un SVG subido no debe ejecutarse en el origen de la aplicación.
-        respuesta["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(adjunto.nombre)}"
+        contenido = bytes(adjunto.contenido)
+        en_linea = request.query_params.get("ver") == "1" and servicio.se_puede_mostrar(adjunto.tipo, contenido)
+        respuesta = HttpResponse(contenido, content_type=adjunto.tipo or servicio.TIPO_GENERICO)
+        # Como descarga y sin que el navegador adivine el tipo: un HTML o un
+        # SVG subido no debe ejecutarse en el origen de la aplicación. Solo una
+        # imagen comprobada va en línea, y aun así sin permiso para ejecutar nada.
+        disposicion = "inline" if en_linea else "attachment"
+        respuesta["Content-Disposition"] = f"{disposicion}; filename*=UTF-8''{quote(adjunto.nombre)}"
         respuesta["X-Content-Type-Options"] = "nosniff"
-        respuesta["Cache-Control"] = "private, no-store"
+        if en_linea:
+            respuesta["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
+            # Un adjunto no cambia: el navegador puede guardar la imagen un rato.
+            respuesta["Cache-Control"] = "private, max-age=3600"
+        else:
+            respuesta["Cache-Control"] = "private, no-store"
         return respuesta
 
     def delete(self, request, pk):

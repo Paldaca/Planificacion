@@ -276,12 +276,18 @@ class CardQuerySet(models.QuerySet):
             por_card = consulta.filter(card=OuterRef("pk")).order_by().values("card").annotate(n=Count("id")).values("n")
             return Coalesce(Subquery(por_card[:1], output_field=models.IntegerField()), Value(0))
 
+        # La portada es la primera imagen adjunta (la más antigua), como la
+        # primera miniatura de la tarjeta abierta.
+        portada = Adjunto.objects.filter(card=OuterRef("pk"), tipo__in=TIPOS_IMAGEN).order_by("creado_en", "id").values("id")
+
         return self.select_related("columna", "creada_por", "tablero__equipo", "tablero__propietario").prefetch_related(
             "asignaciones__usuario__disciplina", "etiquetas"
         ).annotate(
             num_comentarios=contar(Comentario.objects.filter(eliminado=False)),
             num_items=contar(ItemChecklist.objects.all()),
             num_items_hechos=contar(ItemChecklist.objects.filter(hecho=True)),
+            num_adjuntos=contar(Adjunto.objects.all()),
+            id_portada=Subquery(portada[:1], output_field=models.IntegerField()),
         )
 
     def por_fecha_fin(self):
@@ -423,6 +429,11 @@ class ItemChecklist(models.Model):
 
     def __str__(self):
         return f"{'[x]' if self.hecho else '[ ]'} {self.texto}"
+
+
+#: Adjuntos que se muestran como imagen (miniatura y portada de la tarjeta). Sus
+#: firmas, para comprobar el contenido, están en `services/adjuntos.py`.
+TIPOS_IMAGEN = ("image/png", "image/jpeg", "image/gif", "image/webp")
 
 
 class AdjuntoQuerySet(models.QuerySet):

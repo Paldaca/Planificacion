@@ -28,12 +28,12 @@ viejos).
 
 | Carpeta | Contenido |
 |---|---|
-| `api/` | `client.ts` (`apiFetch`: `credentials: "include"`, `X-CSRFToken`, `ApiError`, `mensajeError`), `queries.ts` (hooks de TanStack Query y las claves `claves.*`), `configuracion.ts` (etiquetas y campos del tablero), `favoritos.ts` (`useFavorito`, optimista en el listado, el tablero y los del equipo), `plantillas.ts` (plantillas de tablero), `adjuntos.ts` (subir, quitar y descargar adjuntos de una tarjeta; mantienen `CardDetalle.adjuntos`), `tipos.ts` (formas de la API `/api/v1/`). Los módulos nuevos de hooks van en su propio archivo (A-11) y reutilizan `avisarError`/`claves` de `queries.ts`. |
+| `api/` | `client.ts` (`apiFetch`: `credentials: "include"`, `X-CSRFToken`, `ApiError`, `mensajeError`), `queries.ts` (hooks de TanStack Query y las claves `claves.*`), `configuracion.ts` (etiquetas y campos del tablero), `favoritos.ts` (`useFavorito`, optimista en el listado, el tablero y los del equipo), `plantillas.ts` (plantillas de tablero), `adjuntos.ts` (subir, quitar y descargar adjuntos de una tarjeta, y `urlImagen` para mostrarlos; mantienen `CardDetalle.adjuntos`), `tipos.ts` (formas de la API `/api/v1/`). Los módulos nuevos de hooks van en su propio archivo (A-11) y reutilizan `avisarError`/`claves` de `queries.ts`. |
 | `auth/` | `useIdentity` (llama `GET /api/auth/me/` → loading / ok / unauthorized / forbidden / unavailable), `IdentidadProvider` / `useIdentidad`, `redirectToPortalLogin`, `StatusScreen` |
 | `embed/` | `protocol.ts` (contrato `paldaca-embed` v1, espejo del parser del Portal), `portal.ts` (URL del Portal: la `<meta name="paldaca-portal-url">` que escribe Django, o `VITE_PALDACA_PORTAL_URL` con Vite), `usePaldacaEmbed` (avisa `ready`/`navigate`/`session-expired`/`forbidden` al shell, con la ruta sin `paldaca_embed`), `usePaldacaNav` (barra de la Suite al abrirse suelta; menú propio de respaldo a los 8 s) |
 | `pages/` | Una por ruta, cargadas con `lazy()`: `MisTareasPage`, `TablerosPage`, `TableroPage` (+ `TarjetaAbierta`), `EquiposPage`, `EquipoPage`, `InvitacionesPage` |
 | `components/ui/` | Primitivas propias: `Boton`, `Campos`, `Dialogo`, `Menu`, `Avatar`, `Estados` (`Vacio`, `Esqueleto`) |
-| `components/<dominio>/` | `ayuda/` (Centro de ayuda: `CentroAyuda` con `ProveedorAyuda`, y su texto en `contenido.ts`; `BotonAyuda`, el «?» redondo con una explicación corta y enlace a la guía, usado en el Gantt y en «Etiquetas y campos»), `tablero/` (Kanban, columnas, tarjeta, filtros, alta rápida, `NuevaTareaDialogo` que comparten Gantt y Calendario, `ExportarPdfDialogo` («Gantt en PDF»: escala, periodo y hoja; recibe `ConfigGantt` del Gantt o de las preferencias guardadas), `BotonFavorito` (estrella: en `MosaicoTablero`, fuera del enlace, y junto al nombre del tablero abierto), importar, `ConfiguracionDialogo` de etiquetas y campos con `EditorOpciones` (las opciones de una lista, una por fila: añadir con Enter o pegando varias, renombrar, ordenar y quitar), `LimiteColumnaDialogo`), `card/` (diálogo de la tarjeta, checklist, `Adjuntos` (bajo la descripción: elegir o soltar archivos, descargar con un clic, quitar con confirmación), comentarios, menciones, historial, `EtiquetasYCampos`), `vistas/` (Lista, Calendario, `CalendarioMovil`, calendario laboral), `gantt/`, `plantillas/` (guardar y listar plantillas), `equipos/` (incluye `TableroDialogo` con el selector «Empezar con»), `invitaciones/`, `layout/` (Shell, Encabezado) |
+| `components/<dominio>/` | `ayuda/` (Centro de ayuda: `CentroAyuda` con `ProveedorAyuda`, y su texto en `contenido.ts`; `BotonAyuda`, el «?» redondo con una explicación corta y enlace a la guía, usado en el Gantt y en «Etiquetas y campos»), `tablero/` (Kanban, columnas, tarjeta, filtros, alta rápida, `NuevaTareaDialogo` que comparten Gantt y Calendario, `ExportarPdfDialogo` («Gantt en PDF»: escala, periodo y hoja; recibe `ConfigGantt` del Gantt o de las preferencias guardadas), `BotonFavorito` (estrella: en `MosaicoTablero`, fuera del enlace, y junto al nombre del tablero abierto), importar, `ConfiguracionDialogo` de etiquetas y campos con `EditorOpciones` (las opciones de una lista, una por fila: añadir con Enter o pegando varias, renombrar, ordenar y quitar), `LimiteColumnaDialogo`), `card/` (diálogo de la tarjeta, checklist, `Adjuntos` (bajo la descripción: las imágenes como miniaturas que se abren en un visor a pantalla completa con flechas, el resto como lista para descargar; se añaden con el botón, soltándolos o pegando una captura con Ctrl+V; quitar pide confirmación), comentarios, menciones, historial, `EtiquetasYCampos`), `vistas/` (Lista, Calendario, `CalendarioMovil`, calendario laboral), `gantt/`, `plantillas/` (guardar y listar plantillas), `equipos/` (incluye `TableroDialogo` con el selector «Empezar con»), `invitaciones/`, `layout/` (Shell, Encabezado) |
 | `hooks/` | `useVista` (`?vista=` + última usada por tablero), `usePreferencia` (localStorage con prefijo `planificacion:`; `leerPreferencia` para leer una sin suscribirse), `useTitulo`, `useAlAbrir`, `useModuloDiferido` (vistas pesadas sin `Suspense`), `useEstable` (manejadores con identidad estable para filas memoizadas), `usePantallaCompleta` (vista a toda la ventana + pantalla completa del documento; ver `gantt.md`), `useAyuda` / `useTemaAyuda` (abrir el Centro de ayuda; la pantalla declara con qué tema abre), `useConfigTablero` (contexto con las etiquetas y los campos del tablero para dibujar tarjetas; lo provee `TableroPage`, fuera de un tablero queda vacío) |
 | `lib/` | Lógica pura, sin React: `fechas`, `dias`, `calendarioMes`, `gantt` (geometría), `filtros`, `opciones` (límites de una lista y cómo se leen de un texto pegado), `vencimiento`, `estilos` (colores de dominio), `actividadUsuario` (refresco vivo), `cn` |
 
@@ -111,6 +111,21 @@ Mismo del Portal: Poppins (títulos) + Geist Sans (texto); tokens
   siguiente clic caería en otra opción). Renombrar manda `renombrar` para que
   el servidor cambie también las tarjetas; al vaciarse la cola se vuelve a
   pedir el tablero.
+- **Portada y clip en la tarjeta del tablero** (`Tarjeta.tsx`): si
+  `portada` no es null, la primera imagen adjunta ocupa la parte de arriba de
+  borde a borde, sin arrastre nativo (`draggable={false}`,
+  `pointer-events-none`: el arrastre es el de dnd-kit); con adjuntos, un clip
+  con el número. Al subir o quitar, `api/adjuntos.ts` recalcula los dos datos
+  en la caché del tablero con la lista de la tarjeta abierta (la misma regla
+  que el servidor: la imagen más antigua).
+- **Imágenes adjuntas**: se piden con un `<img>` directo a
+  `adjuntos/<id>/?ver=1` (`urlImagen`; la cookie de sesión viaja sola), no con
+  `fetch`: el navegador las guarda en caché y carga solo las visibles
+  (`loading="lazy"`). Solo para adjuntos con `es_imagen`; lo decide el
+  servidor. El visor va en `z-[1100]`, por encima de la barra de la Suite.
+  Pegar (listener en `document` mientras la tarjeta está abierta) solo adjunta
+  si el portapapeles trae una imagen **y no** texto: copiar de Word o Excel
+  pone las dos cosas y debe seguir siendo un pegado de texto.
 - Límite de tarjetas por columna: se cuenta sobre **todas** las tarjetas de la
   columna (no las filtradas) y solo avisa (toast + contador ámbar/rojo); la
   regla es suave (D-13).

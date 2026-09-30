@@ -16,10 +16,12 @@ from tableros.models import (
     EnGantt,
     Etiqueta,
     ItemChecklist,
+    TIPOS_IMAGEN,
     Tablero,
     TipoCampo,
     Urgencia,
 )
+from tableros.services.adjuntos import es_imagen
 from tableros.services.campos import validar_valores
 from tableros.services.favoritos import ids_favoritos
 from tableros.services.vencimientos import DIAS_HABILES_VENCE_PRONTO, vencimiento
@@ -68,6 +70,9 @@ class CardResumenSerializer(serializers.ModelSerializer):
     vencimiento = serializers.SerializerMethodField()
     en_gantt_efectivo = serializers.BooleanField(source="entra_en_gantt", read_only=True)
     etiquetas = serializers.SerializerMethodField()
+    num_adjuntos = serializers.SerializerMethodField()
+    #: Id de la primera imagen adjunta (se muestra como portada) o null.
+    portada = serializers.SerializerMethodField()
 
     class Meta:
         model = Card
@@ -88,6 +93,8 @@ class CardResumenSerializer(serializers.ModelSerializer):
             "responsables",
             "comentarios",
             "checklist",
+            "num_adjuntos",
+            "portada",
             "vencimiento",
             "completada_en",
             "version",
@@ -105,6 +112,16 @@ class CardResumenSerializer(serializers.ModelSerializer):
         if valor is None:
             valor = card.comentarios.filter(eliminado=False).count()
         return valor
+
+    def get_num_adjuntos(self, card):
+        valor = getattr(card, "num_adjuntos", None)
+        return card.adjuntos.count() if valor is None else valor
+
+    def get_portada(self, card):
+        if hasattr(card, "id_portada"):
+            return card.id_portada
+        primera = card.adjuntos.filter(tipo__in=TIPOS_IMAGEN).order_by("creado_en", "id").values_list("id", flat=True).first()
+        return primera
 
     def get_checklist(self, card):
         total = getattr(card, "num_items", None)
@@ -146,10 +163,15 @@ class ActividadSerializer(serializers.ModelSerializer):
 
 class AdjuntoSerializer(serializers.ModelSerializer):
     subido_por = serializers.SerializerMethodField()
+    #: Se puede mostrar dentro de la tarjeta (`adjuntos/<id>/?ver=1`).
+    es_imagen = serializers.SerializerMethodField()
 
     class Meta:
         model = Adjunto
-        fields = ["id", "nombre", "tipo", "tamano", "subido_por", "creado_en"]
+        fields = ["id", "nombre", "tipo", "tamano", "es_imagen", "subido_por", "creado_en"]
+
+    def get_es_imagen(self, adjunto):
+        return es_imagen(adjunto.tipo)
 
     def get_subido_por(self, adjunto):
         return persona(adjunto.subido_por)

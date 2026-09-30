@@ -531,7 +531,11 @@ crece a mitad de camino: lo nuevo va a la siguiente.
   sus tarjetas se dibujan como rombo en el Gantt y en su PDF, y salen como
   hito en MS Project (D-17).
 - **Adjuntos en las tarjetas**, bajo la descripción: hasta 10 MB por archivo
-  y 20 por tarjeta, guardados en la base (D-16), siempre como descarga.
+  y 20 por tarjeta, guardados en la base (D-16). Las imágenes (PNG, JPG, GIF,
+  WebP) se ven dentro de la tarjeta y se abren a pantalla completa; una
+  captura se adjunta pegándola con Ctrl+V; lo demás se descarga. En el
+  tablero, la tarjeta lleva un clip con cuántos adjuntos tiene y, si tiene una
+  imagen, la primera como portada.
 - **Tableros favoritos**: estrella en cada tablero (solo para quien la
   marca); los favoritos salen primero en *Tableros*. No dan acceso.
 - **Arranque local**: `iniciar.ps1` / `iniciar.sh` del Portal abren todo como

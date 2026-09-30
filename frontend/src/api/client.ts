@@ -1,5 +1,8 @@
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) ?? "";
 
+/** URL completa de una ruta de la API: para lo que el navegador pide solo (un `<img>`). */
+export const urlApi = (path: string) => `${API_BASE_URL}${path}`;
+
 export class ApiError extends Error {
   status: number;
   body: unknown;

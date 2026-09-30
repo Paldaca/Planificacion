@@ -80,7 +80,7 @@ integracion_portal → paldaca_sso → core`. Para reaccionar «hacia arriba» s
 | Cuenta espejo | Usuario local creado desde el Portal (`CuentaPortal.portal_user_id` es la clave de unión). |
 | Admin del módulo | Rol del Portal: administra todos los equipos y el calendario; no ve tableros personales ajenos. |
 | Hito | Tarjeta con una etiqueta marcada `es_hito`: un rombo en el Gantt. No se deduce del nombre ni de la duración. |
-| Adjunto | Archivo de una tarjeta, guardado en la base (≤ 10 MB), siempre servido como descarga. |
+| Adjunto | Archivo de una tarjeta, guardado en la base (≤ 10 MB). Se sirve como descarga; solo las imágenes PNG/JPG/GIF/WebP comprobadas se muestran en línea. |
 | Aviso | Notificación en la campana del Portal, emitida con firma HMAC y bandeja de salida. |
 
 ## 5. Reglas de oro
@@ -137,7 +137,7 @@ Rutas relativas a la raíz del repo; en Windows (PowerShell) el venv está en
 ```powershell
 # Backend (desde backend/)
 ..\venv\Scripts\python.exe manage.py runserver 127.0.0.1:8007
-..\venv\Scripts\python.exe manage.py test                    # 170 pruebas, ~30 s
+..\venv\Scripts\python.exe manage.py test                    # 173 pruebas, ~30 s
 ..\venv\Scripts\python.exe manage.py test tableros.tests.test_tarjetas
 ..\venv\Scripts\python.exe manage.py makemigrations <app>
 ..\venv\Scripts\python.exe manage.py migrate

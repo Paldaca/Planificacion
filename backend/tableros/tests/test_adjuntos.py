@@ -25,6 +25,7 @@ class AdjuntosTests(EscenarioTablero):
         self.assertEqual(r.status_code, 201, r.content)
         adjunto = r.json()
         self.assertEqual((adjunto["nombre"], adjunto["tipo"], adjunto["tamano"]), ("requisitos.pdf", "application/pdf", 18))
+        self.assertFalse(adjunto["es_imagen"])
         self.assertNotIn("contenido", adjunto)
 
         # Viene en la tarjeta abierta y en su propio listado.
@@ -49,6 +50,60 @@ class AdjuntosTests(EscenarioTablero):
                 ("adjunto", {"cambio": "agrego", "nombre": "requisitos.pdf"}),
             ],
         )
+
+    def test_una_imagen_se_muestra_en_linea_y_lo_demas_no(self):
+        png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 40
+        webp = b"RIFF\x24\x00\x00\x00WEBPVP8 " + b"\x00" * 20
+        casos = [
+            ("captura.PNG", png, "image/png", True),
+            ("foto.webp", webp, "image/webp", True),
+            ("foto.jpg", b"\xff\xd8\xff\xe0" + b"\x00" * 20, "image/jpeg", True),
+            # Dice ser una imagen y es una página: se guarda como un archivo cualquiera.
+            ("falsa.png", b"<html><script>alert(1)</script></html>", "application/octet-stream", False),
+            ("dibujo.svg", b"<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>", "image/svg+xml", False),
+            ("acta.docx", b"PK\x03\x04 documento", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", False),
+        ]
+        for nombre, datos, tipo, imagen in casos:
+            with self.subTest(nombre=nombre):
+                adjunto = self.subir(nombre, datos).json()
+                self.assertEqual((adjunto["tipo"], adjunto["es_imagen"]), (tipo, imagen))
+                ver = self.cliente(self.lector).get(f"/api/v1/adjuntos/{adjunto['id']}/?ver=1")
+                self.assertEqual(ver.status_code, 200)
+                self.assertEqual(ver["Content-Disposition"].split(";")[0], "inline" if imagen else "attachment")
+                self.assertEqual(ver["X-Content-Type-Options"], "nosniff")
+                self.assertEqual("sandbox" in ver.get("Content-Security-Policy", ""), imagen)
+                # Sin `ver`, siempre como descarga.
+                descarga = self.cliente(self.lector).get(f"/api/v1/adjuntos/{adjunto['id']}/")
+                self.assertTrue(descarga["Content-Disposition"].startswith("attachment"))
+        # Ver una imagen pide el mismo permiso que descargarla.
+        primera = Adjunto.objects.sin_contenido().first()
+        self.assertEqual(self.cliente(self.ajeno).get(f"/api/v1/adjuntos/{primera.pk}/?ver=1").status_code, 403)
+
+    def test_la_tarjeta_del_tablero_trae_cuantos_adjuntos_tiene_y_su_portada(self):
+        def en_tablero():
+            detalle = self.cliente(self.lector).get(f"/api/v1/tableros/{self.tablero['id']}/").json()
+            card = next(c for c in detalle["cards"] if c["id"] == self.card["id"])
+            return card["num_adjuntos"], card["portada"]
+
+        self.assertEqual(en_tablero(), (0, None))
+        png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 20
+        self.subir("acta.docx", b"PK\x03\x04 documento")
+        self.assertEqual(en_tablero(), (1, None))  # un Word no es portada
+        primera = self.subir("pantalla.png", png).json()
+        segunda = self.subir("otra.png", png).json()
+        self.assertEqual(en_tablero(), (3, primera["id"]))
+        self.cliente(self.beto).delete(f"/api/v1/adjuntos/{primera['id']}/")
+        self.assertEqual(en_tablero(), (2, segunda["id"]))
+        # Fuera del listado del tablero (sin `con_detalle`) sale lo mismo.
+        r = self.cliente(self.beto).patch(
+            f"/api/v1/cards/{self.card['id']}/", {"titulo": "Otro título", "version": self.card["version"]}, format="json"
+        )
+        self.assertEqual((r.json()["num_adjuntos"], r.json()["portada"]), (2, segunda["id"]))
+
+    def test_las_imagenes_del_modelo_son_las_que_tienen_firma(self):
+        from tableros.models import TIPOS_IMAGEN
+
+        self.assertEqual(set(servicio.FIRMAS_IMAGEN), set(TIPOS_IMAGEN))
 
     def test_un_html_se_descarga_no_se_abre(self):
         adjunto = self.subir("pagina.html", b"<script>alert(1)</script>").json()

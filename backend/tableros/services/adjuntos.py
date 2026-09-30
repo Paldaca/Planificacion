@@ -5,8 +5,11 @@ de requisitos, un plano, una captura).
 - El contenido se guarda **en la base** (decisión D-16 del plan): el despliegue
   no necesita un volumen persistente y el respaldo de la base incluye los
   archivos. A cambio el tamaño está acotado.
-- Se sirven siempre como descarga (nunca en línea) y con el tipo deducido del
-  nombre: un HTML o un SVG subido no se ejecuta en el origen de la aplicación.
+- Se sirven como descarga y con el tipo deducido del nombre: un HTML o un SVG
+  subido no se ejecuta en el origen de la aplicación. La única excepción son
+  las **imágenes de mapa de bits** (PNG, JPEG, GIF, WebP), que la tarjeta
+  muestra en línea: su contenido se comprueba al subirlas y otra vez al
+  servirlas (`se_puede_mostrar`).
 - Quitar un adjunto lo borra de verdad (es la única forma de liberar el
   espacio); queda en el historial de la tarjeta quién lo quitó.
 """
@@ -20,7 +23,7 @@ import re
 from django.db import transaction
 
 from core.errores import ReglaDeNegocio
-from tableros.models import Actividad, Adjunto, Card
+from tableros.models import TIPOS_IMAGEN, Actividad, Adjunto, Card
 
 from . import actividad
 
@@ -31,6 +34,29 @@ EXTENSIONES_BLOQUEADAS = frozenset(
     {".exe", ".msi", ".bat", ".cmd", ".com", ".scr", ".pif", ".vbs", ".vbe", ".js", ".jse", ".wsf", ".ps1", ".sh", ".jar", ".dll", ".lnk", ".reg", ".hta"}
 )
 _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
+
+#: Tipos de lo que más se adjunta, por extensión: `mimetypes` depende del
+#: sistema (en Windows lee el registro; en la imagen de Docker no conoce .webp).
+TIPOS = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".pdf": "application/pdf",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+}
+TIPO_GENERICO = "application/octet-stream"
+#: Imágenes que se muestran dentro de la tarjeta, con el comienzo que debe
+#: tener su contenido. Sin SVG: es un documento que puede llevar scripts.
+FIRMAS_IMAGEN = {
+    "image/png": (b"\x89PNG\r\n\x1a\n",),
+    "image/jpeg": (b"\xff\xd8\xff",),
+    "image/gif": (b"GIF87a", b"GIF89a"),
+    "image/webp": (b"RIFF",),
+}
 
 
 #: Lo que una petición multipart añade al archivo (cabeceras y separadores).
@@ -51,6 +77,28 @@ def comprobar_peticion(bytes_anunciados: int) -> None:
     petición que ya anuncia más de lo permitido se rechaza sin leerla."""
     if bytes_anunciados > MAX_BYTES + MARGEN_PETICION:
         raise _demasiado_grande()
+
+
+def es_imagen(tipo: str) -> bool:
+    """El tipo guardado es el de una imagen que la tarjeta muestra en línea
+    (`TIPOS_IMAGEN` del modelo: las mismas de `FIRMAS_IMAGEN`)."""
+    return tipo in TIPOS_IMAGEN
+
+
+def se_puede_mostrar(tipo: str, contenido: bytes) -> bool:
+    """Es una imagen de las permitidas **y** su contenido empieza como tal: un
+    HTML llamado `foto.png` no se sirve en línea."""
+    if tipo == "image/webp":
+        return contenido[:4] == b"RIFF" and contenido[8:12] == b"WEBP"
+    return any(contenido.startswith(firma) for firma in FIRMAS_IMAGEN.get(tipo, ()))
+
+
+def _tipo_de(nombre: str, contenido: bytes) -> str:
+    tipo = TIPOS.get(os.path.splitext(nombre)[1].lower()) or mimetypes.guess_type(nombre)[0] or TIPO_GENERICO
+    # Dice ser una imagen y no lo es: se guarda, pero como un archivo cualquiera.
+    if es_imagen(tipo) and not se_puede_mostrar(tipo, contenido):
+        return TIPO_GENERICO
+    return tipo
 
 
 def nombre_limpio(nombre: str) -> str:
@@ -79,12 +127,13 @@ def adjuntar(card: Card, *, archivo, actor) -> Adjunto:
     Card.objects.select_for_update().filter(pk=card.pk).first()
     if card.adjuntos.count() >= MAX_POR_TARJETA:
         raise ReglaDeNegocio(f"Una tarjeta admite hasta {MAX_POR_TARJETA} adjuntos.")
+    contenido = archivo.read()
     adjunto = Adjunto.objects.create(
         card=card,
         nombre=nombre,
-        tipo=mimetypes.guess_type(nombre)[0] or "application/octet-stream",
+        tipo=_tipo_de(nombre, contenido),
         tamano=archivo.size,
-        contenido=archivo.read(),
+        contenido=contenido,
         subido_por=actor,
     )
     actividad.registrar(card, actor, Actividad.Accion.ADJUNTO, cambio="agrego", nombre=nombre)

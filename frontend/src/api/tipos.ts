@@ -79,6 +79,9 @@ export type CardResumen = {
   responsables: Persona[];
   comentarios: number;
   checklist: { hechos: number; total: number };
+  num_adjuntos: number;
+  /** Id de la primera imagen adjunta: la portada de la tarjeta en el tablero. */
+  portada: number | null;
   vencimiento: Vencimiento;
   completada_en: string | null;
   version: number;
@@ -120,6 +123,8 @@ export type Adjunto = {
   /** Tipo MIME deducido del nombre. */
   tipo: string;
   tamano: number;
+  /** PNG, JPG, GIF o WebP comprobado por el servidor: se muestra dentro de la tarjeta. */
+  es_imagen: boolean;
   subido_por: Persona | null;
   creado_en: string;
 };

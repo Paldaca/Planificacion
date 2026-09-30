@@ -1,8 +1,9 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { CalendarDays, CircleCheck, ListChecks, Maximize2, MessageSquare, TextAlignStart } from "lucide-react";
+import { CalendarDays, CircleCheck, ListChecks, Maximize2, MessageSquare, Paperclip, TextAlignStart } from "lucide-react";
 import { memo, type CSSProperties } from "react";
 
+import { urlImagen } from "@/api/adjuntos";
 import type { CardResumen } from "@/api/tipos";
 import { PilaAvatares } from "@/components/ui/Avatar";
 import { textoValor, useConfigTablero } from "@/hooks/useConfigTablero";
@@ -78,8 +79,22 @@ export function CuerpoTarjeta({
         className,
       )}
     >
+      {card.portada !== null && (
+        // Portada: la primera imagen adjunta, de borde a borde (anula el relleno
+        // de la tarjeta). Sin arrastre nativo: el que manda es el de dnd-kit.
+        <div className="-mt-3 mb-2.5 -mr-3 -ml-4 h-32 overflow-hidden bg-columna">
+          <img
+            src={urlImagen(card.portada)}
+            alt=""
+            loading="lazy"
+            draggable={false}
+            className={cn("pointer-events-none size-full object-cover", terminada && "opacity-60")}
+          />
+        </div>
+      )}
+
       <span
-        className="absolute top-2.5 bottom-2.5 left-0 w-[3.5px] rounded-r-full"
+        className={cn("absolute bottom-2.5 left-0 w-[3.5px] rounded-r-full", card.portada !== null ? "top-[8.75rem]" : "top-2.5")}
         style={{ background: urgencia.color, opacity: terminada ? 0.35 : 1 }}
         aria-hidden
       />
@@ -176,6 +191,15 @@ export function CuerpoTarjeta({
           <span className="inline-flex items-center gap-0.5 text-[0.72rem] font-medium text-tenue">
             <MessageSquare className="size-3.5" />
             {card.comentarios}
+          </span>
+        )}
+        {card.num_adjuntos > 0 && (
+          <span
+            className="inline-flex items-center gap-0.5 text-[0.72rem] font-medium text-tenue"
+            aria-label={card.num_adjuntos === 1 ? "1 adjunto" : `${card.num_adjuntos} adjuntos`}
+          >
+            <Paperclip className="size-3.5" />
+            {card.num_adjuntos}
           </span>
         )}
         <span className="ml-auto flex items-center gap-2">

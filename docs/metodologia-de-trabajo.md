@@ -77,7 +77,7 @@ Vale para todos los tableros.
 | **Responsable** | Quién responde por la tarjeta | Recibe los avisos en la campana del Portal |
 | **Inicio y fin** | Cuándo se hará | Solo si está planificado; el fin es un compromiso |
 | **Checklist** | Los pasos para terminar | Su avance se ve en la tarjeta y en la barra del Gantt |
-| **Adjuntos** | Los archivos que acompañan a la tarjeta | Hasta 10 MB cada uno; lo más pesado va a la carpeta del proyecto y se pega el enlace |
+| **Adjuntos** | Las capturas y documentos que acompañan a la tarjeta | Las imágenes se ven en la propia tarjeta; una captura se pega con Ctrl+V. Hasta 10 MB cada uno; lo más pesado va a la carpeta del proyecto y se pega el enlace |
 | **Dependencia** | Una tarjeta espera a otra | Solo donde la espera es real |
 | **Comentarios** | Lo que pasó y por qué | Todo cambio de fecha lleva su motivo aquí |
 

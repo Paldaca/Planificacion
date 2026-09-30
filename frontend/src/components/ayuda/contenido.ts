@@ -61,8 +61,9 @@ const TABLERO: TemaAyuda = {
       id: "adjuntos",
       titulo: "Adjuntar archivos a una tarjeta",
       parrafos: [
-        "Dentro de la tarjeta, bajo la descripción, está **Adjuntos**: pulsa **Adjuntar** (puedes elegir varios) o suelta los archivos encima.",
-        "Sirve para el documento de requisitos, un plano, una captura: lo que acompaña a esa tarjeta. Se descargan con un clic; quien solo consulta el tablero también puede descargarlos.",
+        "Dentro de la tarjeta, bajo la descripción, está **Adjuntos**: pulsa **Adjuntar** (puedes elegir varios), suelta los archivos encima o **pega una captura con Ctrl+V**.",
+        "Las **imágenes** (PNG, JPG, GIF, WebP) se ven ahí mismo como miniaturas; al pulsar una se abre a pantalla completa, con flechas para pasar a la siguiente. Lo demás (un Word, un PDF) se descarga con un clic. Quien solo consulta el tablero también los ve y los descarga.",
+        "En el tablero, la tarjeta muestra un **clip** con cuántos adjuntos tiene y, si tiene imágenes, la primera como **portada**.",
         "• Hasta **10 MB** por archivo y 20 archivos por tarjeta. Lo más pesado va a la carpeta del proyecto y se pega el enlace en la descripción.",
         "• No se aceptan programas ni scripts (.exe, .bat, .ps1…).",
         "• **Quitar** un adjunto lo borra de verdad; en la Actividad queda quién lo subió y quién lo quitó.",
