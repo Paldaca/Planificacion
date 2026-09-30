@@ -237,6 +237,7 @@ const GANTT: TemaAyuda = {
       parrafos: [
         "• **Día / Semana / Mes** cambian el zoom; **Encajar** elige el que muestra todas las tareas a la vez.",
         "• **Agrupar** por columna, responsable o urgencia. Por responsable ves cómo va cada persona.",
+        "• Si el tablero tiene un **campo de tipo lista** (por ejemplo «Fase»), también puedes agrupar por él: un grupo por cada opción, en el orden de la lista, y al final las tarjetas que no lo tienen.",
         "• **Hoy** vuelve a la fecha actual; el botón de la esquina pone el Gantt en **pantalla completa** (Esc para salir).",
       ],
     },

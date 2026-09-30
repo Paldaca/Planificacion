@@ -1,7 +1,7 @@
 # Módulo `exportacion` (fase 4)
 
 > Leer antes de modificar `backend/exportacion/` o
-> `frontend/src/components/tablero/ImportarDialogo.tsx`. Revisado: 2026-09-26.
+> `frontend/src/components/tablero/ImportarDialogo.tsx`. Revisado: 2026-09-30.
 >
 > Estado: implementado (commit `6e9157a`) y auditado (`e81f239`). Falta abrir
 > el XML en un MS Project real para cerrar el criterio de aceptación.
@@ -36,7 +36,7 @@ Llevar un tablero a las herramientas de la empresa y traerlo de vuelta:
 | `services/datos.py` | Qué se exporta y cómo se nombra, compartido por los tres formatos. `Filtros` = los mismos del tablero en pantalla (`frontend/src/lib/filtros.ts`, incluidas las etiquetas) para exportar exactamente lo que se ve. Dependencias en texto estilo Project en español: `3`, `3CC+2`, `3FF-1`. `Contenido.campos`: campos activos del tablero. |
 | `services/excel.py` | `exportar`, `plantilla`, `leer`. Antes de guardar, toda celda que openpyxl tomó por fórmula pasa a texto (`_sin_formulas`): un título que empieza por `=` no se ejecuta en el Excel de quien descarga. `leer` busca la fila de encabezados (título + otro conocido) en las 15 primeras y recorre bajo demanda con tope (`FILAS_MAXIMAS_LEIDAS`). |
 | `services/mspdi.py` | `exportar`, `leer`. Proyecto = tablero; tareas resumen = columnas; tareas = tarjetas del Gantt con inicio y fin; tareas **programadas manualmente**; calendario «Planificación» lun–vie 8–12 y 13–17 con feriados como excepciones; vínculos FC=1, CC=3, FF=0 con desfase; responsables → recursos; urgencia ↔ prioridad (baja 300, media 500, alta 700, crítica 900); avance = checklist; descripción → notas. Elementos en el orden del esquema MSPDI; sin caracteres de control. `leer` rechaza XML con `DOCTYPE`/`ENTITY`. |
-| `services/pdf.py` | `exportar(contenido, OpcionesPdf)` y `planificar` (páginas antes de dibujar, para «hoja x de y»). Opciones (`OpcionesPdf.desde_query`): `escala` ajustar\|zoom, `zoom` dia\|semana\|mes (14 / 5,5 / 1,8 pt por día), `agrupar`, `plegado` (claves de grupo, repetible), `desde`/`hasta` (las dos o ninguna; solo tareas que tocan el periodo, recortadas en los bordes) y `hoja` carta\|tabloide (11×17), siempre horizontal. Filas y flechas son **espejo** de `frontend/src/lib/gantt.ts` (`grupoDe`, `construirFilas`, `rutaFlecha`). Con zoom, un plan largo se reparte en tramos de hojas; muchas filas siguen en más hojas repitiendo la escala. Flechas solo si las dos puntas caen en la hoja (debajo de barras y títulos). Más de 150 hojas → `ReglaDeNegocio`. Texto en las fuentes base del PDF (Windows-1252): lo que no cabe en ella sale como «?». |
+| `services/pdf.py` | `exportar(contenido, OpcionesPdf)` y `planificar` (páginas antes de dibujar, para «hoja x de y»). Opciones (`OpcionesPdf.desde_query`): `escala` ajustar\|zoom, `zoom` dia\|semana\|mes (14 / 5,5 / 1,8 pt por día), `agrupar` (columna\|responsable\|urgencia\|ninguna o `campo:<nombre>` de un campo de lista activo del tablero; si no existe o no es de lista, `ReglaDeNegocio` → 400), `plegado` (claves de grupo, repetible), `desde`/`hasta` (las dos o ninguna; solo tareas que tocan el periodo, recortadas en los bordes) y `hoja` carta\|tabloide (11×17), siempre horizontal. Filas y flechas son **espejo** de `frontend/src/lib/gantt.ts` (`grupoDe`, `construirFilas`, `rutaFlecha`). Con zoom, un plan largo se reparte en tramos de hojas; muchas filas siguen en más hojas repitiendo la escala. Flechas solo si las dos puntas caen en la hoja (debajo de barras y títulos). Más de 150 hojas → `ReglaDeNegocio`. Texto en las fuentes base del PDF (Windows-1252): lo que no cabe en ella sale como «?». |
 | `services/modelo.py` | `FilaEntrada`: una fila leída antes de validar (incluye `etiquetas` y `campos` por nombre de encabezado). |
 | `services/importacion.py` | `vista_previa` (valida sin tocar la BD: errores y avisos por fila) e `importar` (revalida y crea en **una** transacción las filas válidas y sus dependencias). Límites: 5 MB y 1000 filas. Los responsables reciben **un** aviso agrupado en vez de uno por tarjeta (`crear_card(avisar=False)`). Valores de campo inválidos se ignoran **con aviso** (no son error); las columnas del Excel que no son campos del tablero se ignoran sin más. **Columnas y etiquetas que el tablero no tiene** no dan un aviso por fila: `faltantes` las resume una vez (sin repetir, grafía de su primera aparición) en `vista_previa`. Con `Crear` (casillas del diálogo; solo quien **gestiona** el tablero, `puede_crear`), la vista previa las marca como nuevas y `importar` las crea en la **misma transacción** que las tarjetas (`_crear_faltantes`): columnas antes de la columna final, **dentro del Gantt y no finales** (no se adivina por el nombre: «Pendientes» se saca del Gantt a mano) y etiquetas con colores de `COLORES_ETIQUETA` (primero los no usados). Pasar el cupo de 30 etiquetas es un `problemas` en la vista previa y un 400 al importar, sin crear nada. Sin crearlas: las tarjetas van a la primera columna y sin esas etiquetas. |
 
@@ -61,7 +61,7 @@ archivo.
 
 `tests/test_exportacion.py` (incluye la ida y vuelta y `EtiquetasYCamposTests`) y
 `tests/test_importar_faltantes.py` (resumen, crear columnas y etiquetas, permisos,
-cupo sin crear nada) y `tests/test_pdf.py` (hojas, filas como la pantalla, plegados, filtros, periodo,
+cupo sin crear nada) y `tests/test_pdf.py` (hojas, filas como la pantalla, agrupar por un campo de lista, plegados, filtros, periodo,
 tramos, límite de hojas, permisos). Criterios de aceptación
 de la fase 4: un tablero exportado a XML e importado de nuevo conserva
 tarjetas, fechas y dependencias; el XML abre en MS Project sin advertencias
@@ -80,7 +80,7 @@ tarjetas, fechas y dependencias; el XML abre en MS Project sin advertencias
   antes de parsear (auditoría A-13).
 - Nunca escribir fórmulas en los Excel: `_guardar` las convierte en texto.
 - PDF: si cambia cómo agrupa u ordena el Gantt de la pantalla (`lib/gantt.ts`),
-  cambiar igual `pdf.construir_filas` / `pdf._grupo` / `pdf._ruta`, y los
+  cambiar igual `pdf.construir_filas` / `pdf._grupo` / `pdf._grupo_de_campo` / `pdf._ruta`, y los
   colores si cambian los de `lib/estilos.ts`.
 
 ## Relacionado

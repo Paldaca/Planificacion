@@ -35,7 +35,7 @@ Lecturas reutilizables en QuerySet: `Tablero.objects.activos()`,
 `.por_fecha_fin()` (`con_detalle` cuenta comentarios e ítems con
 subconsultas, no con JOIN + COUNT DISTINCT, que multiplicaba filas). Reglas de
 una instancia en métodos: `Card.clean()`,
-`Card.entra_en_gantt()`, `Card.alinear_con_columna()`,
+`Card.entra_en_gantt` (propiedad), `Card.alinear_con_columna()`,
 `Tablero.personas_asignables()`.
 
 ## Servicios (`services/`)

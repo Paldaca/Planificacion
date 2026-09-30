@@ -133,12 +133,13 @@ Rutas relativas a la raíz del repo; en Windows (PowerShell) el venv está en
 ```powershell
 # Backend (desde backend/)
 ..\venv\Scripts\python.exe manage.py runserver 127.0.0.1:8007
-..\venv\Scripts\python.exe manage.py test                    # 156 pruebas, ~25 s
+..\venv\Scripts\python.exe manage.py test                    # 160 pruebas, ~30 s
 ..\venv\Scripts\python.exe manage.py test tableros.tests.test_tarjetas
 ..\venv\Scripts\python.exe manage.py makemigrations <app>
 ..\venv\Scripts\python.exe manage.py migrate
 ..\venv\Scripts\python.exe manage.py procesar_avisos          # cron cada 5 min
 ..\venv\Scripts\python.exe manage.py revisar_vencimientos     # cron diario
+..\venv\Scripts\python.exe manage.py instalar_plantillas      # plantillas globales del programa (una vez)
 
 # Frontend (desde frontend/)
 npm run dev        # http://localhost:5181  (usar localhost, no 127.0.0.1)

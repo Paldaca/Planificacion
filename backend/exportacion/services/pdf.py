@@ -35,6 +35,7 @@ from core.errores import ReglaDeNegocio
 from gantt.models import TipoDependencia
 from gantt.services.dependencias import incumple
 from integracion_portal.services.personas import nombre as nombre_persona
+from tableros.models import TipoCampo
 
 from .datos import Contenido
 
@@ -43,6 +44,8 @@ from .datos import Contenido
 ESCALAS = ("ajustar", "zoom")
 ZOOMS = ("dia", "semana", "mes")
 AGRUPACIONES = ("columna", "responsable", "urgencia", "ninguna")
+#: Además de las fijas: un campo de lista del tablero por su nombre (`campo:Fase`).
+PREFIJO_CAMPO = "campo:"
 HOJAS = {
     "carta": ("Carta", landscape(letter)),
     "tabloide": ("11×17", landscape((11 * inch, 17 * inch))),
@@ -82,6 +85,7 @@ class OpcionesPdf:
             except ValueError as exc:
                 raise ReglaDeNegocio(f"«{clave}» debe ser una fecha AAAA-MM-DD.") from exc
 
+        agrupar = params.get("agrupar") or ""
         desde, hasta = fecha("desde"), fecha("hasta")
         if (desde is None) != (hasta is None):
             raise ReglaDeNegocio("Para un periodo indica las dos fechas: desde y hasta.")
@@ -90,7 +94,7 @@ class OpcionesPdf:
         return cls(
             escala=elegir("escala", ESCALAS, "ajustar"),
             zoom=elegir("zoom", ZOOMS, "semana"),
-            agrupar=elegir("agrupar", AGRUPACIONES, "columna"),
+            agrupar=agrupar if agrupar.startswith(PREFIJO_CAMPO) else elegir("agrupar", AGRUPACIONES, "columna"),
             plegados=frozenset(params.getlist("plegado")),
             desde=desde,
             hasta=hasta,
@@ -168,8 +172,35 @@ class Fila:
         return ALTO_GRUPO if self.tipo == "grupo" else ALTO_FILA
 
 
-def _grupo(card, agrupar: str) -> tuple[str, str, str, float]:
+def campo_de_agrupacion(agrupar: str, c: Contenido):
+    """El campo de lista activo de `campo:<nombre>`; None si se agrupa por algo fijo."""
+    if not agrupar.startswith(PREFIJO_CAMPO):
+        return None
+    nombre = agrupar[len(PREFIJO_CAMPO) :]
+    campo = next((k for k in c.campos if k.tipo == TipoCampo.LISTA and k.nombre == nombre), None)
+    if campo is None:
+        raise ReglaDeNegocio(f"Este tablero no tiene un campo de lista «{nombre}» para agrupar.")
+    return campo
+
+
+def nombre_agrupacion(agrupar: str) -> str:
+    return agrupar[len(PREFIJO_CAMPO) :] if agrupar.startswith(PREFIJO_CAMPO) else NOMBRE_AGRUPAR[agrupar]
+
+
+def _grupo_de_campo(card, campo) -> tuple[str, str, str, float]:
+    """Un grupo por opción, en el orden de la lista; al final, las tarjetas sin valor."""
+    valor = (card.campos or {}).get(str(campo.pk))
+    if valor in (None, ""):
+        return "f:", f"Sin {campo.nombre.lower()}", "#94a3b8", len(campo.opciones) + 1
+    texto = str(valor)
+    orden = campo.opciones.index(texto) if texto in campo.opciones else len(campo.opciones)
+    return f"f:{texto}", texto, COLORES_AVATAR[orden % len(COLORES_AVATAR)], orden
+
+
+def _grupo(card, agrupar: str, campo=None) -> tuple[str, str, str, float]:
     """(clave, título, color, orden) del grupo de una tarjeta."""
+    if campo is not None:
+        return _grupo_de_campo(card, campo)
     if agrupar == "columna":
         col = card.columna
         return f"c{col.pk}", col.nombre, VERDE if col.es_final else "#32407b", col.orden
@@ -190,9 +221,10 @@ def _por_inicio(card):
 def construir_filas(cards: list, opciones: OpcionesPdf, c: Contenido) -> list[Fila]:
     if opciones.agrupar == "ninguna":
         return [Fila("card", card=card) for card in sorted(cards, key=_por_inicio)]
+    campo = campo_de_agrupacion(opciones.agrupar, c)
     grupos: dict[str, dict] = {}
     for card in cards:
-        clave, titulo, color, orden = _grupo(card, opciones.agrupar)
+        clave, titulo, color, orden = _grupo(card, opciones.agrupar, campo)
         grupos.setdefault(clave, {"titulo": titulo, "color": color, "orden": orden, "cards": []})["cards"].append(card)
     filas: list[Fila] = []
     for clave, g in sorted(grupos.items(), key=lambda kv: (kv[1]["orden"], kv[1]["titulo"].lower())):
@@ -443,7 +475,7 @@ class _Hoja:
         equipo = f"Equipo {tablero.equipo.nombre}" if tablero.equipo_id else "Tablero personal"
         escala = "ajustada al ancho" if o.escala == "ajustar" else f"zoom {NOMBRE_ZOOM[o.zoom]}"
         periodo = f"{_fecha_corta(plan.desde)} – {_fecha_corta(plan.hasta)}"
-        linea = f"{equipo} · Diagrama de Gantt · {periodo} · Escala {escala} · Agrupado por {NOMBRE_AGRUPAR[o.agrupar]}"
+        linea = f"{equipo} · Diagrama de Gantt · {periodo} · Escala {escala} · Agrupado por {nombre_agrupacion(o.agrupar)}"
         self.texto(MARGEN, MARGEN + 27, _recortar(linea, FUENTE, 8, plan.ancho - 2 * MARGEN), tamano=8, color=TENUE)
         filtros = f"Filtros: {c.filtros}" if c.filtros else "Sin filtros: todas las tarjetas del Gantt."
         if self.p.tramos > 1:

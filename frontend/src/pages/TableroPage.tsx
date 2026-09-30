@@ -37,6 +37,7 @@ import { ConfiguracionDialogo } from "@/components/tablero/ConfiguracionDialogo"
 import { ExportarPdfDialogo, type ConfigGantt } from "@/components/tablero/ExportarPdfDialogo";
 import { BarraFiltros } from "@/components/tablero/Filtros";
 import { FILTROS_VACIOS, filtrar, hayFiltros, type EstadoFiltros } from "@/lib/filtros";
+import { agrupacionVigente } from "@/lib/gantt";
 import { ImportarDialogo } from "@/components/tablero/ImportarDialogo";
 import { Kanban } from "@/components/tablero/Kanban";
 import { SelectorVista } from "@/components/tablero/SelectorVista";
@@ -99,7 +100,7 @@ export default function TableroPage() {
   const abrirPdfDesdeMenu = () =>
     abrirPdf({
       zoom: leerPreferencia("gantt:zoom", "dia", ["dia", "semana", "mes"] as const),
-      agrupar: leerPreferencia("gantt:agrupar", "columna", ["columna", "responsable", "urgencia", "ninguna"] as const),
+      agrupar: agrupacionVigente(leerPreferencia<string>("gantt:agrupar", "columna"), tablero?.campos ?? []),
       plegados: [],
     });
   const config = useValorConfigTablero(tablero);

@@ -510,6 +510,14 @@ crece a mitad de camino: lo nuevo va a la siguiente.
   aviso por fila) y, si quien importa gestiona el tablero, se crean al
   importar (casillas marcadas por defecto) en la misma transacción. Las
   columnas nuevas entran en el Gantt: no se adivina por el nombre.
+- **Plantilla del sistema «Proyecto de software»** (en prueba): la
+  metodología de desarrollo por módulos llevada a tarjetas con lo que ya hay
+  (columnas de estado, campo «Fase», campo «Requisito», etiqueta «Hito»);
+  escrita en el código y creada con `manage.py instalar_plantillas`
+  ([`modulos/plantillas.md`](modulos/plantillas.md)).
+- **Agrupar el Gantt (y su PDF) por un campo de lista** del tablero, como
+  «Fase»: un grupo por opción en el orden de la lista, con su avance y barra
+  resumen; lo que no tiene valor va al final.
 - **Tableros favoritos**: estrella en cada tablero (solo para quien la
   marca); los favoritos salen primero en *Tableros*. No dan acceso.
 - **Arranque local**: `iniciar.ps1` / `iniciar.sh` del Portal abren todo como
@@ -636,8 +644,9 @@ Alcance:
   cambia la fecha final (todo pasa por la misma API y los mismos permisos).
 - **Dependencias** entre cards (flechas), con validación de ciclos; opción de
   mover automáticamente las sucesoras cuando se retrasa una predecesora.
-- **Agrupar filas** por columna, responsable o urgencia; zoom día / semana /
-  mes; línea de hoy.
+- **Agrupar filas** por columna, responsable o urgencia (después también por
+  un campo de lista, ver «Estado del plan»); zoom día / semana / mes; línea de
+  hoy.
 - **Calendario laboral** (días hábiles y feriados) para duraciones y
   vencimientos.
 - **Vista Lista** (tabla ordenable) y **vista Calendario** (mensual/semanal).

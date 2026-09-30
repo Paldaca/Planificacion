@@ -49,6 +49,28 @@ class PdfTests(Base):
         plan = self.plan(plegados=frozenset({f"c{self.col_curso}"}))
         self.assertEqual(self.titulos(plan), ["[Tareas]", "Levantamiento", "Revisión", "[En curso]"])
 
+    def test_agrupa_por_un_campo_de_lista_en_el_orden_de_sus_opciones(self):
+        url = f"/api/v1/tableros/{self.tablero['id']}/campos/"
+        fase = self.cliente(self.ana).post(
+            url, {"nombre": "Fase", "tipo": "lista", "opciones": ["Fase 0", "Fase 1"]}, format="json"
+        ).json()
+        self.cliente(self.ana).post(url, {"nombre": "Horas", "tipo": "numero"}, format="json")
+        for card, valor in ((self.b, "Fase 0"), (self.a, "Fase 1")):
+            r = self.cliente(self.ana).patch(
+                f"/api/v1/cards/{card['id']}/", {"campos": {fase["id"]: valor}, "version": card["version"]}, format="json"
+            )
+            self.assertEqual(r.status_code, 200, r.content)
+        plan = self.plan(agrupar="campo:Fase")
+        # El orden es el de la lista, no el alfabético ni el de fechas; sin valor, al final.
+        self.assertEqual(self.titulos(plan), ["[Fase 0]", "Planos", "[Fase 1]", "Levantamiento", "[Sin fase]", "Revisión"])
+        self.assertEqual([f.clave for f in plan.filas if f.tipo == "grupo"], ["f:Fase 0", "f:Fase 1", "f:"])
+        plegado = self.plan(agrupar="campo:Fase", plegados=frozenset({"f:Fase 1"}))
+        self.assertNotIn("Levantamiento", self.titulos(plegado))
+        self.assertEqual(self.exportar("pdf", agrupar="campo:Fase").status_code, 200)
+        # Solo campos de lista que existan en el tablero.
+        for nombre in ("Horas", "Disciplina"):
+            self.assertEqual(self.exportar("pdf", agrupar=f"campo:{nombre}").status_code, 400)
+
     def test_respeta_los_filtros(self):
         plan = self.plan(filtros=Filtros(responsables=(self.beto.pk,)))
         self.assertEqual([t for t in self.titulos(plan) if not t.startswith("[")], ["Revisión", "Planos"])

@@ -1,13 +1,13 @@
 # Módulo `gantt`
 
 > Leer antes de modificar `backend/gantt/` o `frontend/src/components/gantt/`.
-> Revisado: 2026-09-28.
+> Revisado: 2026-09-30.
 
 ## Responsabilidad
 
 Reglas de la vista Gantt que no son de una tarjeta suelta: **dependencias**
 entre tarjetas y **reprogramación** de sucesoras en días hábiles. Qué tarjetas
-entran en el Gantt lo decide `tableros` (`Card.entra_en_gantt()`); las vistas
+entran en el Gantt lo decide `tableros` (propiedad `Card.entra_en_gantt`); las vistas
 Lista y Calendario no tienen app propia (leen las tarjetas de `tableros`).
 
 ## Regla de inclusión (vive en `tableros`)
@@ -75,10 +75,21 @@ Gantt propio en HTML + SVG, sin librería (decisión D-05), y `lib/gantt.ts`
 | `Ayuda.tsx` | `InterruptorSucesoras` y `AyudaSucesoras` (botón redondo «?»: qué es una sucesora, cómo crearla y qué hace «Mover sucesoras»). |
 | `tipos.ts` | `ALTO_ESCALA` y los tipos `Modo`, `Enlace`, `Colocando` que comparten. |
 
-Agrupar por columna/responsable/urgencia, zoom día/semana/mes, flechas
+Agrupar por columna/responsable/urgencia **o por un campo de lista del
+tablero** (p. ej. «Fase»), zoom día/semana/mes, flechas
 incumplidas en rojo punteado, interruptor «Mover sucesoras» con su ayuda «?»
 (se abre con clic: qué es una sucesora, las tres formas de crearla y qué pasa
 activado y desactivado).
+
+**Agrupar por un campo de lista** (`Agrupacion = … | "campo:<nombre>"` en
+`lib/gantt.ts`): el selector «Agrupar» añade los campos de lista activos del
+tablero (`camposAgrupables`). Un grupo por opción, **en el orden de la lista**
+(clave `f:<valor>`); un valor que ya no está en la lista va tras las vigentes
+y las tarjetas sin valor al final («Sin fase», clave `f:`). Va **por nombre**
+y no por id: la preferencia `gantt:agrupar` es de todos los tableros y los ids
+cambian de uno a otro; donde el campo no existe, `agrupacionVigente` vuelve a
+«columna» sin tocar lo guardado. Una tarea creada desde el Gantt nace sin ese
+campo y cae en «Sin …». El PDF recibe lo mismo (`agrupar=campo:Fase`).
 
 Pensado para que un equipo cargue su plan y quien lo dirige siga el avance
 sin esfuerzo:

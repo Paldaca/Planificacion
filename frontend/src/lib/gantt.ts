@@ -3,14 +3,50 @@
  * de dependencias. Sin React: todo se puede razonar (y probar) aparte.
  */
 
-import type { CardResumen, Columna, Dependencia, Persona } from "@/api/tipos";
+import type { CampoPersonalizado, CardResumen, Columna, Dependencia, Persona } from "@/api/tipos";
 
 import { aISO, diferencia, inicioSemana, sumarDias } from "./dias";
 import { URGENCIAS, LISTA_URGENCIAS, colorAvatar } from "./estilos";
 import { parsearDia } from "./fechas";
 
 export type Zoom = "dia" | "semana" | "mes";
-export type Agrupacion = "columna" | "responsable" | "urgencia" | "ninguna";
+export type AgrupacionFija = "columna" | "responsable" | "urgencia" | "ninguna";
+/**
+ * Las fijas, o un campo de lista del tablero **por su nombre** (`campo:Fase`):
+ * así la preferencia vale en todos los tableros que tengan ese campo (los ids
+ * cambian de un tablero a otro) y viaja igual al PDF.
+ */
+export type Agrupacion = AgrupacionFija | `campo:${string}`;
+
+export const AGRUPACIONES_FIJAS: readonly AgrupacionFija[] = ["columna", "responsable", "urgencia", "ninguna"];
+const NOMBRE_AGRUPACION: Record<AgrupacionFija, string> = {
+  columna: "columna",
+  responsable: "responsable",
+  urgencia: "urgencia",
+  ninguna: "sin agrupar",
+};
+
+/** Campos por los que se puede agrupar: los de lista, activos. */
+export function camposAgrupables(campos: CampoPersonalizado[]): CampoPersonalizado[] {
+  return campos.filter((c) => c.tipo === "lista" && !c.archivado);
+}
+
+function campoDe(agrupar: Agrupacion, campos: CampoPersonalizado[]): CampoPersonalizado | undefined {
+  if (!agrupar.startsWith("campo:")) return undefined;
+  const nombre = agrupar.slice("campo:".length);
+  return camposAgrupables(campos).find((c) => c.nombre === nombre);
+}
+
+/** La agrupación guardada si vale en este tablero; si no (el campo no existe aquí), por columna. */
+export function agrupacionVigente(guardada: string, campos: CampoPersonalizado[]): Agrupacion {
+  if ((AGRUPACIONES_FIJAS as readonly string[]).includes(guardada)) return guardada as AgrupacionFija;
+  return campoDe(guardada as Agrupacion, campos) ? (guardada as Agrupacion) : "columna";
+}
+
+/** «columna», «sin agrupar» o el nombre del campo: para decir «agrupado por …». */
+export function nombreAgrupacion(agrupar: Agrupacion): string {
+  return agrupar.startsWith("campo:") ? agrupar.slice("campo:".length) : NOMBRE_AGRUPACION[agrupar as AgrupacionFija];
+}
 
 export const PX_POR_DIA: Record<Zoom, number> = { dia: 36, semana: 16, mes: 5 };
 const DIAS_MINIMOS: Record<Zoom, number> = { dia: 42, semana: 119, mes: 365 };
@@ -82,8 +118,24 @@ export function avanceDe(cards: CardResumen[]): Avance {
   return { total: cards.length, hechas, vencidas, desde, hasta };
 }
 
-function grupoDe(card: CardResumen, agrupar: Agrupacion, columnas: Map<number, Columna>) {
-  switch (agrupar) {
+type Grupo = { clave: string; titulo: string; color: string; orden: number };
+
+/** Un grupo por opción del campo, en el orden de la lista; al final, las tarjetas sin valor. */
+function grupoDeCampo(card: CardResumen, campo: CampoPersonalizado): Grupo {
+  const valor = card.campos[String(campo.id)];
+  if (valor === undefined || valor === "") {
+    return { clave: "f:", titulo: `Sin ${campo.nombre.toLowerCase()}`, color: "#94a3b8", orden: campo.opciones.length + 1 };
+  }
+  const texto = String(valor);
+  const indice = campo.opciones.indexOf(texto);
+  // Un valor que ya no está en la lista (se quitó la opción) va tras las vigentes.
+  const orden = indice < 0 ? campo.opciones.length : indice;
+  return { clave: `f:${texto}`, titulo: texto, color: colorAvatar(orden), orden };
+}
+
+function grupoDe(card: CardResumen, agrupar: Agrupacion, columnas: Map<number, Columna>, campo?: CampoPersonalizado): Grupo | null {
+  if (campo) return grupoDeCampo(card, campo);
+  switch (agrupar as AgrupacionFija) {
     case "columna": {
       const col = columnas.get(card.columna);
       return { clave: `c${card.columna}`, titulo: col?.nombre ?? "—", color: col?.es_final ? "#059669" : "#32407b", orden: col?.orden ?? 0 };
@@ -106,14 +158,19 @@ function grupoDe(card: CardResumen, agrupar: Agrupacion, columnas: Map<number, C
 const porInicio = (a: CardResumen, b: CardResumen) =>
   (a.fecha_inicio ?? "").localeCompare(b.fecha_inicio ?? "") || a.numero - b.numero;
 
-/** Filas con su `y`; los grupos plegados muestran solo su cabecera. */
+/**
+ * Filas con su `y`; los grupos plegados muestran solo su cabecera. `campos`:
+ * los del tablero, para agrupar por uno de lista (`campo:<nombre>`).
+ */
 export function construirFilas(
   cards: CardResumen[],
   agrupar: Agrupacion,
   columnas: Columna[],
   plegados: Set<string>,
+  campos: CampoPersonalizado[] = [],
 ): { filas: Fila[]; alto: number } {
   const mapa = new Map(columnas.map((c) => [c.id, c]));
+  const campo = campoDe(agrupar, campos);
   const filas: Fila[] = [];
   let y = 0;
   if (agrupar === "ninguna") {
@@ -125,7 +182,7 @@ export function construirFilas(
   }
   const grupos = new Map<string, { titulo: string; color: string; orden: number; cards: CardResumen[] }>();
   for (const card of cards) {
-    const g = grupoDe(card, agrupar, mapa)!;
+    const g = grupoDe(card, agrupar, mapa, campo)!;
     if (!grupos.has(g.clave)) grupos.set(g.clave, { ...g, cards: [] });
     grupos.get(g.clave)!.cards.push(card);
   }

@@ -27,9 +27,11 @@ import {
   ALTO_FILA,
   ALTO_GRUPO,
   PX_POR_DIA,
+  agrupacionVigente,
   avanceDe,
   cajas,
   calcularRango,
+  camposAgrupables,
   construirFilas,
   encaje,
   fechaDeX,
@@ -148,12 +150,10 @@ export function VistaGantt({
   onExportarPdf?: (config: ConfigGantt) => void;
 }) {
   const [zoom, setZoom] = usePreferencia<Zoom>("gantt:zoom", "dia", ["dia", "semana", "mes"]);
-  const [agrupar, setAgrupar] = usePreferencia<Agrupacion>("gantt:agrupar", "columna", [
-    "columna",
-    "responsable",
-    "urgencia",
-    "ninguna",
-  ]);
+  // La preferencia es de todos los tableros; un campo (`campo:Fase`) solo vale donde existe.
+  const [agruparGuardado, setAgrupar] = usePreferencia<string>("gantt:agrupar", "columna");
+  const agrupar = agrupacionVigente(agruparGuardado, tablero.campos);
+  const camposLista = useMemo(() => camposAgrupables(tablero.campos), [tablero.campos]);
   const [moverSucesoras, setMoverSucesoras] = usePreferencia<boolean>("gantt:mover-sucesoras", true);
   const [plegados, setPlegados] = useState<Set<string>>(() => new Set());
   const [arrastre, setArrastre] = useState<Arrastre | null>(null);
@@ -210,8 +210,8 @@ export function VistaGantt({
   }, [conFechas, arrastre]);
 
   const { filas, alto } = useMemo(
-    () => construirFilas(mostradas, agrupar, tablero.columnas, plegados),
-    [mostradas, agrupar, tablero.columnas, plegados],
+    () => construirFilas(mostradas, agrupar, tablero.columnas, plegados, tablero.campos),
+    [mostradas, agrupar, tablero.columnas, plegados, tablero.campos],
   );
   const posiciones = useMemo(() => cajas(filas, r, px), [filas, r, px]);
   // En pantalla completa el fondo (días, feriados) llena todo el alto.
@@ -521,13 +521,18 @@ export function VistaGantt({
               value={agrupar}
               onChange={(e) => {
                 setPlegados(new Set());
-                setAgrupar(e.target.value as Agrupacion);
+                setAgrupar(e.target.value);
               }}
               className="h-8 rounded-lg border border-linea bg-white px-2 text-xs font-semibold text-texto outline-none focus:border-morado"
             >
               {AGRUPACIONES.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.etiqueta}
+                </option>
+              ))}
+              {camposLista.map((c) => (
+                <option key={c.id} value={`campo:${c.nombre}`}>
+                  {c.nombre}
                 </option>
               ))}
             </select>

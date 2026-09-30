@@ -1,7 +1,7 @@
 # Módulo `plantillas` (fase 5)
 
 > Leer antes de modificar `backend/plantillas/` o
-> `frontend/src/components/plantillas/`. Revisado: 2026-09-26.
+> `frontend/src/components/plantillas/`. Revisado: 2026-09-30.
 
 ## Responsabilidad
 
@@ -46,6 +46,41 @@ Si alguna vez cambia el formato, subir `FORMATO` y seguir leyendo el anterior
 | `editar_plantilla`, `eliminar_plantilla` | Nombre y descripción; borrar no toca los tableros creados con ella. |
 | `crear_tablero_desde(plantilla, *, nombre, fecha_inicio, equipo=None, actor)` | Tablero nuevo (personal si no hay `equipo`) en **una** transacción: columnas, etiquetas, campos, tarjetas (`crear_card(avisar=False)`), checklist y dependencias. Las fechas empiezan en `fecha_inicio` (o el siguiente día hábil) y se suman con el calendario laboral, feriados incluidos. |
 
+## Plantillas del sistema (`services/del_sistema.py`)
+
+Plantillas **globales escritas en el código** (no sacadas de un tablero), para
+que queden versionadas y salgan iguales en cada instalación. `PLANTILLAS` es
+la lista; `instalar(*, actualizar=False)` crea las que falten.
+
+```powershell
+..\venv\Scripts\python.exe manage.py instalar_plantillas              # crea las que falten
+..\venv\Scripts\python.exe manage.py instalar_plantillas --actualizar # repone el contenido desde el código
+```
+
+- Se reconocen **por el nombre** entre las globales: la que existe no se
+  vuelve a crear ni se pisa sin `--actualizar`. Si el administrador la
+  renombra, la siguiente instalación crea otra.
+- No tienen `creada_por`. Las gestiona el administrador del módulo, como
+  cualquier global.
+- El comando no corre solo al desplegar: hay que ejecutarlo una vez (en
+  pruebas, a mano).
+
+**«Proyecto de software»** (en prueba, 2026-09-30): la metodología de
+desarrollo por módulos llevada a tarjetas sin nada nuevo en el programa.
+
+| Pieza | Cómo queda |
+|---|---|
+| Estado | Columnas Pendientes (fuera del Gantt) · Planificado · En curso · En revisión · Hecho |
+| Fase | Campo de lista «Fase»: `Fase 0 · Configuración`, `Fase 1…3 · Módulo n`, `Cierre` (se renombran en cada tablero) |
+| Requisito | Campo de texto «Requisito» (`HU-1.1`…); «Rama» para la rama o el PR |
+| Tipo de trabajo | Etiquetas Documentación, Desarrollo, Pruebas, Error, Hotfix, Cambio mayor, Bloqueada |
+| Hito | Tarjeta de un día con la etiqueta «Hito» al cierre de cada fase (filtrar por ella deja el Gantt solo con los hitos) |
+| Tareas | 27 tarjetas: 1 de instrucciones en Pendientes, 5 de Fase 0, 6 por módulo (documentar, 3 historias, pruebas, revisión) y 3 de cierre; 67 días hábiles |
+
+Para cambiar el plan tipo se edita `del_sistema.py` y se corre el comando con
+`--actualizar`. En el Gantt, «Agrupar: Fase» muestra el resumen de cada fase
+(ver [`gantt.md`](gantt.md)).
+
 ## Permisos (`permisos.py`)
 
 | Acción | Personal | De equipo | Global |
@@ -86,6 +121,9 @@ listar, usar, renombrar, eliminar) y el selector «Empezar con» de
 `tests/test_plantillas.py`: `GuardarTests` (foto con fechas relativas,
 alcance según rol, quién ve y gestiona) y `UsarTests` (tablero con todo y
 fechas recalculadas; personal sin equipo y permisos).
+`tests/test_del_sistema.py`: instalar es idempotente, `--actualizar` repone,
+la ven todos y el tablero sale completo (columnas, fases, hitos, fechas con
+feriado y ninguna dependencia perdida ni incumplida).
 
 ## Cuidado al modificar
 

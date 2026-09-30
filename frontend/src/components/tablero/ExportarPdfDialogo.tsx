@@ -12,18 +12,12 @@ import { cn } from "@/lib/cn";
 import { aISO, sumarDiasISO } from "@/lib/dias";
 import { hoy } from "@/lib/fechas";
 import { hayFiltros, type EstadoFiltros } from "@/lib/filtros";
-import type { Agrupacion, Zoom } from "@/lib/gantt";
+import { nombreAgrupacion, type Agrupacion, type Zoom } from "@/lib/gantt";
 
 /** Lo que el PDF toma del Gantt de la pantalla. */
 export type ConfigGantt = { zoom: Zoom; agrupar: Agrupacion; plegados: string[] };
 
 const NOMBRE_ZOOM: Record<Zoom, string> = { dia: "Día", semana: "Semana", mes: "Mes" };
-const NOMBRE_AGRUPAR: Record<Agrupacion, string> = {
-  columna: "columna",
-  responsable: "responsable",
-  urgencia: "urgencia",
-  ninguna: "sin agrupar",
-};
 
 type Escala = "ajustar" | "zoom";
 type Hoja = "carta" | "tabloide";
@@ -149,7 +143,7 @@ export function ExportarPdfDialogo({
         />
 
         <p className="rounded-xl bg-fondo px-3.5 py-3 text-xs leading-relaxed text-tenue">
-          Se aplica lo que ves en el Gantt: agrupado por <b className="text-marino">{NOMBRE_AGRUPAR[config.agrupar]}</b>
+          Se aplica lo que ves en el Gantt: agrupado por <b className="text-marino">{nombreAgrupacion(config.agrupar)}</b>
           {plegados > 0 && (
             <>
               , con <b className="text-marino">{plegados === 1 ? "1 grupo plegado" : `${plegados} grupos plegados`}</b>
