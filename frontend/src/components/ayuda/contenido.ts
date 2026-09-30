@@ -66,6 +66,7 @@ const TABLERO: TemaAyuda = {
         "En el tablero, la tarjeta muestra un **clip** con cuántos adjuntos tiene y, si tiene imágenes, la primera como **portada**.",
         "• Hasta **10 MB** por archivo y 20 archivos por tarjeta. Lo más pesado va a la carpeta del proyecto y se pega el enlace en la descripción.",
         "• No se aceptan programas ni scripts (.exe, .bat, .ps1…).",
+        "• Un archivo que ya está adjunto a la tarjeta no se sube otra vez, aunque tenga otro nombre.",
         "• **Quitar** un adjunto lo borra de verdad; en la Actividad queda quién lo subió y quién lo quitó.",
         "• Los adjuntos no viajan en las plantillas ni en el Excel.",
       ],

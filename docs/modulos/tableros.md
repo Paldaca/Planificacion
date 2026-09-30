@@ -53,7 +53,7 @@ historial + avisos + estado de vencimiento). Argumentos por nombre; lanzan
 | `tarjetas.py` | `crear_card` (`avisar=False` para la importación y las plantillas; acepta `etiquetas` y `valores_campos`), `editar_card` (con `version` → `ConflictoDeVersion`; `etiquetas` y `valores_campos` registran su historial), `mover_card`, `archivar_card`, `trasladar_card` (emite la señal `tarjeta_trasladada`; conserva las etiquetas y los campos que existan en el destino con el mismo nombre —y tipo, en los campos—; el resto se pierde, no se crea) |
 | `favoritos.py` | `marcar_favorito` (idempotente; quien llama ya comprobó que lo ve), `ids_favoritos` |
 | `etiquetas.py` | `crear_etiqueta` (máx. 30 por tablero; nombre repetido → `ReglaDeNegocio`; `es_hito`), `editar_etiqueta` (nombre, color, `es_hito`), `eliminar_etiqueta` |
-| `adjuntos.py` | `adjuntar` (hasta `MAX_BYTES` = 10 MB y `MAX_POR_TARJETA` = 20; nombre sin carpetas; rechaza vacíos y `EXTENSIONES_BLOQUEADAS`: programas y scripts), `comprobar_peticion` (la vista la llama con el `Content-Length` **antes** de leer el cuerpo: una subida que ya anuncia más del límite no llega a escribirse en el disco temporal), `es_imagen` / `se_puede_mostrar` (PNG, JPEG, GIF y WebP, comprobando el comienzo del contenido: lo único que se sirve en línea; **sin SVG**), `quitar` (borra de verdad, para liberar el espacio; ambos quedan en el historial) |
+| `adjuntos.py` | `adjuntar` (hasta `MAX_BYTES` = 10 MB y `MAX_POR_TARJETA` = 20; nombre sin carpetas; rechaza vacíos, `EXTENSIONES_BLOQUEADAS` (programas y scripts) y un archivo que ya está adjunto a la tarjeta: mismo contenido, comparando solo los de igual tamaño), `comprobar_peticion` (la vista la llama con el `Content-Length` **antes** de leer el cuerpo: una subida que ya anuncia más del límite no llega a escribirse en el disco temporal), `es_imagen` / `se_puede_mostrar` (PNG, JPEG, GIF y WebP, comprobando el comienzo del contenido: lo único que se sirve en línea; **sin SVG**), `quitar` (borra de verdad, para liberar el espacio; ambos quedan en el historial) |
 | `campos.py` | `crear_campo` (máx. 20 activos; una lista exige opciones), `editar_campo` (el tipo no cambia; `renombrar={vieja: nueva}` en una lista cambia también el valor de las tarjetas que tenían esa opción, sin historial por tarjeta, como borrar una etiqueta; quitar una opción no toca las tarjetas), `valor_valido` (número con coma o punto → int/float; lista: una de sus opciones; texto ≤ 500), `validar_valores` (solo campos activos del tablero; `null`/vacío borra), `texto_valor`, `remapear` (valores de un tablero a otro) |
 | `comentarios.py` | `extraer_menciones`, `comentar`, `editar_comentario`, `eliminar_comentario` |
 | `checklist.py` | `agregar_item`, `editar_item`, `eliminar_item` |
@@ -129,7 +129,7 @@ funcionalidad: `test_tableros`, `test_columnas`, `test_tarjetas`,
 `test_comentarios`, `test_checklist`, `test_avisos`, `test_vencimientos`,
 `test_mis_tareas`, `test_configuracion` (etiquetas, etiqueta de hito, campos y límite),
 `test_favoritos`, `test_adjuntos` (subir, listar, descargar, imágenes en línea y falsas
-imágenes, quitar, límites y permisos).
+imágenes, sin duplicados, quitar, límites y permisos).
 
 ## Cuidado al modificar
 

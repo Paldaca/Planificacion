@@ -84,6 +84,9 @@ export function Adjuntos({ card, tableroId, puede }: { card: CardDetalle; tabler
   function alSoltar(e: DragEvent) {
     e.preventDefault();
     setEncima(false);
+    // Lo que se arrastra desde la propia página (una imagen, un enlace) trae
+    // también su URL: solo se adjunta lo que llega del explorador de archivos.
+    if (e.dataTransfer.types.includes("text/uri-list")) return;
     subirArchivos(Array.from(e.dataTransfer.files));
   }
 
@@ -194,6 +197,8 @@ function Miniatura({ adjunto, card, tableroId, puede, onVer }: PropsAdjunto & { 
           src={urlImagen(adjunto)}
           alt=""
           loading="lazy"
+          // Arrastrar la miniatura la soltaría sobre la sección como un archivo nuevo.
+          draggable={false}
           className="aspect-[4/3] w-full bg-columna object-cover transition-transform duration-300 ease-suave group-hover:scale-[1.03]"
         />
         <span className="block truncate px-2.5 py-1.5 text-xs font-medium text-texto" title={adjunto.nombre}>
@@ -308,6 +313,7 @@ function Visor({
               key={imagen.id}
               src={urlImagen(imagen)}
               alt={imagen.nombre}
+              draggable={false}
               className="max-h-full min-w-0 max-w-full flex-initial rounded-lg object-contain shadow-2xl"
             />
             <button

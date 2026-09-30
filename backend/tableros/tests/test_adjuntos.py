@@ -90,7 +90,7 @@ class AdjuntosTests(EscenarioTablero):
         self.subir("acta.docx", b"PK\x03\x04 documento")
         self.assertEqual(en_tablero(), (1, None))  # un Word no es portada
         primera = self.subir("pantalla.png", png).json()
-        segunda = self.subir("otra.png", png).json()
+        segunda = self.subir("otra.png", png + b"").json()  # otra imagen: la misma no se repite
         self.assertEqual(en_tablero(), (3, primera["id"]))
         self.cliente(self.beto).delete(f"/api/v1/adjuntos/{primera['id']}/")
         self.assertEqual(en_tablero(), (2, segunda["id"]))
@@ -104,6 +104,20 @@ class AdjuntosTests(EscenarioTablero):
         from tableros.models import TIPOS_IMAGEN
 
         self.assertEqual(set(servicio.FIRMAS_IMAGEN), set(TIPOS_IMAGEN))
+
+    def test_el_mismo_archivo_no_se_adjunta_dos_veces(self):
+        png = b"\x89PNG\r\n\x1a\n" + b"\x01" * 30
+        self.assertEqual(self.subir("plano.png", png).status_code, 201)
+        # Elegido otra vez, o con otro nombre (una captura pegada): se rechaza.
+        for nombre in ("plano.png", "Captura 2026-09-30 10.00.00.png"):
+            r = self.subir(nombre, png)
+            self.assertEqual(r.status_code, 400, nombre)
+            self.assertIn("ya está adjunto", r.json()["detail"])
+        # Mismo tamaño y distinto contenido sí entra; y en otra tarjeta, también.
+        self.assertEqual(self.subir("plano-b.png", b"\x89PNG\r\n\x1a\n" + b"\x02" * 30).status_code, 201)
+        otra = self.crear_card(titulo="Otra")
+        self.assertEqual(self.subir("plano.png", png, card=otra).status_code, 201)
+        self.assertEqual(Adjunto.objects.filter(card_id=self.card["id"]).count(), 2)
 
     def test_un_html_se_descarga_no_se_abre(self):
         adjunto = self.subir("pagina.html", b"<script>alert(1)</script>").json()

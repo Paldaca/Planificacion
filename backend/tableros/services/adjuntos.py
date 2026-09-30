@@ -10,6 +10,9 @@ de requisitos, un plano, una captura).
   las **imágenes de mapa de bits** (PNG, JPEG, GIF, WebP), que la tarjeta
   muestra en línea: su contenido se comprueba al subirlas y otra vez al
   servirlas (`se_puede_mostrar`).
+- Un archivo que ya está adjunto a la tarjeta (mismo contenido, aunque se
+  llame distinto) no se vuelve a guardar: elegirlo otra vez, soltar una
+  miniatura sobre la tarjeta o pegar la misma captura lo duplicaría.
 - Quitar un adjunto lo borra de verdad (es la única forma de liberar el
   espacio); queda en el historial de la tarjeta quién lo quitó.
 """
@@ -128,6 +131,11 @@ def adjuntar(card: Card, *, archivo, actor) -> Adjunto:
     if card.adjuntos.count() >= MAX_POR_TARJETA:
         raise ReglaDeNegocio(f"Una tarjeta admite hasta {MAX_POR_TARJETA} adjuntos.")
     contenido = archivo.read()
+    # Solo se leen los de igual tamaño (casi nunca hay): así no se traen los
+    # archivos de la tarjeta para comparar, ni hace falta guardar un hash.
+    for nombre_existente, existente in card.adjuntos.filter(tamano=archivo.size).values_list("nombre", "contenido"):
+        if bytes(existente) == contenido:
+            raise ReglaDeNegocio(f"Ese archivo ya está adjunto a esta tarjeta («{nombre_existente}»).")
     adjunto = Adjunto.objects.create(
         card=card,
         nombre=nombre,
