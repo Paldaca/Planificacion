@@ -72,7 +72,7 @@ Vale para todos los tableros.
 |---|---|---|
 | **Columna** | En qué estado está el trabajo | Una tarjeta está en una sola; se mueve a mano cuando cambia de estado |
 | **Etiqueta** | Qué tipo de trabajo es | Pueden ser varias; sirven para filtrar |
-| **Campo** | Un dato propio del tablero (fase, requisito, sistema) | Un valor por tarjeta |
+| **Campo** | Un dato propio del tablero (fase, sistema) | Un valor por tarjeta |
 | **Urgencia** | Qué se atiende primero | Ver la tabla de abajo |
 | **Responsable** | Quién responde por la tarjeta | Recibe los avisos en la campana del Portal |
 | **Inicio y fin** | Cuándo se hará | Solo si está planificado; el fin es un compromiso |
@@ -155,7 +155,7 @@ un Gantt sino con el Tablero y, para lo que tiene fecha, el Calendario.
 **Un tablero por proyecto**, con el nombre del sistema. Se crea desde
 *Tableros → nuevo tablero → Empezar con → «Proyecto de software»*, eligiendo
 la fecha de inicio: sale con las columnas, etiquetas, campos y el plan tipo ya
-fechado en días hábiles, y con una tarjeta «Tutorial» que resume esta
+fechado en días hábiles, y con la tarjeta «Metodología del proyecto: léeme primero», que resume esta
 metodología y lista los primeros pasos. La guía completa, para quien usa el
 programa, está en el Centro de ayuda, pestaña **Proyecto de software**, que
 solo aparece en los tableros creados con esa plantilla (texto en
@@ -198,8 +198,6 @@ Las opciones de «Fase» se renombran con el nombre real de cada módulo en
 | Campo | Tipo | Qué se escribe |
 |---|---|---|
 | **Fase** | Lista | La fase a la que pertenece la tarjeta |
-| **Requisito** | Texto | El código de la historia de usuario o requisito que cubre (`HU-1.2`, `RF-3.1`, `RNF-0.1`). Una tarjeta de desarrollo sin requisito es alcance que se coló |
-| **Rama** | Texto | La rama o el PR donde está el trabajo (opcional) |
 
 ### Etiquetas
 
@@ -213,6 +211,41 @@ Las opciones de «Fase» se renombran con el nombre real de cada módulo en
 | **Hotfix** | Fallo que rompe el sistema o detiene al equipo: urgencia crítica y directo a «En curso» |
 | **Cambio mayor** | Una corrección que deja vieja la documentación: primero se actualiza el documento del módulo |
 | **Bloqueada** | No puede avanzar; el motivo va en un comentario |
+
+### Cómo se carga una tarea
+
+- **Con fecha**: en el Gantt, **+ Tarea** (título, Fase, responsable, inicio,
+  fin y urgencia en un paso). Para que vaya después de otra, el **+** de la
+  fila de la anterior o **Empieza después de**: queda creada la dependencia y
+  toma la Fase de la anterior. «Crear y añadir otra» conserva la Fase.
+- **Sin fecha todavía**: en el Tablero, **Añadir tarjeta** en «Pendientes»;
+  se abre para ponerle su Fase. Fecha y responsable, en la planificación del
+  lunes.
+- A todas se les pone su etiqueta. Una tarjeta sin fase aparece en el grupo
+  «Sin fase» del Gantt.
+
+### Cómo se arma cada fase
+
+Todas las tarjetas de un módulo llevan la misma Fase y se encadenan:
+
+1. **Documentar el módulo**, después del hito de la fase anterior.
+2. **Una tarjeta por historia de usuario**, que depende de «Documentar el
+   módulo» (entre historias, solo si una espera de verdad a otra).
+3. **Pruebas del módulo**, que depende de todas las historias.
+4. **Revisión del módulo** (etiqueta «Hito»), de un día, que depende de las
+   pruebas.
+
+### Cómo funcionan los hitos
+
+- **Un hito por fase**: la «Revisión del módulo». Dura **un día**, el de la
+  entrega del módulo, y se dibuja como un rombo.
+- **No se carga como una barra que cubra todo el módulo**: el tramo completo
+  de la fase lo muestra el Gantt con «Agrupar: Fase» (la barra resumen de
+  cada fase, con su avance).
+- **Las tareas quedan asociadas al hito** por la misma Fase y por las
+  dependencias. Con «Mover sucesoras» activado, una tarea que se retrasa
+  empuja al hito y el atraso de la entrega se ve.
+- **Cambiar la fecha de entrega** es mover el hito y comentar el motivo.
 
 ### Reglas
 
@@ -312,4 +345,3 @@ empieza la fase siguiente.
   hay adjuntos (hasta 10 MB por archivo).
 - **No hay vista de todos los proyectos**: quien dirige varios abre cada
   tablero.
-- **Esta metodología no está todavía en el Centro de ayuda** del programa.

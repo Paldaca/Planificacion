@@ -33,6 +33,10 @@ const estiloSelect =
  *   ofrece columnas que entran en el Gantt (si no, la tarea «desaparecería»).
  * - Calendario: abre con el día (o los días) elegidos en `fechas`, y «Crear y
  *   añadir otra» conserva esas fechas (varias tareas el mismo día).
+ * - Campos de lista del tablero (p. ej. «Fase»): se eligen en el mismo paso.
+ *   Con «Empieza después de» toman el valor de la anterior si están vacíos
+ *   (una tarea que sigue a otra suele ser de su misma fase), y «Crear y añadir
+ *   otra» los conserva. No se adivina por el nombre: valen todos los de lista.
  */
 export function NuevaTareaDialogo({
   tablero,
@@ -68,6 +72,19 @@ export function NuevaTareaDialogo({
   const [urgencia, setUrgencia] = useState<Urgencia>("media");
   const [columna, setColumna] = useState<number | null>(null);
   const [predecesora, setPredecesora] = useState<number | null>(null);
+  /** Valores de los campos de lista: {"<id del campo>": opción}. */
+  const [valores, setValores] = useState<Record<string, string>>({});
+  const camposLista = tablero.campos.filter((c) => c.tipo === "lista" && !c.archivado);
+
+  /** Los valores de lista de `card` que siguen siendo opciones válidas. */
+  const valoresDe = (card: CardResumen | undefined): Record<string, string> => {
+    const copia: Record<string, string> = {};
+    for (const campo of camposLista) {
+      const valor = card?.campos[String(campo.id)];
+      if (typeof valor === "string" && campo.opciones.includes(valor)) copia[String(campo.id)] = valor;
+    }
+    return copia;
+  };
 
   // Candidatas a predecesora: las del Gantt con fecha de fin, sin mirar los
   // filtros (la recién creada debe poder elegirse aunque un filtro la oculte).
@@ -86,6 +103,7 @@ export function NuevaTareaDialogo({
     setUrgencia("media");
     setColumna(opciones[0]?.id ?? null);
     setPredecesora(previa?.id ?? null);
+    setValores(valoresDe(previa));
   });
 
   const duracion = inicio && fin && fin >= inicio ? laborablesEntre(inicio, fin) : 0;
@@ -104,6 +122,8 @@ export function NuevaTareaDialogo({
     setPredecesora(id);
     const card = candidatas.find((c) => c.id === id);
     if (card) cambiarInicio(inicioTras(card));
+    // Lo que ya se eligió a mano no se pisa.
+    if (card) setValores((actuales) => ({ ...valoresDe(card), ...actuales }));
   }
 
   async function guardar(otra: boolean) {
@@ -115,6 +135,7 @@ export function NuevaTareaDialogo({
       fecha_fin: fin,
       urgencia,
       responsables: responsable ? [responsable] : [],
+      ...(Object.keys(valores).length ? { campos: valores } : {}),
     });
     if (anterior) {
       // Si falla, la tarjeta ya existe: el error lo avisa el hook y se puede
@@ -202,6 +223,29 @@ export function NuevaTareaDialogo({
             </select>
           </Campo>
         )}
+        {camposLista.map((campo) => (
+          <Campo key={campo.id} etiqueta={campo.nombre}>
+            <select
+              value={valores[String(campo.id)] ?? ""}
+              onChange={(e) =>
+                setValores((actuales) => {
+                  const nuevos = { ...actuales };
+                  if (e.target.value) nuevos[String(campo.id)] = e.target.value;
+                  else delete nuevos[String(campo.id)];
+                  return nuevos;
+                })
+              }
+              className={estiloSelect}
+            >
+              <option value="">—</option>
+              {campo.opciones.map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
+          </Campo>
+        ))}
         <div className="grid grid-cols-2 gap-3">
           <Campo etiqueta="Inicio">
             <Entrada type="date" value={inicio} onChange={(e) => cambiarInicio(e.target.value)} />

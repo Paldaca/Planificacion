@@ -3,7 +3,7 @@ Plantillas que trae el programa, escritas aquí y no sacadas de un tablero: así
 quedan versionadas y salen iguales en cada instalación. Son la metodología de
 trabajo del departamento (`docs/metodologia-de-trabajo.md`) llevada a tableros:
 «Proyecto de software» y «Soporte». Cada una trae una tarjeta
-«Tutorial» con los primeros pasos y su propia guía para el Centro de ayuda
+inicial con la metodología y los primeros pasos, y su propia guía para el Centro de ayuda
 (`guias.py`), que solo aparece en los tableros creados con ella.
 
 «Proyecto de software»: el desarrollo por módulos.
@@ -52,10 +52,8 @@ def _fase_modulo(n: int) -> str:
     return f"Fase {n} · Módulo {n}"
 
 
-def _tarjeta(ref, titulo, *, fase, inicio, fin, etiquetas=(), descripcion="", checklist=(), depende=(), requisito="", urgencia="media"):
+def _tarjeta(ref, titulo, *, fase, inicio, fin, etiquetas=(), descripcion="", checklist=(), depende=(), urgencia="media"):
     campos = {"Fase": fase}
-    if requisito:
-        campos["Requisito"] = requisito
     return {
         "ref": ref,
         "titulo": titulo,
@@ -120,7 +118,7 @@ def _modulo(n: int, *, inicio: int, tras: int) -> list[dict]:
     historias = [
         _tarjeta(
             ref + h, f"M{n} · Historia de usuario {h}", fase=fase, etiquetas=["Desarrollo"], depende=[ref],
-            inicio=inicio + 3 + 4 * (h - 1), fin=inicio + 6 + 4 * (h - 1), requisito=f"HU-{n}.{h}",
+            inicio=inicio + 3 + 4 * (h - 1), fin=inicio + 6 + 4 * (h - 1),
             descripcion="Como [actor] quiero [acción] para [beneficio].\n\nCriterio de aceptación:\n- …",
             checklist=["Funcionalidad", "Pruebas", "Documentación del módulo al día"],
         )
@@ -184,57 +182,65 @@ def _cierre(*, inicio: int, tras: int) -> list[dict]:
 
 _TUTORIAL_PROYECTO = {
     "ref": 0,
-    "titulo": "Tutorial: cómo se trabaja en este tablero",
+    "titulo": "Metodología del proyecto: léeme primero",
     "descripcion": (
-        "Este tablero sigue la metodología de proyectos de software del departamento. Léela una vez, completa "
-        "los primeros pasos del checklist y archiva esta tarjeta. La guía completa está en Ayuda → "
-        "«Proyecto de software».\n\n"
-        "COLUMNAS: el estado del trabajo\n"
-        "- Pendientes: todo lo que falta y aún no tiene fecha. Está fuera del Gantt. Lo nuevo que aparezca a "
-        "mitad de una fase entra aquí.\n"
-        "- Planificado: tiene fecha y responsable, no ha empezado.\n"
-        "- En curso: alguien lo está haciendo.\n"
-        "- En revisión: quien lo hizo terminó; falta que otro lo revise o lo valide.\n"
-        "- Hecho: cumple su criterio de aceptación y su documentación está al día.\n\n"
-        "TARJETAS\n"
-        "- Una tarjeta es algo que se entrega en 1 a 10 días hábiles. Los pasos van en el checklist.\n"
-        "- Solo lleva fecha lo planificado. Nunca se inventan fechas.\n"
+        "Cómo se trabaja en este tablero, en simple. La guía con más detalle está en Ayuda → «Proyecto de "
+        "software». Completa el checklist y archiva esta tarjeta cuando todo el equipo la haya leído.\n\n"
+        "1. EL FLUJO DE DESARROLLO\n"
+        "Fase 0 · Configuración → una fase por módulo → Cierre.\n"
+        "Cada módulo va siempre igual: Documentar el módulo → Historias de usuario → Pruebas → Revisión (el hito).\n"
+        "Cada tarea recorre las columnas: Pendientes → Planificado → En curso → En revisión → Hecho.\n\n"
+        "2. CÓMO SE CARGA UNA TAREA\n"
+        "- Con fecha: en el Gantt, «+ Tarea» (título, fase, responsable, inicio y fin). Para que vaya después de "
+        "otra, el «+» de su fila o «Empieza después de»: toma la fase de la anterior.\n"
+        "- Sin fecha todavía: en el Tablero, «Añadir tarjeta» en Pendientes; ábrela y ponle su Fase. El lunes se "
+        "le pone fecha.\n"
+        "- Ponle también su etiqueta (Desarrollo, Documentación o Pruebas). Sin fase cae en «Sin fase» en el Gantt.\n"
+        "- Una tarjeta = algo que se entrega en 1 a 10 días hábiles. Los pasos van en su checklist.\n\n"
+        "3. CÓMO SE ARMA CADA FASE\n"
+        "Todas las tarjetas del módulo llevan la misma Fase y se encadenan:\n"
+        "- Documentar el módulo (va después del hito anterior).\n"
+        "- Una tarjeta por historia de usuario: depende de Documentar el módulo.\n"
+        "- Pruebas del módulo: depende de todas las historias.\n"
+        "- Revisión del módulo (etiqueta Hito): un día, depende de las pruebas.\n\n"
+        "4. CÓMO FUNCIONAN LOS HITOS\n"
+        "- Hay un hito por fase: la Revisión del módulo. Dura un día, el de la entrega del módulo, y en el Gantt "
+        "es un rombo.\n"
+        "- No se carga como una barra que cubra todo el módulo: el tramo completo de la fase lo muestra el Gantt "
+        "con «Agrupar: Fase» (la barra resumen de cada fase con su avance).\n"
+        "- Las tareas quedan unidas al hito por la misma Fase y por las dependencias. Si una tarea se atrasa "
+        "(con «Mover sucesoras» activado), empuja al hito y el atraso de la entrega se ve.\n"
+        "- Para cambiar la fecha de entrega se mueve el hito y se comenta el motivo.\n"
+        "- En la reunión de revisión se recorre su checklist. Si se aprueba, pasa a Hecho y empieza la fase siguiente.\n\n"
+        "5. LA FORMA CORRECTA DE USAR EL TABLERO\n"
+        "- Pendientes: está identificada, sin fecha (fuera del Gantt). Lo nuevo de una fase en curso va aquí.\n"
+        "- Planificado: ya tiene fecha y responsable.\n"
+        "- En curso: el responsable la empezó.\n"
+        "- En revisión: terminó; falta que otro la revise o la valide.\n"
+        "- Hecho: cumple el criterio de aceptación y su documentación está al día.\n"
         "- La fecha de fin es un compromiso: si cambia, se mueve y se comenta el motivo.\n"
-        "- Dependencias solo donde una tarjeta espera de verdad a otra.\n\n"
-        "CAMPOS\n"
-        "- Fase: la fase de la tarjeta (Fase 0, una por módulo y Cierre). En el Gantt, «Agrupar: Fase» muestra "
-        "cada fase con su avance.\n"
-        "- Requisito: el código de la historia de usuario o requisito que cubre (HU-1.2, RF-3.1).\n"
-        "- Rama: la rama o el PR donde está el trabajo.\n\n"
-        "ETIQUETAS\n"
-        "- Documentación, Desarrollo, Pruebas: qué produce la tarjeta.\n"
-        "- Hito: cierre de una fase. Se ve como un rombo en el Gantt; su fecha es el compromiso de la fase.\n"
-        "- Error: fallo que no detiene el trabajo; entra en Pendientes y se planifica después.\n"
-        "- Hotfix: fallo que detiene al equipo; urgencia crítica y directo a En curso.\n"
-        "- Cambio mayor: corrección que deja vieja la documentación; primero se actualiza el documento del módulo.\n"
-        "- Bloqueada: no puede avanzar; el motivo va en un comentario.\n\n"
-        "CADA FASE DE MÓDULO\n"
-        "Documentar el módulo → historias de usuario → pruebas → revisión (el hito). El alcance de una fase no "
-        "crece a mitad de camino.\n\n"
-        "RITMO\n"
-        "- Cada día: cada quien mueve sus tarjetas y marca su checklist (las ve todas en Mis tareas).\n"
-        "- Lunes: revisar lo vencido y pasar de Pendientes a Planificado lo de la semana.\n"
-        "- Viernes: enviar el Gantt en PDF agrupado por Fase."
+        "- Errores: etiqueta Error y a Pendientes; si detiene al equipo, Hotfix y directo a En curso.\n\n"
+        "6. EL RITMO\n"
+        "- Cada día: Mis tareas, mover las tarjetas y marcar el checklist.\n"
+        "- Lunes: revisar lo vencido, pasar de Pendientes a Planificado lo de la semana, confirmar la fecha del "
+        "próximo hito.\n"
+        "- Viernes: Gantt en PDF agrupado por Fase.\n"
+        "- Al cerrar el proyecto, el tablero se archiva."
     ),
     "columna": PENDIENTES,
-    "urgencia": "baja",
+    "urgencia": "alta",
     "en_gantt": "heredar",
     "inicio": None,
     "fin": None,
-    "etiquetas": [],
+    "etiquetas": ["Documentación"],
     "campos": {},
     "checklist": [
+        "Leer esta tarjeta (y la guía en Ayuda → «Proyecto de software»)",
         "Renombrar las fases con los módulos reales («…» → Etiquetas y campos → Fase)",
         "Archivar las tarjetas de los módulos que sobren",
         "Poner responsable a las tarjetas de la Fase 0",
-        "Revisar las fechas en el Gantt con «Agrupar: Fase»",
-        "Adjuntar en «Documentación general del proyecto» lo que todo el equipo deba leer",
-        "Archivar esta tarjeta",
+        "Revisar en el Gantt («Agrupar: Fase») que cada hito tenga la fecha de entrega de su módulo",
+        "Archivar esta tarjeta cuando todo el equipo la haya leído",
     ],
     "depende": [],
 }
@@ -274,8 +280,6 @@ def contenido_proyecto_software() -> dict:
                 "opciones": [FASE_0, *(_fase_modulo(n) for n in range(1, MODULOS + 1)), CIERRE],
                 "visible_en_tarjeta": True,
             },
-            {"nombre": "Requisito", "tipo": "texto", "opciones": [], "visible_en_tarjeta": True},
-            {"nombre": "Rama", "tipo": "texto", "opciones": [], "visible_en_tarjeta": False},
         ],
         "tarjetas": tarjetas,
     }

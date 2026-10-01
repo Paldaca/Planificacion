@@ -14,137 +14,156 @@ esta guía (y después `manage.py instalar_plantillas --actualizar`).
 
 GUIA_PROYECTO = {
     "titulo": "Proyecto de software",
-    "resumen": "Cómo se lleva un proyecto de software con la plantilla del mismo nombre: un tablero por proyecto, una fase por módulo y un hito al cerrar cada una. Es la metodología de trabajo del departamento.",
+    "resumen": "La metodología del departamento para desarrollar un sistema: un tablero por proyecto, una fase por módulo y un hito con la fecha de entrega de cada módulo. Empieza por «El flujo de desarrollo en una mirada»; después, cómo se cargan las tareas, cómo se arma cada fase y cómo funcionan los hitos.",
     "entradas": [
         {
-            "id": "que-es",
-            "titulo": "Qué trae la plantilla «Proyecto de software»",
+            "id": "flujo",
+            "titulo": "El flujo de desarrollo en una mirada",
             "parrafos": [
-                "Un tablero listo para desarrollar un sistema por módulos, con el plan tipo ya fechado en días hábiles:",
-                "• **Fase 0 · Configuración**: documentación general, arquitectura, repositorio y entorno, despliegue vacío y su hito.",
-                "• **Tres fases de módulo**: en cada una, documentar el módulo, tres historias de usuario, pruebas y la revisión (el hito).",
-                "• **Cierre**: paso a producción, manual y entrega a soporte, y el hito «Proyecto entregado».",
-                "Trae también las columnas, las etiquetas, los campos «Fase», «Requisito» y «Rama», y una tarjeta **Tutorial** con los primeros pasos."
+                "1. **Se crea el tablero** desde la plantilla, con la fecha de inicio real. Sale con todo el plan tipo ya fechado.",
+                "2. **Fase 0 · Configuración**: documentación general, arquitectura, repositorio y entorno; el programa arranca y se publica vacío. Cierra con su hito.",
+                "3. **Una fase por módulo**, siempre en el mismo orden: **documentar el módulo → historias de usuario → pruebas → revisión** (el hito, con la fecha de entrega del módulo).",
+                "4. **Cierre**: paso a producción, manual y entrega. Cierra con el hito «Proyecto entregado» y el tablero se archiva.",
+                "Cada tarea recorre las columnas de izquierda a derecha: **Pendientes → Planificado → En curso → En revisión → Hecho**."
+            ]
+        },
+        {
+            "id": "reglas",
+            "titulo": "La metodología en siete reglas",
+            "parrafos": [
+                "1. **Un tablero por proyecto**, del equipo del departamento y nunca personal.",
+                "2. **Una tarjeta es algo que se entrega** en 1 a 10 días hábiles. Los pasos van en su checklist; si pasa de 10 días, se parte.",
+                "3. **Solo lleva fecha lo planificado.** Lo demás espera sin fecha en «Pendientes». Nunca se inventan fechas.",
+                "4. **La fecha de fin es un compromiso**: si cambia, se mueve y se comenta el motivo en la tarjeta.",
+                "5. **Cada módulo es una fase** que termina en un hito con su fecha de entrega.",
+                "6. **El alcance de una fase no crece a mitad de camino**: lo nuevo va a «Pendientes».",
+                "7. **Ritmo semanal**: el lunes se planifica, a diario cada quien mueve sus tarjetas y el viernes se envía el Gantt."
             ]
         },
         {
             "id": "crear",
-            "titulo": "Crear el tablero de un proyecto",
+            "titulo": "Crear el tablero y quién hace qué",
             "parrafos": [
-                "**Un tablero por proyecto**, con el nombre del sistema. En **Tableros**, crea un tablero del equipo del departamento, elige **Empezar con → Proyecto de software** y pon la fecha de inicio real: todas las tarjetas se fechan desde ese día, saltando fines de semana y feriados.",
-                "Nunca en un tablero personal: solo lo ve su dueño, y el trabajo del equipo tiene que poder verlo y continuarlo otro.",
-                "Roles: quien dirige el proyecto es **administrador** del equipo (crea el tablero y ajusta columnas, etiquetas y campos); quien desarrolla, **miembro**; la gerencia y quien pidió el sistema, **lector** (ve el avance, no edita)."
+                "En **Tableros**, crea un tablero del equipo del departamento con el nombre del sistema, elige **Empezar con → Proyecto de software** y pon la **fecha de inicio real**.",
+                "• **Administrador** (quien dirige el proyecto): ajusta fases, etiquetas y columnas, planifica y fija las fechas de los hitos.",
+                "• **Miembro** (quien desarrolla o analiza): carga y mueve sus tarjetas, comenta y marca el checklist.",
+                "• **Lector** (la gerencia y quien pidió el sistema): ve el avance, no edita.",
+                "Cada tarjeta planificada tiene **un responsable**: quien responde por su fecha."
             ]
         },
         {
             "id": "primeros-pasos",
             "titulo": "Primeros pasos después de crearlo",
             "parrafos": [
-                "Son los del checklist de la tarjeta **Tutorial** (en Pendientes):",
+                "Son los del checklist de la tarjeta **Metodología del proyecto** (en Pendientes):",
                 "• Renombra las fases con los módulos reales en «…» → **Etiquetas y campos** → campo **Fase**. Las tarjetas siguen a la opción renombrada.",
-                "• Archiva las tarjetas de los módulos que sobren (y, para un módulo más, añade sus tarjetas con la misma fase).",
+                "• Archiva las tarjetas de los módulos que sobren; para un módulo más, créalas como se explica en «Cómo se arma cada fase».",
+                "• Reemplaza las «Historia de usuario 1, 2, 3» por las historias reales de cada módulo (cuando se documente).",
                 "• Pon responsable a las tarjetas de la Fase 0.",
-                "• Revisa las fechas en el **Gantt** con **Agrupar: Fase**.",
-                "• Adjunta en «Documentación general del proyecto» lo que todo el equipo deba leer.",
-                "• Archiva la tarjeta Tutorial."
+                "• Revisa en el **Gantt** con **Agrupar: Fase** que cada hito tenga la fecha de entrega comprometida de su módulo.",
+                "• Archiva la tarjeta de metodología cuando todos la hayan leído."
             ]
         },
         {
-            "id": "columnas",
-            "titulo": "Las columnas: el estado del trabajo",
+            "id": "cargar",
+            "titulo": "Cómo se carga una tarea",
             "parrafos": [
-                "• **Pendientes**: todo lo que falta y aún no tiene fecha. Está **fuera del Gantt**. Lo nuevo que aparece a mitad de una fase entra aquí.",
-                "• **Planificado**: tiene fecha y responsable, pero no ha empezado.",
-                "• **En curso**: alguien lo está haciendo.",
-                "• **En revisión**: quien lo hizo terminó; falta que otro lo revise o lo valide (el PR abierto, la validación con el usuario).",
-                "• **Hecho**: cumple su criterio de aceptación y su documentación está al día."
+                "**Si ya tiene fecha**, desde el **Gantt**: **+ Tarea** pide título, **Fase**, responsable, inicio, fin y urgencia en un paso. Para que vaya después de otra, usa el **+** que aparece al pasar por la fila de la anterior, o elígela en **Empieza después de**: queda creada la dependencia y **toma la Fase de la anterior**. **Crear y añadir otra** conserva la Fase: así se carga un módulo entero seguido.",
+                "**Si todavía no tiene fecha**, desde el **Tablero**: **Añadir tarjeta** al pie de **Pendientes**. Se le pone fecha y responsable en la planificación del lunes.",
+                "La que se crea en Pendientes se abre para ponerle su **Fase**. A todas, ponles también su etiqueta (Desarrollo, Documentación o Pruebas). Una tarjeta sin fase aparece en el grupo «Sin fase» del Gantt: es la señal de que falta.",
+                "En la descripción va el detalle y el **criterio de aceptación**; los pasos, en el checklist."
             ]
         },
         {
-            "id": "fases",
-            "titulo": "Las fases: el campo «Fase»",
+            "id": "fase",
+            "titulo": "Cómo se arma cada fase",
             "parrafos": [
-                "La fase es un **dato de la tarjeta**, no una columna: así el tablero muestra en qué estado está cada cosa y el Gantt, con **Agrupar: Fase**, muestra cada fase con su barra resumen y su avance (hechas/total).",
-                "• **Fase 0 · Configuración**: el programa arranca y se publica vacío.",
-                "• **Una fase por módulo**: cada una termina con un módulo usable y revisado.",
-                "• **Cierre**: en producción, con manual, entregado a soporte."
+                "Todas las tarjetas de un módulo llevan **la misma Fase**. Se crean en este orden y se encadenan así:",
+                "1. **Documentar el módulo** (etiqueta Documentación): de aquí salen las historias de usuario, con su criterio de aceptación. Va después del hito de la fase anterior.",
+                "2. **Una tarjeta por historia de usuario** (etiqueta Desarrollo), de 1 a 10 días hábiles. Cada una **depende de «Documentar el módulo»**; entre historias solo si una espera de verdad a otra.",
+                "3. **Pruebas del módulo** (etiqueta Pruebas): **depende de todas las historias**.",
+                "4. **Revisión del módulo** (etiqueta **Hito**): un día, **depende de las pruebas**. Su fecha es la entrega del módulo.",
+                "Así, en el Gantt la fase se lee de izquierda a derecha y termina en su rombo."
             ]
         },
         {
-            "id": "modulo",
-            "titulo": "Cómo avanza cada módulo",
+            "id": "hitos",
+            "titulo": "Cómo funcionan los hitos",
             "parrafos": [
-                "Siempre en el mismo orden, encadenado con dependencias:",
-                "• **Documentar el módulo**: propósito, actores y roles, historias de usuario con su criterio de aceptación, requisitos, flujo, datos y bosquejos.",
-                "• **Historias de usuario**: una tarjeta por historia, de 1 a 10 días hábiles. Si una pasa de 10, se parte.",
-                "• **Pruebas del módulo**: recorrido con cada rol, permisos, teléfono.",
-                "• **Revisión del módulo** (el hito): la reunión con el equipo y los líderes.",
-                "El alcance de una fase **no crece a mitad de camino**: lo nuevo va a Pendientes y se planifica después."
+                "**Un hito por fase**: la tarjeta «Revisión del módulo». Dura **un día**, el de la entrega del módulo, y lleva la etiqueta **Hito**: en el Gantt y en su PDF es un **rombo**.",
+                "**No se carga como una barra que cubra todo el módulo.** El tramo completo de la fase (del primer inicio al último fin) ya lo muestra el Gantt con **Agrupar: Fase**: cada fase tiene su barra resumen con el avance (hechas/total). El hito marca el punto final.",
+                "**Las tareas quedan asociadas al hito de dos formas**: llevan **la misma Fase**, y el hito **depende** de las pruebas, que dependen de las historias. Si una tarea se retrasa con **Mover sucesoras** activado, la cadena empuja al hito y el atraso de la entrega se ve.",
+                "**Cambiar la fecha de entrega** es mover el hito y comentar el motivo. Las tareas de la fase tienen que caber antes: una flecha roja punteada avisa de una dependencia que no se cumple.",
+                "En la **reunión de revisión** se recorre el checklist del hito: demostración, criterios de aceptación de cada historia, seguridad y permisos, rendimiento, documentación al día y cambios integrados en main. Si se aprueba, el hito pasa a Hecho y empieza la fase siguiente.",
+                "Filtrando por la etiqueta **Hito**, el Gantt queda solo con las fechas de entrega: la vista para informar."
             ]
         },
         {
-            "id": "requisito",
-            "titulo": "Los campos «Requisito» y «Rama»",
+            "id": "uso",
+            "titulo": "La forma correcta de usar el tablero",
             "parrafos": [
-                "**Requisito** dice qué necesidad cubre la tarjeta, con el código que se le dio al documentar el módulo:",
-                "• **HU-1.2**: historia de usuario (módulo 1, historia 2).",
-                "• **RF-3.1**: requisito funcional, algo que el sistema debe hacer.",
-                "• **RNF-0.1**: requisito no funcional (seguridad, rendimiento, teléfono, integración con el Portal).",
-                "Una tarjeta de desarrollo sin requisito es alcance que se coló. En la revisión del módulo se comprueba que cada requisito tiene su tarjeta en Hecho.",
-                "**Rama** guarda la rama o el PR donde está el trabajo (opcional)."
+                "El tablero dice **en qué estado está** cada tarea; el Gantt, **cuándo**. Se mueven a mano, cuando cambia la realidad:",
+                "• **Pendientes**: está identificada pero sin fecha (el backlog). Fuera del Gantt.",
+                "• **Planificado**: el lunes se le puso fecha y responsable; todavía no empezó.",
+                "• **En curso**: el responsable la empezó.",
+                "• **En revisión**: quien la hizo terminó; falta que otro la revise o la valide (el PR abierto, la validación con el usuario).",
+                "• **Hecho**: cumple su criterio de aceptación y su documentación está al día.",
+                "Una tarjeta en «En curso» sin movimiento en días, o vencida sin comentario, es lo primero que se mira el lunes."
+            ]
+        },
+        {
+            "id": "tarjeta",
+            "titulo": "Cómo es una buena tarjeta",
+            "parrafos": [
+                "• **Título**: lo que se entrega («Pantalla de alta de proveedores»), no la actividad («Trabajar en proveedores»).",
+                "• **Fase**, **responsable** y, si está planificada, **inicio y fin**.",
+                "• **Checklist**: los pasos para terminarla; su avance rellena la barra del Gantt.",
+                "• **Descripción**: el detalle y el criterio de aceptación. La documentación vive en el repositorio; aquí va el enlace.",
+                "• **Adjuntos**: capturas y documentos (una captura se pega con Ctrl+V).",
+                "• **Comentarios**: lo que pasó y por qué. Todo cambio de fecha lleva aquí su motivo."
             ]
         },
         {
             "id": "etiquetas",
             "titulo": "Qué significa cada etiqueta",
             "parrafos": [
-                "• **Documentación**: la tarjeta produce documentos (diseño, requisitos, manual).",
+                "• **Documentación**: produce documentos (diseño, requisitos, manual).",
                 "• **Desarrollo**: produce código o configuración.",
                 "• **Pruebas**: verifica lo construido.",
-                "• **Hito**: cierre de una fase. Se dibuja como un **rombo** en el Gantt.",
+                "• **Hito**: la revisión que cierra una fase; un rombo en el Gantt.",
                 "• **Error**: un fallo que no detiene el trabajo. Entra en Pendientes y se planifica después.",
                 "• **Hotfix**: un fallo que rompe el sistema o detiene al equipo. Urgencia crítica y directo a En curso.",
-                "• **Cambio mayor**: una corrección que deja vieja la documentación. Primero se actualiza el documento del módulo.",
+                "• **Cambio mayor**: una corrección que deja vieja la documentación; primero se actualiza el documento del módulo.",
                 "• **Bloqueada**: no puede avanzar; el motivo va en un comentario."
             ]
         },
         {
-            "id": "hitos",
-            "titulo": "Los hitos: el compromiso de cada fase",
+            "id": "urgencia",
+            "titulo": "Qué urgencia poner",
             "parrafos": [
-                "La tarjeta de revisión de cada fase lleva la etiqueta **Hito** y es un **rombo** en el Gantt. Depende de las demás tarjetas de su fase: su fecha es la que se informa como fecha de la fase.",
-                "En la reunión de revisión se recorre su checklist: demostración del módulo, criterios de aceptación de cada historia, seguridad y permisos, rendimiento, documentación al día y cambios integrados en main. Si se aprueba, pasa a Hecho y empieza la fase siguiente.",
-                "Filtrando por la etiqueta **Hito**, el Gantt (y su PDF) queda solo con los cierres: la vista para informar fechas."
-            ]
-        },
-        {
-            "id": "reglas",
-            "titulo": "Las reglas de las tarjetas",
-            "parrafos": [
-                "• **Una tarjeta es algo que se entrega** en 1 a 10 días hábiles. Los pasos van en su checklist.",
-                "• **Solo lleva fecha lo planificado.** Lo demás espera en Pendientes. Nunca se inventan fechas.",
-                "• **La fecha de fin es un compromiso**: si cambia, se mueve y se comenta el motivo en la tarjeta.",
-                "• **Dependencias solo donde una tarjeta espera de verdad a otra.** Con **Mover sucesoras** activado, retrasar una empuja a las que dependen de ella.",
-                "• **Terminar incluye documentar**: una tarjeta no pasa a Hecho con su documento desactualizado."
+                "• **Crítica**: algo está detenido (el sistema caído, el equipo sin poder trabajar). Se atiende de inmediato.",
+                "• **Alta**: afecta a varias personas o tiene una fecha cercana que no se puede mover.",
+                "• **Media**: trabajo normal, en su fecha.",
+                "• **Baja**: puede esperar."
             ]
         },
         {
             "id": "correcciones",
             "titulo": "Errores y correcciones",
             "parrafos": [
-                "• **Error encontrado mientras se desarrolla**: tarjeta nueva en Pendientes, con la etiqueta **Error**, en este mismo tablero.",
+                "• **Error encontrado mientras se desarrolla**: tarjeta nueva en Pendientes, con su Fase y la etiqueta **Error**.",
                 "• **Algo que detiene al equipo**: etiqueta **Hotfix**, urgencia crítica y directo a En curso.",
-                "• **Corrección menor tras la revisión** (textos, colores, un ajuste): tarjeta nueva en la misma fase.",
-                "• **Corrección mayor** (cambia pantallas, datos o un módulo entero): etiqueta **Cambio mayor** y se vuelve a «Documentar el módulo».",
-                "Un fallo de un sistema que ya está en producción no va aquí: va al tablero de **Soporte**."
+                "• **Corrección menor tras la revisión** (textos, colores, un ajuste que no cambia la documentación): tarjeta nueva en la misma fase.",
+                "• **Corrección mayor** (cambia pantallas, datos o el módulo): etiqueta **Cambio mayor** y se vuelve a «Documentar el módulo».",
+                "**Terminar incluye documentar**: una tarjeta no pasa a Hecho con su documento desactualizado."
             ]
         },
         {
             "id": "ritmo",
             "titulo": "El ritmo de la semana",
             "parrafos": [
-                "• **Cada día**, cada persona abre **Mis tareas**, mueve sus tarjetas a la columna donde están de verdad y marca su checklist.",
-                "• **Lunes** (planificación del equipo): lo vencido se termina, se mueve con su motivo o se parte; de Pendientes a Planificado lo de la semana, con fecha y responsable; ¿se mantiene la fecha del próximo hito?",
+                "• **Cada día**, cada persona abre **Mis tareas** (sus tarjetas de todos los tableros, lo vencido primero), mueve cada una a la columna donde está de verdad y marca su checklist.",
+                "• **Lunes** (30 minutos, con el Gantt agrupado por Fase): lo vencido se termina, se mueve con su motivo o se parte; de Pendientes a Planificado lo de la semana, con fecha y responsable; ¿se mantiene la fecha del próximo hito?",
                 "• **Viernes**: **Gantt en PDF**, agrupado por Fase, para la jefatura y quien pidió el sistema."
             ]
         },
@@ -152,8 +171,20 @@ GUIA_PROYECTO = {
             "id": "cerrar",
             "titulo": "Cerrar el proyecto",
             "parrafos": [
-                "La fase **Cierre** termina con el hito «Proyecto entregado»: en producción, con su manual y entregado a soporte.",
-                "Después, el tablero se **archiva**. Lo que quede pendiente y los fallos que aparezcan en producción van al tablero de **Soporte**."
+                "La fase **Cierre** termina con el hito «Proyecto entregado»: el sistema en producción, con su manual y entregado a quien lo va a mantener.",
+                "Después, el tablero se **archiva**: queda de consulta, con todo su historial."
+            ]
+        },
+        {
+            "id": "equivalencias",
+            "titulo": "Equivalencias con la metodología de desarrollo",
+            "parrafos": [
+                "Para quien viene de Scrum o de Trello:",
+                "• **Product Backlog** → la columna Pendientes.",
+                "• **Iteration Backlog** → las tarjetas de la fase actual en Planificado, En curso y En revisión.",
+                "• **Iteración por hitos** → una fase, que termina en un hito **con fecha de entrega**.",
+                "• **Incremento** → las tarjetas de la fase en Hecho y su hito aprobado.",
+                "• **Trello** → este tablero; la documentación, en el repositorio del proyecto."
             ]
         }
     ]

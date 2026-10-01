@@ -72,7 +72,7 @@ equipo=None)` crea las que falten.
   crear ni se pisa sin `--actualizar`. Si se renombra, la siguiente
   instalación crea otra.
 - No tienen `creada_por`.
-- Cada una trae una tarjeta **«Tutorial: cómo se trabaja en este tablero»**
+- Cada una trae una tarjeta inicial de metodología (en el proyecto, **«Metodología del proyecto: léeme primero»**, urgencia alta; en soporte, **«Tutorial: cómo se trabaja en este tablero»**)
   (sin fecha, en la primera columna) con la metodología en la descripción y
   los primeros pasos en el checklist; se archiva al terminar de leerla.
 - Cada una trae además **su propia guía del Centro de ayuda**
@@ -91,7 +91,6 @@ desarrollo por módulos llevada a tarjetas sin nada nuevo en el programa.
 |---|---|
 | Estado | Columnas Pendientes (fuera del Gantt) · Planificado · En curso · En revisión · Hecho |
 | Fase | Campo de lista «Fase»: `Fase 0 · Configuración`, `Fase 1…3 · Módulo n`, `Cierre` (se renombran en cada tablero) |
-| Requisito | Campo de texto «Requisito» (`HU-1.1`…); «Rama» para la rama o el PR |
 | Tipo de trabajo | Etiquetas Documentación, Desarrollo, Pruebas, Error, Hotfix, Cambio mayor, Bloqueada |
 | Hito | Tarjeta de un día con la etiqueta «Hito» (marcada `es_hito`: un rombo en el Gantt) al cierre de cada fase; filtrar por ella deja el Gantt solo con los hitos |
 | Tareas | 27 tarjetas: el tutorial en Pendientes, 5 de Fase 0, 6 por módulo (documentar, 3 historias, pruebas, revisión) y 3 de cierre; 67 días hábiles |

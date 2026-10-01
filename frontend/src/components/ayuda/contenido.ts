@@ -235,7 +235,8 @@ const GANTT: TemaAyuda = {
       id: "crear",
       titulo: "Cargar tareas",
       parrafos: [
-        "Pulsa **+ Tarea**: título, responsable, inicio, fin y urgencia en un solo paso.",
+        "Pulsa **+ Tarea**: título, responsable, inicio, fin y urgencia en un solo paso. Si el tablero tiene campos de lista (como «Fase»), también se eligen ahí.",
+        "Con **Empieza después de** (o el **+** de una fila), la tarea nueva toma de la anterior los campos de lista que dejes vacíos, como su Fase.",
         "**Crear y añadir otra** deja lista la siguiente, empezando el día hábil después de la anterior y con la misma duración: así cargas un plan completo seguido.",
       ],
     },

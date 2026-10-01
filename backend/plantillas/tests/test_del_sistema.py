@@ -40,7 +40,7 @@ class InstalarTests(EscenarioTablero):
         instalar()
         vista = self.cliente(self.beto).get("/api/v1/plantillas/").json()
         self.assertEqual([(p["nombre"], p["permisos"]["gestionar"]) for p in vista], [(PROYECTO_SOFTWARE, False), (SOPORTE, False)])
-        self.assertEqual(vista[0]["resumen"], {"columnas": 5, "tarjetas": 27, "etiquetas": 8, "campos": 3, "duracion": 67})
+        self.assertEqual(vista[0]["resumen"], {"columnas": 5, "tarjetas": 27, "etiquetas": 8, "campos": 1, "duracion": 67})
         self.assertEqual(vista[1]["resumen"], {"columnas": 4, "tarjetas": 2, "etiquetas": 3, "campos": 2, "duracion": None})
 
     def test_de_un_equipo_solo_las_ven_sus_miembros_y_las_gestionan_sus_administradores(self):
@@ -78,7 +78,6 @@ class InstalarTests(EscenarioTablero):
 
         # Todo lo planificado lleva fechas y una fase que existe; lo demás espera en «Pendientes».
         fase = tablero.campos.get(nombre="Fase")
-        requisito = tablero.campos.get(nombre="Requisito")
         for card in cards.values():
             if card.columna.nombre == "Pendientes":
                 self.assertIsNone(card.fecha_inicio)
@@ -104,7 +103,7 @@ class InstalarTests(EscenarioTablero):
         )
         historia = cards["M2 · Historia de usuario 3"]
         self.assertEqual(
-            (historia.campos[str(fase.pk)], historia.campos[str(requisito.pk)]), ("Fase 2 · Módulo 2", "HU-2.3")
+            historia.campos, {str(fase.pk): "Fase 2 · Módulo 2"}
         )
         self.assertEqual(cards["M1 · Documentar el módulo"].checklist.count(), 7)
 
@@ -115,10 +114,13 @@ class InstalarTests(EscenarioTablero):
         self.assertIsNone(self.cliente(self.ana).get(f"/api/v1/tableros/{self.tablero['id']}/").json()["ayuda"])
 
         # La tarjeta de tutorial: la metodología y los primeros pasos, sin fecha.
-        tutorial = cards["Tutorial: cómo se trabaja en este tablero"]
-        self.assertEqual((tutorial.columna.nombre, tutorial.fecha_inicio), ("Pendientes", None))
-        self.assertIn("ETIQUETAS", tutorial.descripcion)
+        tutorial = cards["Metodología del proyecto: léeme primero"]
+        self.assertEqual((tutorial.columna.nombre, tutorial.fecha_inicio, tutorial.orden), ("Pendientes", None, 0))
+        for apartado in ("FLUJO", "CÓMO SE CARGA", "CÓMO SE ARMA CADA FASE", "CÓMO FUNCIONAN LOS HITOS", "FORMA CORRECTA"):
+            self.assertIn(apartado, tutorial.descripcion)
+        self.assertNotIn("Soporte", tutorial.descripcion)
         self.assertGreater(tutorial.checklist.count(), 3)
+        self.assertNotIn("Soporte", str(detalle["ayuda"]))
 
     def test_el_tablero_de_soporte_no_entra_en_el_gantt(self):
         instalar()
