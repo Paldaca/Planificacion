@@ -289,7 +289,7 @@ class EtiquetaEscrituraSerializer(serializers.Serializer):
 class CampoSerializer(serializers.ModelSerializer):
     class Meta:
         model = CampoPersonalizado
-        fields = ["id", "nombre", "tipo", "opciones", "orden", "visible_en_tarjeta", "archivado"]
+        fields = ["id", "nombre", "tipo", "opciones", "orden", "visible_en_tarjeta", "atajo_al_crear", "archivado"]
 
 
 class CampoEscrituraSerializer(serializers.Serializer):
@@ -299,6 +299,7 @@ class CampoEscrituraSerializer(serializers.Serializer):
     #: {opción vieja: nueva}: las tarjetas que tenían la vieja pasan a la nueva.
     renombrar = serializers.DictField(child=serializers.CharField(max_length=60), required=False)
     visible_en_tarjeta = serializers.BooleanField(required=False)
+    atajo_al_crear = serializers.BooleanField(required=False)
     orden = serializers.IntegerField(required=False, min_value=0)
     archivado = serializers.BooleanField(required=False)
 

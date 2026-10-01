@@ -7,7 +7,7 @@ Formato del `contenido` (versión `FORMATO`):
       "formato": 1,
       "columnas":  [{"nombre", "es_final", "incluir_en_gantt", "limite_cards"}],
       "etiquetas": [{"nombre", "color", "es_hito" (opcional)}],
-      "campos":    [{"nombre", "tipo", "opciones", "visible_en_tarjeta"}],
+      "campos":    [{"nombre", "tipo", "opciones", "visible_en_tarjeta", "atajo_al_crear" (opcional)}],
       "ayuda":     {"titulo", "resumen", "entradas"} (opcional: la guía del Centro de ayuda),
       "tarjetas":  [{"ref", "titulo", "descripcion", "columna" (índice), "urgencia",
                      "en_gantt", "inicio", "fin" (días hábiles desde el inicio del
@@ -84,7 +84,13 @@ def foto(tablero: Tablero) -> dict:
         ],
         "etiquetas": [{"nombre": e.nombre, "color": e.color, "es_hito": e.es_hito} for e in tablero.etiquetas.all()],
         "campos": [
-            {"nombre": c.nombre, "tipo": c.tipo, "opciones": c.opciones, "visible_en_tarjeta": c.visible_en_tarjeta}
+            {
+                "nombre": c.nombre,
+                "tipo": c.tipo,
+                "opciones": c.opciones,
+                "visible_en_tarjeta": c.visible_en_tarjeta,
+                "atajo_al_crear": c.atajo_al_crear,
+            }
             for c in campos
         ],
         "tarjetas": [
@@ -198,6 +204,7 @@ def crear_tablero_desde(
             tipo=d["tipo"],
             opciones=d.get("opciones"),
             visible_en_tarjeta=d.get("visible_en_tarjeta", False),
+            atajo_al_crear=d.get("atajo_al_crear", False),
         )
         for d in c.get("campos", [])
     }

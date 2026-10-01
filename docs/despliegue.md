@@ -87,7 +87,7 @@ imagen):
 | Comando | Frecuencia | Para qué |
 |---|---|---|
 | `python manage.py procesar_avisos` | `*/5 * * * *` | Reintenta avisos pendientes a la campana del Portal y purga los cerrados viejos. |
-| `python manage.py instalar_plantillas` | **No es una tarea programada**: se ejecuta una vez tras el primer despliegue (y con `--actualizar` cuando cambie el plan tipo) | Crea las plantillas del programa («Proyecto de software», «Soporte»); con `--equipo <id>`, como plantillas de ese equipo. |
+| `python manage.py instalar_plantillas` | **No es una tarea programada**: se ejecuta una vez tras el primer despliegue (y con `--actualizar` cuando cambie el plan tipo) | Crea las plantillas del programa («Proyecto de software», «Soporte»). Son la metodología de AIT: instalarlas **para el equipo AIT** y no globales. Primero `--listar-equipos` (id, nombre y miembros) y después `--equipo <id>`. |
 | `python manage.py revisar_vencimientos` | `0 6 * * *` (06:00 Caracas; Coolify usa la hora del servidor) | Avisos de «vence pronto» y «vencida». |
 
 ## 5. Cambios en el Portal

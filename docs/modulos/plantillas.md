@@ -62,6 +62,7 @@ equipo=None)` crea las que falten.
 ..\venv\Scripts\python.exe manage.py instalar_plantillas              # globales: las ve todo el módulo
 ..\venv\Scripts\python.exe manage.py instalar_plantillas --equipo 3   # del equipo 3: solo sus miembros
 ..\venv\Scripts\python.exe manage.py instalar_plantillas --actualizar # repone el contenido desde el código
+..\venv\Scripts\python.exe manage.py instalar_plantillas --listar-equipos  # id, nombre y miembros de cada equipo
 ```
 
 - **Globales o de un equipo.** Sin `--equipo` son globales (las gestiona el
@@ -90,7 +91,7 @@ desarrollo por módulos llevada a tarjetas sin nada nuevo en el programa.
 | Pieza | Cómo queda |
 |---|---|
 | Estado | Columnas Pendientes (fuera del Gantt) · Planificado · En curso · En revisión · Hecho |
-| Fase | Campo de lista «Fase»: `Fase 0 · Configuración`, `Fase 1…3 · Módulo n`, `Cierre` (se renombran en cada tablero) |
+| Fase | Campo de lista «Fase» (con `atajo_al_crear`: se elige al crear la tarea y la sucesora lo toma de la anterior): `Fase 0 · Configuración`, `Fase 1…3 · Módulo n`, `Cierre` (se renombran en cada tablero) |
 | Tipo de trabajo | Etiquetas Documentación, Desarrollo, Pruebas, Error, Hotfix, Cambio mayor, Bloqueada |
 | Hito | Tarjeta de un día con la etiqueta «Hito» (marcada `es_hito`: un rombo en el Gantt) al cierre de cada fase; filtrar por ella deja el Gantt solo con los hitos |
 | Tareas | 27 tarjetas: el tutorial en Pendientes, 5 de Fase 0, 6 por módulo (documentar, 3 historias, pruebas, revisión) y 3 de cierre; 67 días hábiles |

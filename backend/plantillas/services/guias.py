@@ -68,7 +68,7 @@ GUIA_PROYECTO = {
             "id": "cargar",
             "titulo": "Cómo se carga una tarea",
             "parrafos": [
-                "**Si ya tiene fecha**, desde el **Gantt**: **+ Tarea** pide título, **Fase**, responsable, inicio, fin y urgencia en un paso. Para que vaya después de otra, usa el **+** que aparece al pasar por la fila de la anterior, o elígela en **Empieza después de**: queda creada la dependencia y **toma la Fase de la anterior**. **Crear y añadir otra** conserva la Fase: así se carga un módulo entero seguido.",
+                "**Si ya tiene fecha**, desde el **Gantt**: **+ Tarea** pide título, responsable, inicio, fin y urgencia en un paso, con el atajo **+ Fase** para elegir su fase ahí mismo. Para que vaya después de otra, usa el **+** que aparece al pasar por la fila de la anterior, o elígela en **Empieza después de**: queda creada la dependencia y **toma la Fase de la anterior**. **Crear y añadir otra** conserva la Fase: así se carga un módulo entero seguido.",
                 "**Si todavía no tiene fecha**, desde el **Tablero**: **Añadir tarjeta** al pie de **Pendientes**. Se le pone fecha y responsable en la planificación del lunes.",
                 "La que se crea en Pendientes se abre para ponerle su **Fase**. A todas, ponles también su etiqueta (Desarrollo, Documentación o Pruebas). Una tarjeta sin fase aparece en el grupo «Sin fase» del Gantt: es la señal de que falta.",
                 "En la descripción va el detalle y el **criterio de aceptación**; los pasos, en el checklist."

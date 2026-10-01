@@ -117,6 +117,7 @@ const TABLERO: TemaAyuda = {
         "• **Número**: horas estimadas, monto, cantidad, % de avance reportado (acepta coma o punto).",
         "• **Lista**: una opción entre varias fijas, por ejemplo Etapa (Básica, Detalle, Construcción) o Revisión (A, B, 0, 1).",
         "Para qué sirven: se rellenan dentro de la tarjeta, cada campo tiene **su columna en la Lista** (ordenable: por ejemplo, de más a menos horas) y sale en el **Excel** exportado. Si lo pones en «Se ve en la tarjeta del tablero», su valor también aparece en el Kanban.",
+        "En un campo de lista, el botón **Atajo** lo ofrece al crear tareas desde el Gantt o el Calendario («+ Fase»), y la tarea que se crea después de otra toma su valor. Viene desactivado: actívalo solo si en tu tablero tiene sentido (por ejemplo, la fase de un proyecto).",
         "Cómo se crean: en el menú «…» del tablero, **Etiquetas y campos…** (hasta 20 activos). El tipo no se puede cambiar después. Un campo no se borra: se **archiva** y conserva los valores que ya tenía.",
         "Las **opciones de una lista** se cargan una por fila: escribe una y pulsa Enter para seguir con la siguiente, o **pega varias de una vez** (una por línea, como una columna de Excel, o separadas por comas). Hasta 30 por lista.",
         "• Con las flechas cambias el **orden**: es el de los desplegables y el de los grupos del Gantt cuando agrupas por ese campo.",
@@ -235,8 +236,8 @@ const GANTT: TemaAyuda = {
       id: "crear",
       titulo: "Cargar tareas",
       parrafos: [
-        "Pulsa **+ Tarea**: título, responsable, inicio, fin y urgencia en un solo paso. Si el tablero tiene campos de lista (como «Fase»), también se eligen ahí.",
-        "Con **Empieza después de** (o el **+** de una fila), la tarea nueva toma de la anterior los campos de lista que dejes vacíos, como su Fase.",
+        "Pulsa **+ Tarea**: título, responsable, inicio, fin y urgencia en un solo paso. Si el tablero tiene campos de lista marcados como **Atajo** (como «Fase»), aparecen como «+ Fase»: son opcionales, no hace falta llenarlos para crear la tarea.",
+        "Con **Empieza después de** (o el **+** de una fila), la tarea nueva toma de la anterior los campos de lista que dejes vacíos, marcados «(de la anterior)»; la × los quita.",
         "**Crear y añadir otra** deja lista la siguiente, empezando el día hábil después de la anterior y con la misma duración: así cargas un plan completo seguido.",
       ],
     },

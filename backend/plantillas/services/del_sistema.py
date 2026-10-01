@@ -191,7 +191,7 @@ _TUTORIAL_PROYECTO = {
         "Cada módulo va siempre igual: Documentar el módulo → Historias de usuario → Pruebas → Revisión (el hito).\n"
         "Cada tarea recorre las columnas: Pendientes → Planificado → En curso → En revisión → Hecho.\n\n"
         "2. CÓMO SE CARGA UNA TAREA\n"
-        "- Con fecha: en el Gantt, «+ Tarea» (título, fase, responsable, inicio y fin). Para que vaya después de "
+        "- Con fecha: en el Gantt, «+ Tarea» (título, responsable, inicio y fin; «+ Fase» para elegir su fase). Para que vaya después de "
         "otra, el «+» de su fila o «Empieza después de»: toma la fase de la anterior.\n"
         "- Sin fecha todavía: en el Tablero, «Añadir tarjeta» en Pendientes; ábrela y ponle su Fase. El lunes se "
         "le pone fecha.\n"
@@ -279,6 +279,8 @@ def contenido_proyecto_software() -> dict:
                 "tipo": "lista",
                 "opciones": [FASE_0, *(_fase_modulo(n) for n in range(1, MODULOS + 1)), CIERRE],
                 "visible_en_tarjeta": True,
+                # La tarea que sigue a otra suele ser de su misma fase.
+                "atajo_al_crear": True,
             },
         ],
         "tarjetas": tarjetas,

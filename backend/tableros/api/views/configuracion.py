@@ -65,6 +65,7 @@ class CamposView(APIView):
             tipo=v["tipo"],
             opciones=v.get("opciones"),
             visible_en_tarjeta=v.get("visible_en_tarjeta", False),
+            atajo_al_crear=v.get("atajo_al_crear", False),
         )
         return Response(CampoSerializer(campo).data, status=status.HTTP_201_CREATED)
 

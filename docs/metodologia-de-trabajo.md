@@ -214,8 +214,8 @@ Las opciones de «Fase» se renombran con el nombre real de cada módulo en
 
 ### Cómo se carga una tarea
 
-- **Con fecha**: en el Gantt, **+ Tarea** (título, Fase, responsable, inicio,
-  fin y urgencia en un paso). Para que vaya después de otra, el **+** de la
+- **Con fecha**: en el Gantt, **+ Tarea** (título, responsable, inicio, fin
+  y urgencia en un paso; la Fase, con el atajo «+ Fase»). Para que vaya después de otra, el **+** de la
   fila de la anterior o **Empieza después de**: queda creada la dependencia y
   toma la Fase de la anterior. «Crear y añadir otra» conserva la Fase.
 - **Sin fecha todavía**: en el Tablero, **Añadir tarjeta** en «Pendientes»;

@@ -61,7 +61,13 @@ def _guardar(campo: CampoPersonalizado) -> CampoPersonalizado:
 
 @transaction.atomic
 def crear_campo(
-    tablero: Tablero, *, nombre: str, tipo: str, opciones=None, visible_en_tarjeta: bool = False
+    tablero: Tablero,
+    *,
+    nombre: str,
+    tipo: str,
+    opciones=None,
+    visible_en_tarjeta: bool = False,
+    atajo_al_crear: bool = False,
 ) -> CampoPersonalizado:
     if not nombre or not nombre.strip():
         raise ReglaDeNegocio("Ponle un nombre al campo.")
@@ -76,6 +82,7 @@ def crear_campo(
         opciones=_opciones_limpias(opciones) if tipo == TipoCampo.LISTA else [],
         orden=(tablero.campos.aggregate(m=Max("orden"))["m"] or 0) + 1,
         visible_en_tarjeta=visible_en_tarjeta,
+        atajo_al_crear=atajo_al_crear and tipo == TipoCampo.LISTA,
     )
     return _guardar(campo)
 
@@ -110,7 +117,7 @@ def _renombrar_opciones(campo: CampoPersonalizado, renombrar: dict, anteriores: 
 @transaction.atomic
 def editar_campo(campo: CampoPersonalizado, **cambios) -> CampoPersonalizado:
     """`cambios`: nombre, opciones (solo lista), renombrar ({opción vieja:
-    nueva}, solo lista), visible_en_tarjeta, orden, archivado."""
+    nueva}, solo lista), visible_en_tarjeta, atajo_al_crear (solo lista), orden, archivado."""
     anteriores = list(campo.opciones)
     if "nombre" in cambios:
         if not cambios["nombre"].strip():
@@ -120,6 +127,8 @@ def editar_campo(campo: CampoPersonalizado, **cambios) -> CampoPersonalizado:
         campo.opciones = _opciones_limpias(cambios["opciones"])
     if cambios.get("renombrar") and campo.tipo == TipoCampo.LISTA:
         _renombrar_opciones(campo, cambios["renombrar"], anteriores)
+    if "atajo_al_crear" in cambios:
+        campo.atajo_al_crear = bool(cambios["atajo_al_crear"]) and campo.tipo == TipoCampo.LISTA
     for atributo in ("visible_en_tarjeta", "orden", "archivado"):
         if atributo in cambios:
             setattr(campo, atributo, cambios[atributo])

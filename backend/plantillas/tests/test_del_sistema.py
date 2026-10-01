@@ -58,6 +58,12 @@ class InstalarTests(EscenarioTablero):
         with self.assertRaises(CommandError):
             call_command("instalar_plantillas", "--equipo", "9999", stdout=StringIO())
 
+    def test_listar_equipos_para_saber_su_id(self):
+        salida = StringIO()
+        call_command("instalar_plantillas", "--listar-equipos", stdout=salida)
+        self.assertIn(f"{self.equipo_id:>3} Obra (", salida.getvalue())
+        self.assertFalse(Plantilla.objects.exists())  # solo lista, no instala
+
     def test_el_tablero_de_proyecto_sale_completo(self):
         instalar()
         tablero = self.usar(PROYECTO_SOFTWARE)
@@ -78,6 +84,7 @@ class InstalarTests(EscenarioTablero):
 
         # Todo lo planificado lleva fechas y una fase que existe; lo demás espera en «Pendientes».
         fase = tablero.campos.get(nombre="Fase")
+        self.assertTrue(fase.atajo_al_crear)  # en esta plantilla, la Fase es el atajo al crear tareas
         for card in cards.values():
             if card.columna.nombre == "Pendientes":
                 self.assertIsNone(card.fecha_inicio)

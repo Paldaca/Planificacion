@@ -54,6 +54,8 @@ export type CampoPersonalizado = {
   opciones: string[];
   orden: number;
   visible_en_tarjeta: boolean;
+  /** Solo listas: atajo en «Nueva tarea» y la sucesora toma su valor. */
+  atajo_al_crear: boolean;
   archivado: boolean;
 };
 

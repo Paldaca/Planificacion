@@ -237,6 +237,10 @@ class CampoPersonalizado(models.Model):
     opciones = models.JSONField(default=list, blank=True)
     orden = models.PositiveIntegerField(default=0)
     visible_en_tarjeta = models.BooleanField(default=False, help_text="Se ve en la tarjeta del Kanban.")
+    #: Solo para `lista`: aparece como atajo en «Nueva tarea» y la tarea que se
+    #: crea después de otra toma su valor. Lo decide cada tablero (o su
+    #: plantilla); por defecto, no.
+    atajo_al_crear = models.BooleanField(default=False)
     archivado = models.BooleanField(default=False)
 
     class Meta:

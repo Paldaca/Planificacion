@@ -59,7 +59,7 @@ export function useEliminarEtiqueta(tableroId: number) {
 
 // --- Campos personalizados ------------------------------------------------------------
 
-export type CambiosCampo = Partial<Pick<CampoPersonalizado, "nombre" | "opciones" | "visible_en_tarjeta" | "orden" | "archivado">> & {
+export type CambiosCampo = Partial<Pick<CampoPersonalizado, "nombre" | "opciones" | "visible_en_tarjeta" | "atajo_al_crear" | "orden" | "archivado">> & {
   /** {opción vieja: nueva} de una lista: el servidor la cambia también en las tarjetas que la tenían. */
   renombrar?: Record<string, string>;
 };

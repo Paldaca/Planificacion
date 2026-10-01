@@ -106,10 +106,12 @@ sin esfuerzo:
 
 - **«+ Tarea»** (`components/tablero/NuevaTareaDialogo`, compartido con el
   Calendario; también en el estado vacío): título,
-  responsable (tú por defecto), inicio, fin, urgencia y los **campos de
-  lista** del tablero (p. ej. «Fase», todos los de lista: no se elige por el
-  nombre) en un paso; con predecesora, los campos vacíos toman su valor, y
-  «Crear y añadir otra» los conserva. La columna es la primera que entra en el
+  responsable (tú por defecto), inicio, fin y urgencia en un paso; los
+  campos de lista **marcados como atajo** (`atajo_al_crear`, p. ej. «Fase» en
+  la plantilla de proyecto; por defecto ninguno) van como **atajo opcional**
+  («+ Fase», nunca obligatorio). Con
+  predecesora, los vacíos toman su valor, marcados «(de la anterior)» y con
+  × para quitarlos; «Crear y añadir otra» los conserva. La columna es la primera que entra en el
   Gantt. «Crear y añadir otra» deja la
   siguiente empezando el día hábil después, con la misma duración. Las
   fechas propuestas cuentan de lunes a viernes (`lib/dias.ts`, sin feriados);

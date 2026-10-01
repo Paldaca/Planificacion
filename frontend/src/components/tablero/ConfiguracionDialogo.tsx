@@ -1,4 +1,4 @@
-import { Archive, ArchiveRestore, ChevronDown, Diamond, Eye, EyeOff, Hash, List, Plus, Settings2, Tag, Trash2, Type } from "lucide-react";
+import { Archive, ArchiveRestore, ChevronDown, Diamond, Eye, EyeOff, Hash, List, Plus, Settings2, Tag, Trash2, Type, Zap } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -500,6 +500,25 @@ function FilaCampo({
           >
             {campo.visible_en_tarjeta ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
             En la tarjeta
+          </button>
+        )}
+        {!campo.archivado && campo.tipo === "lista" && (
+          <button
+            type="button"
+            onClick={() => editar.mutate({ id: campo.id, cambios: { atajo_al_crear: !campo.atajo_al_crear } })}
+            aria-pressed={campo.atajo_al_crear}
+            title={
+              campo.atajo_al_crear
+                ? "Atajo al crear tareas: aparece en «Nueva tarea» y la tarea que va después de otra toma su valor"
+                : "Sin atajo: no aparece en «Nueva tarea» ni se copia a la tarea siguiente"
+            }
+            className={cn(
+              "flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition-colors",
+              campo.atajo_al_crear ? "bg-morado/10 text-morado" : "text-tenue hover:bg-columna",
+            )}
+          >
+            <Zap className={cn("size-3.5", campo.atajo_al_crear && "fill-current")} />
+            Atajo
           </button>
         )}
         <button

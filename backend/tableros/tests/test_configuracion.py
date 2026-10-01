@@ -114,6 +114,19 @@ class CamposTests(Base):
         cambios = [h["detalle"] for h in historial if h["detalle"].get("campo") == "personalizado"]
         self.assertIn({"campo": "personalizado", "nombre": "Horas", "antes": "12.5", "despues": "8"}, cambios)
 
+    def test_el_atajo_al_crear_es_opcional_y_solo_para_listas(self):
+        lista = self.crear_campo(nombre="Fase", tipo="lista", opciones=["Uno"])
+        self.assertFalse(lista["atajo_al_crear"])  # por defecto, no
+        marcada = self.crear_campo(nombre="Disciplina", tipo="lista", opciones=["Civil"], atajo_al_crear=True)
+        self.assertTrue(marcada["atajo_al_crear"])
+        # Un campo que no es lista no puede serlo.
+        self.assertFalse(self.crear_campo(nombre="Horas", tipo="numero", atajo_al_crear=True)["atajo_al_crear"])
+        r = self.cliente(self.ana).patch(f"/api/v1/campos/{lista['id']}/", {"atajo_al_crear": True}, format="json")
+        self.assertEqual((r.status_code, r.json()["atajo_al_crear"]), (200, True))
+        self.assertEqual(
+            self.cliente(self.beto).patch(f"/api/v1/campos/{lista['id']}/", {"atajo_al_crear": False}, format="json").status_code, 403
+        )
+
     def test_renombrar_una_opcion_cambia_las_tarjetas_que_la_tenian(self):
         fase = self.crear_campo(nombre="Fase", tipo="lista", opciones=["Fase 1 · Módulo 1", "Fase 2 · Módulo 2"])
         una, otra, sin_valor = self.crear_card(), self.crear_card(), self.crear_card()

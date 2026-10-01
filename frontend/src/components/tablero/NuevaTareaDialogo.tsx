@@ -1,9 +1,9 @@
-import { CalendarPlus } from "lucide-react";
+import { CalendarPlus, Plus, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { useCrearCard, useCrearDependencia } from "@/api/queries";
-import type { CardDetalle, CardResumen, TableroDetalle, Urgencia } from "@/api/tipos";
+import type { CampoPersonalizado, CardDetalle, CardResumen, TableroDetalle, Urgencia } from "@/api/tipos";
 import { useIdentidad } from "@/auth/useIdentidad";
 import { Boton } from "@/components/ui/Boton";
 import { Campo, Entrada } from "@/components/ui/Campos";
@@ -33,10 +33,11 @@ const estiloSelect =
  *   ofrece columnas que entran en el Gantt (si no, la tarea «desaparecería»).
  * - Calendario: abre con el día (o los días) elegidos en `fechas`, y «Crear y
  *   añadir otra» conserva esas fechas (varias tareas el mismo día).
- * - Campos de lista del tablero (p. ej. «Fase»): se eligen en el mismo paso.
- *   Con «Empieza después de» toman el valor de la anterior si están vacíos
- *   (una tarea que sigue a otra suele ser de su misma fase), y «Crear y añadir
- *   otra» los conserva. No se adivina por el nombre: valen todos los de lista.
+ * - Campos de lista marcados como **atajo** (`atajo_al_crear`, p. ej. «Fase» en
+ *   la plantilla de proyecto): opcionales, nunca obligatorios. Se muestran como
+ *   «+ Fase»; con «Empieza después de» toman el valor de la anterior si están
+ *   vacíos, se ve de dónde vino y se quita con la ×. «Crear y añadir otra» los
+ *   conserva. Sin campos marcados, el diálogo no muestra nada de esto.
  */
 export function NuevaTareaDialogo({
   tablero,
@@ -74,7 +75,10 @@ export function NuevaTareaDialogo({
   const [predecesora, setPredecesora] = useState<number | null>(null);
   /** Valores de los campos de lista: {"<id del campo>": opción}. */
   const [valores, setValores] = useState<Record<string, string>>({});
-  const camposLista = tablero.campos.filter((c) => c.tipo === "lista" && !c.archivado);
+  /** Los que vinieron de la tarea anterior (se marca para que se vea de dónde salen). */
+  const [heredados, setHeredados] = useState<Set<string>>(() => new Set());
+  // Solo los que el tablero marcó como atajo («Etiquetas y campos»): el resto no se ofrece ni se copia.
+  const camposLista = tablero.campos.filter((c) => c.tipo === "lista" && c.atajo_al_crear && !c.archivado);
 
   /** Los valores de lista de `card` que siguen siendo opciones válidas. */
   const valoresDe = (card: CardResumen | undefined): Record<string, string> => {
@@ -103,7 +107,9 @@ export function NuevaTareaDialogo({
     setUrgencia("media");
     setColumna(opciones[0]?.id ?? null);
     setPredecesora(previa?.id ?? null);
-    setValores(valoresDe(previa));
+    const iniciales = valoresDe(previa);
+    setValores(iniciales);
+    setHeredados(new Set(Object.keys(iniciales)));
   });
 
   const duracion = inicio && fin && fin >= inicio ? laborablesEntre(inicio, fin) : 0;
@@ -123,7 +129,12 @@ export function NuevaTareaDialogo({
     const card = candidatas.find((c) => c.id === id);
     if (card) cambiarInicio(inicioTras(card));
     // Lo que ya se eligió a mano no se pisa.
-    if (card) setValores((actuales) => ({ ...valoresDe(card), ...actuales }));
+    if (card) {
+      const deLaAnterior = valoresDe(card);
+      const nuevos = Object.keys(deLaAnterior).filter((k) => !(k in valores));
+      setValores((actuales) => ({ ...deLaAnterior, ...actuales }));
+      setHeredados((previos) => new Set([...previos, ...nuevos]));
+    }
   }
 
   async function guardar(otra: boolean) {
@@ -223,29 +234,26 @@ export function NuevaTareaDialogo({
             </select>
           </Campo>
         )}
-        {camposLista.map((campo) => (
-          <Campo key={campo.id} etiqueta={campo.nombre}>
-            <select
-              value={valores[String(campo.id)] ?? ""}
-              onChange={(e) =>
-                setValores((actuales) => {
-                  const nuevos = { ...actuales };
-                  if (e.target.value) nuevos[String(campo.id)] = e.target.value;
-                  else delete nuevos[String(campo.id)];
-                  return nuevos;
-                })
-              }
-              className={estiloSelect}
-            >
-              <option value="">—</option>
-              {campo.opciones.map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </select>
-          </Campo>
-        ))}
+        {camposLista.length > 0 && (
+          <AtajosLista
+            campos={camposLista}
+            valores={valores}
+            heredados={heredados}
+            onCambio={(id, valor) => {
+              setValores((actuales) => {
+                const nuevos = { ...actuales };
+                if (valor) nuevos[id] = valor;
+                else delete nuevos[id];
+                return nuevos;
+              });
+              setHeredados((previos) => {
+                const sin = new Set(previos);
+                sin.delete(id);
+                return sin;
+              });
+            }}
+          />
+        )}
         <div className="grid grid-cols-2 gap-3">
           <Campo etiqueta="Inicio">
             <Entrada type="date" value={inicio} onChange={(e) => cambiarInicio(e.target.value)} />
@@ -305,6 +313,86 @@ export function NuevaTareaDialogo({
         <button type="submit" hidden aria-hidden tabIndex={-1} />
       </form>
     </Dialogo>
+  );
+}
+
+/**
+ * Los campos de lista como atajo: «+ Fase» si no tiene valor; si lo tiene, un
+ * selector pequeño con su × para quitarlo. Nada de esto es obligatorio.
+ */
+function AtajosLista({
+  campos,
+  valores,
+  heredados,
+  onCambio,
+}: {
+  campos: CampoPersonalizado[];
+  valores: Record<string, string>;
+  heredados: Set<string>;
+  onCambio: (id: string, valor: string | null) => void;
+}) {
+  const [abiertos, setAbiertos] = useState<Set<string>>(() => new Set());
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="text-xs text-tenue">Opcional:</span>
+      {campos.map((campo) => {
+        const id = String(campo.id);
+        const valor = valores[id];
+        if (!valor && !abiertos.has(id)) {
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setAbiertos((a) => new Set(a).add(id))}
+              className="inline-flex h-7 items-center gap-1 rounded-lg border border-dashed border-linea px-2 text-xs font-semibold text-tenue transition-colors hover:border-morado/40 hover:text-morado pointer-coarse:h-9"
+            >
+              <Plus className="size-3.5" />
+              {campo.nombre}
+            </button>
+          );
+        }
+        return (
+          <span
+            key={id}
+            className="inline-flex h-7 items-center gap-1 rounded-lg bg-morado/8 pr-0.5 pl-2 text-xs font-semibold text-morado pointer-coarse:h-9"
+            title={heredados.has(id) ? "Tomado de la tarea anterior" : undefined}
+          >
+            {campo.nombre}:
+            <select
+              autoFocus={!valor}
+              value={valor ?? ""}
+              aria-label={campo.nombre}
+              onChange={(e) => onCambio(id, e.target.value || null)}
+              className="max-w-44 truncate rounded-md bg-transparent py-0.5 font-semibold text-marino outline-none focus:bg-white"
+            >
+              <option value="">—</option>
+              {campo.opciones.map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
+            {heredados.has(id) && <span className="font-normal text-tenue">(de la anterior)</span>}
+            <button
+              type="button"
+              aria-label={`Quitar ${campo.nombre}`}
+              onClick={() => {
+                onCambio(id, null);
+                setAbiertos((a) => {
+                  const sin = new Set(a);
+                  sin.delete(id);
+                  return sin;
+                });
+              }}
+              className="grid size-6 place-items-center rounded-md text-tenue hover:bg-white hover:text-morado"
+            >
+              <X className="size-3.5" />
+            </button>
+          </span>
+        );
+      })}
+    </div>
   );
 }
 

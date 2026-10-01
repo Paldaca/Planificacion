@@ -114,6 +114,15 @@ class UsarTests(Base):
         self.assertEqual([(e.nombre, e.es_hito) for e in nuevo.etiquetas.all()], [("Civil", True)])
         self.assertTrue(Card.objects.get(tablero=nuevo, titulo="Levantamiento").es_hito)
 
+    def test_el_atajo_de_un_campo_viaja_en_la_plantilla(self):
+        url = f"/api/v1/tableros/{self.tablero['id']}/campos/"
+        self.cliente(self.ana).post(url, {"nombre": "Fase", "tipo": "lista", "opciones": ["A"], "atajo_al_crear": True}, format="json")
+        r = self.usar(self.guardar().json()["id"], equipo=self.equipo_id, fecha_inicio="2026-10-09")
+        nuevo = Tablero.objects.get(pk=r.json()["tablero"])
+        self.assertEqual(
+            {c.nombre: c.atajo_al_crear for c in nuevo.campos.all()}, {"Horas": False, "Fase": True}
+        )
+
     def test_la_guia_de_ayuda_viaja_en_la_plantilla_y_se_limpia(self):
         guia = {
             "titulo": "Obra civil",
