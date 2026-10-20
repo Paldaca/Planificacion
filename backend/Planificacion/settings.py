@@ -278,14 +278,24 @@ REST_FRAMEWORK = {
 }
 
 
-# --- Email ------------------------------------------------------------------
-# Planificación no envía correo (los avisos van a la campana del Portal) y no
-# define ADMINS. En desarrollo, cualquier correo se ve por consola; en
-# producción queda el SMTP por defecto de Django (sin uso hoy): el día que haga
-# falta, se configura con las variables EMAIL_* estándar.
+# --- Correo -----------------------------------------------------------------
+# La invitación a un equipo también sale por correo, desde
+# notificaciones@cpaldaca.com (MXRouting). En DEBUG, sin EMAIL_BACKEND, se
+# imprime en consola. La contraseña solo vive en el entorno.
 
-if DEBUG:
-    MAILERS = {"default": {"BACKEND": "django.core.mail.backends.console.EmailBackend"}}
+EMAIL_HOST = os.getenv("EMAIL_HOST", "sunfire.mxrouting.net")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "465"))
+EMAIL_USE_SSL = _bool_env("EMAIL_USE_SSL", "true")
+EMAIL_USE_TLS = _bool_env("EMAIL_USE_TLS", "false")
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "notificaciones@cpaldaca.com")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "notificaciones@cpaldaca.com")
+EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "8"))
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+if DEBUG and not os.getenv("EMAIL_BACKEND"):
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+else:
+    EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
 
 
 # --- Contrato SSO federado -------------------------------------------------

@@ -28,6 +28,13 @@ services:
       PALDACA_FRAME_ANCESTORS: ${PALDACA_FRAME_ANCESTORS:-self https://cpaldaca.com https://www.cpaldaca.com}
       # Avisos en la campana: = PALDACA_NOTIF_SECRET_PLANIFICACION del Portal
       PALDACA_NOTIF_SECRET: ${PALDACA_NOTIF_SECRET}
+      # Correo de invitación a equipo
+      EMAIL_HOST: ${EMAIL_HOST:-sunfire.mxrouting.net}
+      EMAIL_PORT: ${EMAIL_PORT:-465}
+      EMAIL_USE_SSL: ${EMAIL_USE_SSL:-true}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-notificaciones@cpaldaca.com}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-notificaciones@cpaldaca.com}
       # Sesión propia del módulo (nunca paldaca_sessionid)
       SESSION_COOKIE_NAME: planificacion_sessionid
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}

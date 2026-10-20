@@ -48,7 +48,7 @@ campana de notificaciones del Portal.
 | Término | Significado |
 |---|---|
 | **Equipo** | Grupo de personas creado dentro del módulo. Tiene administradores, miembros y lectores. |
-| **Invitación** | Única forma de entrar a un equipo: un administrador invita y la persona **acepta o rechaza**. Genera un aviso en la campana del Portal. |
+| **Invitación** | Única forma de entrar a un equipo: un administrador invita y la persona **acepta o rechaza**. Genera un aviso en la campana del Portal y un correo a su cuenta. |
 | **Tablero personal** | Tablero privado de un usuario. Puede tener varios: el primero («Mi tablero») se crea solo en su primer ingreso y los demás al crear un tablero **sin elegir equipo**. |
 | **Tablero de equipo** | Tablero visible y editable por los miembros de un equipo. Un equipo puede tener varios. |
 | **Columna** | Etapa del flujo de trabajo. Predeterminadas: **Tareas**, **En curso**, **Hecho**. |
@@ -355,7 +355,7 @@ satélite):
 
 | Código | Audiencia | Cuándo | Fase |
 |---|---|---|---|
-| `planificacion.invitacion_equipo` | `payload.usuario_ids` | Te invitan a un equipo (se resuelve al aceptar, rechazar o cancelar) | **1 (hecho)** |
+| `planificacion.invitacion_equipo` | `payload.usuario_ids` | Te invitan a un equipo (campana y correo; se resuelve al aceptar, rechazar o cancelar) | **1 (hecho)** |
 | `planificacion.invitacion_respondida` | `payload.usuario_ids` | Quien invitó se entera de que aceptaron o rechazaron | **2 (hecho)** |
 | `planificacion.card_asignada` | `payload.usuario_ids` | Alguien te agrega como responsable | **2 (hecho)** |
 | `planificacion.mencion` | `payload.usuario_ids` | Te mencionan con @ en un comentario | **2 (hecho)** |
@@ -585,8 +585,8 @@ Alcance:
   lector; salir del equipo.
 - **Invitaciones:** invitar a cualquier persona del Portal con el módulo (§6.2) con
   rol y mensaje; aviso `planificacion.invitacion_equipo` en la campana del
-  Portal; aceptar / rechazar desde *Invitaciones*; cancelar; el aviso se
-  resuelve al responder.
+  Portal y correo desde `notificaciones@cpaldaca.com`; aceptar / rechazar desde
+  *Invitaciones*; cancelar; el aviso se resuelve al responder.
 - **Tablero personal** automático en el primer ingreso (después se
   permitieron varios, ver «Estado del plan»).
 - **Tableros de equipo:** varios por equipo; crear, renombrar, archivar.

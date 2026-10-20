@@ -3,6 +3,7 @@
 import json
 from unittest import mock
 
+from django.core import mail
 from django.test import override_settings
 
 from core.testing import ConAvisos, crear_usuario
@@ -92,6 +93,60 @@ class InvitacionesTests(EscenarioEquipos):
             f"/api/v1/equipos/{equipo['id']}/invitaciones/", {"usuario": self.ajeno.pk}, format="json"
         )
         self.assertEqual(r.status_code, 400)
+
+    @override_settings(DEFAULT_FROM_EMAIL="notificaciones@cpaldaca.com")
+    def test_invitar_envia_correo_al_invitado(self):
+        equipo = self.crear_equipo()
+        with self.captureOnCommitCallbacks(execute=True):
+            r = self.cliente(self.ana).post(
+                f"/api/v1/equipos/{equipo['id']}/invitaciones/",
+                {"usuario": self.beto.pk, "rol": "miembro", "mensaje": "Te necesitamos en obra"},
+                format="json",
+            )
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(len(mail.outbox), 1)
+        enviado = mail.outbox[0]
+        self.assertEqual(enviado.from_email, "notificaciones@cpaldaca.com")
+        self.assertEqual(enviado.to, ["beto@cpaldaca.com"])
+        self.assertEqual(enviado.subject, "Invitación al equipo Ingeniería")
+        self.assertIn("Te necesitamos en obra", enviado.body)
+        self.assertIn(
+            n.url_en_portal(f"/invitaciones?invitacion={r.json()['id']}"),
+            enviado.body,
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            self.cliente(self.beto).post(f"/api/v1/invitaciones/{r.json()['id']}/aceptar/")
+        self.assertEqual(len(mail.outbox), 1)
+
+    @override_settings(DEFAULT_FROM_EMAIL="notificaciones@cpaldaca.com")
+    def test_invitar_sin_correo_sigue_creando_la_invitacion(self):
+        self.beto.email = ""
+        self.beto.save(update_fields=["email"])
+        equipo = self.crear_equipo()
+        with self.captureOnCommitCallbacks(execute=True):
+            r = self.cliente(self.ana).post(
+                f"/api/v1/equipos/{equipo['id']}/invitaciones/",
+                {"usuario": self.beto.pk},
+                format="json",
+            )
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(mail.outbox, [])
+
+    @override_settings(DEFAULT_FROM_EMAIL="notificaciones@cpaldaca.com")
+    def test_fallo_de_correo_no_anula_la_invitacion(self):
+        equipo = self.crear_equipo()
+        with mock.patch("equipos.services.invitaciones.send_mail", side_effect=OSError("smtp caido")):
+            with self.captureOnCommitCallbacks(execute=True):
+                r = self.cliente(self.ana).post(
+                    f"/api/v1/equipos/{equipo['id']}/invitaciones/",
+                    {"usuario": self.beto.pk},
+                    format="json",
+                )
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(mail.outbox, [])
+        self.assertTrue(
+            InvitacionEquipo.objects.filter(equipo_id=equipo["id"], invitado=self.beto).exists()
+        )
 
     def test_cancelar_invitacion(self):
         equipo = self.crear_equipo()

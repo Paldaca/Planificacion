@@ -180,6 +180,13 @@ commit
 cron cada 5 min: manage.py procesar_avisos → reintenta pendientes en orden
 ```
 
+La invitación a un equipo, además, manda un correo al invitado
+(`equipos.services.invitaciones`) desde `DEFAULT_FROM_EMAIL`
+(`notificaciones@cpaldaca.com`) con el mismo texto y el enlace a
+`/planificacion/invitaciones`. Sale después del commit, en el mismo hilo de
+fondo que los avisos (`PALDACA_NOTIF_ASINCRONO`). Sin correo en la cuenta, o
+si el SMTP falla, la invitación no se revierte: queda el aviso de la campana.
+
 ### 4.4 Vencimientos
 
 - `vencimiento()` se calcula al serializar (nunca se guarda): terminada |
@@ -237,6 +244,7 @@ Todo por variables de entorno (`backend/.env`, plantilla en
 | Sesión | `SESSION_COOKIE_NAME` (`planificacion_sessionid`), `SESSION_COOKIE_DOMAIN` (vacío), `SESSION_COOKIE_SECURE`, `SESSION_COOKIE_AGE` (8 h) |
 | SSO | `PALDACA_SSO_ENABLED` (false = deploy dark), `PALDACA_MODULO_CODIGO`, `PALDACA_PORTAL_URL`, `PALDACA_PORTAL_API_URL`, `PALDACA_SSO_*` (timeouts, gracia, breaker) |
 | Avisos | `PALDACA_NOTIFICACIONES_ACTIVAS`, `PALDACA_NOTIF_SECRET` (≥ 32, = `PALDACA_NOTIF_SECRET_PLANIFICACION` del Portal), `PALDACA_NOTIF_ASINCRONO` |
+| Correo | `EMAIL_HOST` (`sunfire.mxrouting.net`), `EMAIL_PORT` (465), `EMAIL_USE_SSL`, `EMAIL_HOST_USER` y `DEFAULT_FROM_EMAIL` (`notificaciones@cpaldaca.com`), `EMAIL_HOST_PASSWORD`, `EMAIL_TIMEOUT` (8). En DEBUG, sin `EMAIL_BACKEND`, el correo se imprime en consola |
 | Embed | `PALDACA_SHELL_PATH` (`/planificacion`), `PALDACA_FRAME_ANCESTORS` |
 
 Puertos locales: Portal frontend 5173 · Portal backend 8000 · Planificación

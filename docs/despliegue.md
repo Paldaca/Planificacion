@@ -67,6 +67,8 @@ Con valor por defecto correcto para `cpaldaca.com` (solo si cambia algo):
 | `DJANGO_SECURE_HSTS_SECONDS` | `31536000` |
 | `CORS_ALLOWED_ORIGINS` | vacío: la SPA es del mismo origen |
 | `LOG_LEVEL` | `INFO` (registros `planificacion.*` y `paldaca.*`; el resto desde WARNING) |
+| `EMAIL_HOST` / `EMAIL_PORT` / `EMAIL_HOST_USER` / `DEFAULT_FROM_EMAIL` | `sunfire.mxrouting.net` / `465` / `notificaciones@cpaldaca.com` |
+| `EMAIL_HOST_PASSWORD` | vacía: sin ella la invitación se crea y avisa en la campana, pero el correo no sale (`INVITACION_CORREO_FALLO` en el log) |
 | `PORT`, `GUNICORN_WORKERS`, `GUNICORN_TIMEOUT` | `8070`, `3`, `60` |
 
 Sin `DATABASE_URL` el contenedor no arranca (a propósito: un SQLite dentro de
@@ -136,6 +138,7 @@ recurso del Portal (rama con el módulo, hoy `feat/modulo-planificacion`):
 | Banda «¿No ves el contenido?» | `PALDACA_PORTAL_URL` no es el origen real del Portal (los `postMessage` se descartan). |
 | `Refused to frame` | `PALDACA_FRAME_ANCESTORS` sin el origen del Portal. |
 | Los avisos no llegan | `PALDACA_NOTIF_SECRET` distinto del `PALDACA_NOTIF_SECRET_PLANIFICACION` del Portal (en los logs: `NOTIFICACION_…` con 401/403), o la tarea `procesar_avisos` no está programada. |
+| La invitación no llega por correo | Falta `EMAIL_HOST_PASSWORD` del buzón `notificaciones@cpaldaca.com`, o el invitado no tiene email en su cuenta. La invitación y la campana sí quedan. |
 | SPA en blanco sin errores en el servidor | El catch-all de `urls.py` captura `assets/` (no debe). |
 | «MySQL 8.4 or later is required» | La MySQL es 8.0: Django 6.1 exige 8.4 o superior. |
 | «Las migraciones fallaron» con `Table 'planificacion_…' already exists` (1050) | Un despliegue anterior se cortó a mitad de una migración: MySQL no deshace un `CREATE TABLE`, así que la tabla existe pero la migración no quedó registrada. En el **primer despliegue** (sin datos): en la MySQL **de Planificación** (comprobar antes con `SHOW TABLES` que no hay tablas del Portal como `core_usuario`), con root, `DROP DATABASE planificacion; CREATE DATABASE planificacion CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;` y volver a desplegar con el Start Period del healthcheck en 180 s. **Con datos, nunca**: revisar qué migración quedó a medias y completarla a mano. |

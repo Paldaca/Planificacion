@@ -37,6 +37,7 @@ def crear_usuario(username, *, nombre="", apellido="", portal_id=None, modulo=Tr
     PALDACA_NOTIF_ASINCRONO=False,
     PALDACA_NOTIF_SECRET="",
     PALDACA_NOTIFICACIONES_ACTIVAS=True,
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
 )
 class ApiTestCase(TestCase):
     def setUp(self):

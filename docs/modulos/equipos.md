@@ -1,6 +1,6 @@
 # Módulo `equipos`
 
-> Leer antes de modificar `backend/equipos/`. Revisado: 2026-09-28.
+> Leer antes de modificar `backend/equipos/`. Revisado: 2026-10-20.
 
 ## Responsabilidad
 
@@ -23,8 +23,11 @@ membresías con rol y las **invitaciones**, única forma de entrar a un equipo.
   administrador.**
 - `services/invitaciones.py`: `invitar` (bloquea el equipo y rechaza una
   segunda pendiente para la misma persona), `cancelar`, `responder`. Invitar emite
-  `planificacion.invitacion_equipo`; responder o cancelar la resuelve, y quien
-  invitó recibe `planificacion.invitacion_respondida`.
+  `planificacion.invitacion_equipo` y, tras el commit, un correo a
+  `invitado.email` desde `notificaciones@cpaldaca.com` (si no tiene correo, o
+  el SMTP falla, la invitación igual queda). Responder o cancelar resuelve el
+  aviso de la campana; quien invitó recibe `planificacion.invitacion_respondida`
+  solo en la campana.
 - `services/candidatos.py`: `buscar_candidatos` (Portal primero; si no
   responde, cuentas espejo locales con `fuente="local"`),
   `resolver_invitado` (confirma con el Portal y crea la cuenta espejo si hace

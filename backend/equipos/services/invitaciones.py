@@ -2,13 +2,18 @@
 Invitaciones a un equipo.
 
 Nadie entra a un equipo sin decidirlo: un administrador INVITA, la persona
-recibe un aviso en la campana del Portal y ACEPTA (o rechaza) desde
-Planificación. Responder o cancelar la invitación resuelve el aviso; quien
-invitó se entera de la respuesta.
+recibe un aviso en la campana del Portal y un correo, y ACEPTA (o rechaza)
+desde Planificación. Responder o cancelar la invitación resuelve el aviso;
+quien invitó se entera de la respuesta (solo en la campana).
 """
 
 from __future__ import annotations
 
+import logging
+import threading
+
+from django.conf import settings
+from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
@@ -17,6 +22,8 @@ from equipos import permisos
 from equipos.models import Equipo, EstadoInvitacion, InvitacionEquipo, MiembroEquipo, RolEquipo
 from integracion_portal.services import notificaciones as n
 from integracion_portal.services.personas import nombre
+
+logger = logging.getLogger("planificacion.equipos")
 
 ETIQUETA_ROL = dict(RolEquipo.choices)
 
@@ -45,6 +52,40 @@ def _avisar_invitacion(invitacion: InvitacionEquipo, actor) -> None:
         ruta=f"/invitaciones?invitacion={invitacion.pk}",
         clave_agrupacion=invitacion.clave_aviso,
     )
+    _programar_correo_invitacion(invitacion, cuerpo)
+
+
+def _programar_correo_invitacion(invitacion: InvitacionEquipo, cuerpo: str) -> None:
+    """El correo sale tras el commit. Si el SMTP falla, la invitación queda."""
+    destino = (invitacion.invitado.email or "").strip()
+    if not destino:
+        logger.info("INVITACION_SIN_CORREO | invitacion=%s", invitacion.pk)
+        return
+    enlace = n.url_en_portal(f"/invitaciones?invitacion={invitacion.pk}")
+    asunto = f"Invitación al equipo {invitacion.equipo.nombre}"
+    texto = f"{cuerpo}\n\nAcepta o rechaza la invitación:\n{enlace}\n"
+    invitacion_id = invitacion.pk
+    transaction.on_commit(lambda: _despachar_correo(destino, asunto, texto, invitacion_id))
+
+
+def _despachar_correo(destino: str, asunto: str, texto: str, invitacion_id: int) -> None:
+    if getattr(settings, "PALDACA_NOTIF_ASINCRONO", True):
+        threading.Thread(
+            target=_enviar_correo_invitacion,
+            args=(destino, asunto, texto, invitacion_id),
+            daemon=True,
+        ).start()
+        return
+    _enviar_correo_invitacion(destino, asunto, texto, invitacion_id)
+
+
+def _enviar_correo_invitacion(destino: str, asunto: str, texto: str, invitacion_id: int) -> None:
+    try:
+        send_mail(asunto, texto, settings.DEFAULT_FROM_EMAIL, [destino], fail_silently=False)
+    except Exception:
+        logger.exception("INVITACION_CORREO_FALLO | invitacion=%s", invitacion_id)
+    else:
+        logger.info("INVITACION_CORREO_ENVIADO | invitacion=%s", invitacion_id)
 
 
 def _resolver_aviso(invitacion: InvitacionEquipo) -> None:

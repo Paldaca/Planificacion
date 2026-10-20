@@ -81,7 +81,7 @@ integracion_portal → paldaca_sso → core`. Para reaccionar «hacia arriba» s
 | Admin del módulo | Rol del Portal: administra todos los equipos y el calendario; no ve tableros personales ajenos. |
 | Hito | Tarjeta con una etiqueta marcada `es_hito`: un rombo en el Gantt. No se deduce del nombre ni de la duración. |
 | Adjunto | Archivo de una tarjeta, guardado en la base (≤ 10 MB). Se sirve como descarga; solo las imágenes PNG/JPG/GIF/WebP comprobadas se muestran en línea. Las imágenes se reducen a 1920 px al subirlas y tienen miniatura. |
-| Aviso | Notificación en la campana del Portal, emitida con firma HMAC y bandeja de salida. |
+| Aviso | Notificación en la campana del Portal, emitida con firma HMAC y bandeja de salida. La invitación a un equipo, además, manda un correo. |
 
 ## 5. Reglas de oro
 
