@@ -8,6 +8,7 @@ import {
   MouseSensor,
   pointerWithin,
   TouchSensor,
+  useDroppable,
   useSensor,
   useSensors,
   type Announcements,
@@ -19,8 +20,8 @@ import {
   type UniqueIdentifier,
 } from "@dnd-kit/core";
 import { arrayMove, horizontalListSortingStrategy, SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { Plus } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { CircleCheck, Plus } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -35,6 +36,7 @@ import {
 } from "@/api/queries";
 import type { CardResumen, Columna, TableroDetalle } from "@/api/tipos";
 import { Boton } from "@/components/ui/Boton";
+import { cn } from "@/lib/cn";
 
 import { ArchivarColumnaDialogo } from "./ArchivarColumnaDialogo";
 import { ColumnaKanban } from "./ColumnaKanban";
@@ -65,7 +67,9 @@ const colision: CollisionDetection = (args) => {
     const tarjeta = dentro.find((c) => String(c.id).startsWith("c:"));
     return tarjeta ? [tarjeta] : dentro;
   }
-  return closestCorners({ ...args, droppableContainers: candidatos });
+  // Las pastillas del teléfono solo cuentan con el dedo encima: por cercanía
+  // podrían ganar al pasar por la cabecera de una columna.
+  return closestCorners({ ...args, droppableContainers: candidatos.filter((d) => !String(d.id).startsWith("p:")) });
 };
 
 export function Kanban({
@@ -104,6 +108,9 @@ export function Kanban({
   const [archivando, setArchivando] = useState<Columna | null>(null);
   const [limitando, setLimitando] = useState<Columna | null>(null);
   const ultimoArrastre = useRef(0);
+  const carril = useRef<HTMLDivElement>(null);
+  /** Columna a la vista en el teléfono (una por pantalla). */
+  const [enVista, setEnVista] = useState<number | null>(null);
 
   /** Tarjetas por columna sin filtros: el límite (fase 5) cuenta todas. */
   const totales = useMemo(() => {
@@ -138,7 +145,7 @@ export function Kanban({
     (id: UniqueIdentifier | undefined, estado: Record<number, number[]>): number | undefined => {
       if (id === undefined) return undefined;
       const texto = String(id);
-      if (texto.startsWith("z:") || texto.startsWith("k:")) return idNum(id);
+      if (texto.startsWith("z:") || texto.startsWith("k:") || texto.startsWith("p:")) return idNum(id);
       const cardId = idNum(id);
       const clave = Object.keys(estado).find((k) => estado[Number(k)].includes(cardId));
       return clave === undefined ? undefined : Number(clave);
@@ -269,6 +276,29 @@ export function Kanban({
 
   const mapaColumnas = new Map(columnas.map((c) => [c.id, c]));
 
+  /** En el teléfono: qué columna ocupa la pantalla según el desplazamiento. */
+  const medirEnVista = useCallback(() => {
+    const el = carril.current;
+    if (!el) return;
+    let mejor: number | null = null;
+    let distancia = Infinity;
+    for (const hijo of el.querySelectorAll<HTMLElement>("[data-columna]")) {
+      const d = Math.abs(hijo.offsetLeft - el.offsetLeft - el.scrollLeft);
+      if (d < distancia) {
+        distancia = d;
+        mejor = Number(hijo.dataset.columna);
+      }
+    }
+    setEnVista(mejor);
+  }, []);
+  useEffect(medirEnVista, [medirEnVista, columnas.length]);
+
+  function irAColumna(id: number) {
+    const el = carril.current;
+    const destino = el?.querySelector<HTMLElement>(`[data-columna="${id}"]`);
+    if (el && destino) el.scrollTo({ left: destino.offsetLeft - el.offsetLeft, behavior: "smooth" });
+  }
+
   return (
     <>
       <DndContext
@@ -286,7 +316,25 @@ export function Kanban({
           },
         }}
       >
-        <div className="kanban-scroll -mx-1 flex h-[calc(100dvh-15.5rem)] min-h-[420px] snap-x items-start gap-3.5 overflow-x-auto scroll-px-1 px-1 pb-4 max-sm:snap-mandatory">
+        <IndiceColumnas
+          columnas={idsColumnas.map((id) => mapaColumnas.get(id)).filter((c): c is Columna => Boolean(c))}
+          cuentas={vista}
+          enVista={enVista}
+          arrastrando={activo?.tipo === "card"}
+          onIr={irAColumna}
+        />
+        <div
+          ref={carril}
+          onScroll={medirEnVista}
+          className={cn(
+            "kanban-scroll -mx-1 flex h-[calc(100dvh-15.5rem)] min-h-[420px] snap-x items-start gap-3.5 overflow-x-auto scroll-px-1 px-1 pb-4",
+            // Teléfono: una columna por pantalla y cada deslizamiento para en la
+            // siguiente. Mientras se arrastra, sin imán: si no, el desplazamiento
+            // automático de dnd-kit hacia el borde pelea con él.
+            "max-sm:h-[calc(100dvh-13rem)] max-sm:min-h-[360px] max-sm:gap-3",
+            activo?.tipo === "card" ? "max-sm:snap-none" : "max-sm:snap-mandatory",
+          )}
+        >
           <SortableContext items={idsColumnas.map((id) => `k:${id}`)} strategy={horizontalListSortingStrategy}>
             {idsColumnas.map((id, indice) => {
               const columna = mapaColumnas.get(id);
@@ -318,7 +366,18 @@ export function Kanban({
             })}
           </SortableContext>
 
-          {gestionar && <NuevaColumna onCrear={(nombre) => crearColumna.mutateAsync(nombre)} />}
+          {gestionar && (
+            <NuevaColumna
+              onCrear={async (nombre) => {
+                await crearColumna.mutateAsync(nombre);
+                // En el teléfono la nueva queda fuera de la pantalla: se lleva a la vista.
+                window.setTimeout(() => {
+                  const el = carril.current;
+                  if (el) el.scrollTo({ left: el.scrollWidth, behavior: "smooth" });
+                }, 50);
+              }}
+            />
+          )}
         </div>
 
         <DragOverlay dropAnimation={animacionSoltar}>
@@ -359,6 +418,108 @@ export function Kanban({
   );
 }
 
+/**
+ * Teléfono: los nombres de las columnas sobre el tablero, con la que está a la
+ * vista resaltada. Tocar uno lleva a esa columna; mientras se arrastra una
+ * tarjeta, soltarla sobre un nombre la deja al final de esa columna (sin tener
+ * que arrastrarla de pantalla en pantalla).
+ */
+function IndiceColumnas({
+  columnas,
+  cuentas,
+  enVista,
+  arrastrando,
+  onIr,
+}: {
+  columnas: Columna[];
+  cuentas: Record<number, number[]>;
+  enVista: number | null;
+  arrastrando: boolean;
+  onIr: (id: number) => void;
+}) {
+  const tira = useRef<HTMLDivElement>(null);
+
+  // La pastilla activa siempre a la vista dentro de la tira.
+  useEffect(() => {
+    const contenedor = tira.current;
+    const el = contenedor?.querySelector<HTMLElement>(`[data-pastilla="${enVista}"]`);
+    if (!contenedor || !el) return;
+    const izquierda = el.offsetLeft - contenedor.offsetLeft;
+    if (izquierda < contenedor.scrollLeft || izquierda + el.offsetWidth > contenedor.scrollLeft + contenedor.clientWidth) {
+      contenedor.scrollTo({ left: izquierda - 16, behavior: "smooth" });
+    }
+  }, [enVista]);
+
+  if (columnas.length < 2) return null;
+  return (
+    <div className="sm:hidden">
+      <div
+        ref={tira}
+        className="-mx-4 mb-2.5 flex gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none]"
+        role="tablist"
+        aria-label="Columnas"
+      >
+        {columnas.map((col) => (
+          <PastillaColumna
+            key={col.id}
+            columna={col}
+            cuenta={(cuentas[col.id] ?? []).length}
+            activa={col.id === enVista}
+            arrastrando={arrastrando}
+            onIr={() => onIr(col.id)}
+          />
+        ))}
+      </div>
+      {arrastrando && (
+        <p className="-mt-1 mb-2 text-center text-[0.72rem] font-medium text-morado">
+          Suelta sobre una columna para llevarla allí
+        </p>
+      )}
+    </div>
+  );
+}
+
+function PastillaColumna({
+  columna,
+  cuenta,
+  activa,
+  arrastrando,
+  onIr,
+}: {
+  columna: Columna;
+  cuenta: number;
+  activa: boolean;
+  arrastrando: boolean;
+  onIr: () => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: `p:${columna.id}`, data: { tipo: "pastilla", columnaId: columna.id } });
+  const resaltada = activa && !isOver;
+  return (
+    <button
+      ref={setNodeRef}
+      type="button"
+      role="tab"
+      aria-selected={activa}
+      data-pastilla={columna.id}
+      onClick={onIr}
+      className={cn(
+        "flex h-10 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-sm font-semibold transition-all duration-200",
+        resaltada ? "border-morado bg-morado text-white" : "border-linea bg-white text-texto",
+        arrastrando && !isOver && "border-dashed border-morado/50",
+        isOver && "scale-105 border-morado bg-[#e6e9f7] text-morado",
+      )}
+    >
+      {columna.es_final && <CircleCheck className={cn("size-3.5", resaltada ? "text-white" : "text-[#059669]")} />}
+      <span className="max-w-[9rem] truncate">{columna.nombre}</span>
+      <span
+        className={cn("rounded-full px-1.5 text-[0.7rem] tabular-nums", resaltada ? "bg-white/20 text-white" : "bg-columna text-tenue")}
+      >
+        {cuenta}
+      </span>
+    </button>
+  );
+}
+
 function NuevaColumna({ onCrear }: { onCrear: (nombre: string) => Promise<unknown> }) {
   const [abierta, setAbierta] = useState(false);
   const [nombre, setNombre] = useState("");
@@ -382,7 +543,7 @@ function NuevaColumna({ onCrear }: { onCrear: (nombre: string) => Promise<unknow
       <button
         type="button"
         onClick={() => setAbierta(true)}
-        className="group flex w-[min(85vw,280px)] shrink-0 items-center gap-2 rounded-[18px] border-2 border-dashed border-linea px-4 py-3.5 text-sm font-medium text-tenue transition-all duration-200 hover:border-morado/40 hover:bg-white hover:text-morado"
+        className="group flex w-[min(85vw,280px)] shrink-0 snap-start items-center max-sm:w-full gap-2 rounded-[18px] border-2 border-dashed border-linea px-4 py-3.5 text-sm font-medium text-tenue transition-all duration-200 hover:border-morado/40 hover:bg-white hover:text-morado"
       >
         <Plus className="size-4 transition-transform duration-200 group-hover:rotate-90" />
         Añadir columna
@@ -390,7 +551,7 @@ function NuevaColumna({ onCrear }: { onCrear: (nombre: string) => Promise<unknow
     );
   }
   return (
-    <div className="w-[min(85vw,280px)] shrink-0 animate-pop space-y-2 rounded-[18px] bg-columna/80 p-3">
+    <div className="w-[min(85vw,280px)] shrink-0 snap-start animate-pop max-sm:w-full space-y-2 rounded-[18px] bg-columna/80 p-3">
       <input
         autoFocus
         value={nombre}

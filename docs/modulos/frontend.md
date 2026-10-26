@@ -1,6 +1,6 @@
 # Módulo `frontend` (SPA React)
 
-> Leer antes de modificar `frontend/`. Revisado: 2026-09-30.
+> Leer antes de modificar `frontend/`. Revisado: 2026-10-26.
 
 ## Stack
 
@@ -33,8 +33,8 @@ viejos).
 | `embed/` | `protocol.ts` (contrato `paldaca-embed` v1, espejo del parser del Portal), `portal.ts` (URL del Portal: la `<meta name="paldaca-portal-url">` que escribe Django, o `VITE_PALDACA_PORTAL_URL` con Vite), `usePaldacaEmbed` (avisa `ready`/`navigate`/`session-expired`/`forbidden` al shell, con la ruta sin `paldaca_embed`), `usePaldacaNav` (barra de la Suite al abrirse suelta; menú propio de respaldo a los 8 s) |
 | `pages/` | Una por ruta, cargadas con `lazy()`: `MisTareasPage`, `TablerosPage`, `TableroPage` (+ `TarjetaAbierta`), `EquiposPage`, `EquipoPage`, `InvitacionesPage` |
 | `components/ui/` | Primitivas propias: `Boton`, `Campos`, `Dialogo`, `Menu`, `Avatar`, `Estados` (`Vacio`, `Esqueleto`) |
-| `components/<dominio>/` | `ayuda/` (Centro de ayuda: `CentroAyuda` con `ProveedorAyuda`, y su texto en `contenido.ts`; `BotonAyuda`, el «?» redondo con una explicación corta y enlace a la guía, usado en el Gantt y en «Etiquetas y campos»), `tablero/` (Kanban, columnas, tarjeta, filtros, alta rápida, `NuevaTareaDialogo` que comparten Gantt y Calendario, `ExportarPdfDialogo` («Gantt en PDF»: escala, periodo y hoja; recibe `ConfigGantt` del Gantt o de las preferencias guardadas), `BotonFavorito` (estrella: en `MosaicoTablero`, fuera del enlace, y junto al nombre del tablero abierto), importar, `ConfiguracionDialogo` de etiquetas y campos con `EditorOpciones` (las opciones de una lista, una por fila: añadir con Enter o pegando varias, renombrar, ordenar y quitar), `LimiteColumnaDialogo`), `card/` (diálogo de la tarjeta, checklist, `Adjuntos` (bajo la descripción: las imágenes como miniaturas que se abren en un visor a pantalla completa con flechas, el resto como lista para descargar; se añaden con el botón, soltándolos o pegando una captura con Ctrl+V; quitar pide confirmación), comentarios, menciones, historial, `EtiquetasYCampos`), `vistas/` (Lista, Calendario, `CalendarioMovil`, calendario laboral), `gantt/`, `plantillas/` (guardar y listar plantillas), `equipos/` (incluye `TableroDialogo` con el selector «Empezar con»), `invitaciones/`, `layout/` (Shell, Encabezado) |
-| `hooks/` | `useVista` (`?vista=` + última usada por tablero), `usePreferencia` (localStorage con prefijo `planificacion:`; `leerPreferencia` para leer una sin suscribirse), `useTitulo`, `useAlAbrir`, `useModuloDiferido` (vistas pesadas sin `Suspense`), `useEstable` (manejadores con identidad estable para filas memoizadas), `usePantallaCompleta` (vista a toda la ventana + pantalla completa del documento; ver `gantt.md`), `useAyuda` / `useTemaAyuda` (abrir el Centro de ayuda; la pantalla declara con qué tema abre), `useConfigTablero` (contexto con las etiquetas y los campos del tablero para dibujar tarjetas; lo provee `TableroPage`, fuera de un tablero queda vacío) |
+| `components/<dominio>/` | `ayuda/` (Centro de ayuda: `CentroAyuda` con `ProveedorAyuda`, y su texto en `contenido.ts`; `BotonAyuda`, el «?» redondo con una explicación corta y enlace a la guía, usado en el Gantt y en «Etiquetas y campos»), `tablero/` (Kanban, columnas, tarjeta, filtros, alta rápida, `NuevaTareaDialogo` que comparten Gantt y Calendario, `ExportarPdfDialogo` («Gantt en PDF»: escala, periodo y hoja; recibe `ConfigGantt` del Gantt o de las preferencias guardadas), `BotonFavorito` (estrella: en `MosaicoTablero`, fuera del enlace, y junto al nombre del tablero abierto), importar, `ConfiguracionDialogo` de etiquetas y campos con `EditorOpciones` (las opciones de una lista, una por fila: añadir con Enter o pegando varias, renombrar, ordenar y quitar), `LimiteColumnaDialogo`), `card/` (diálogo de la tarjeta, checklist, `Adjuntos` (bajo la descripción: las imágenes como miniaturas que se abren en un visor a pantalla completa con flechas, el resto como lista para descargar; se añaden con el botón, soltándolos o pegando una captura con Ctrl+V; quitar pide confirmación), comentarios, menciones, historial, `EtiquetasYCampos`, `Dependencias` (sección «Dependencias»: enlazar con otra tarjeta y `EditorDependencia`, que reutiliza el Gantt; ver `gantt.md`)), `vistas/` (Lista, Calendario, `CalendarioMovil`, calendario laboral), `gantt/`, `plantillas/` (guardar y listar plantillas), `equipos/` (incluye `TableroDialogo` con el selector «Empezar con»), `invitaciones/`, `layout/` (Shell, Encabezado) |
+| `hooks/` | `useVista` (`?vista=` + última usada por tablero), `usePreferencia` (localStorage con prefijo `planificacion:`; `leerPreferencia` para leer una sin suscribirse), `useTitulo`, `useAlAbrir`, `useModuloDiferido` (vistas pesadas sin `Suspense`), `useEstable` (manejadores con identidad estable para filas memoizadas), `usePantallaCompleta` (vista a toda la ventana + pantalla completa del documento; ver `gantt.md`), `useAyuda` / `useTemaAyuda` (abrir el Centro de ayuda; la pantalla declara con qué tema abre), `useConfigTablero` (contexto con las etiquetas, los campos y `esperando` —las predecesoras sin terminar de cada tarjeta, para «Espera a #n»— para dibujar tarjetas; lo provee `TableroPage`, fuera de un tablero queda vacío) |
 | `lib/` | Lógica pura, sin React: `fechas`, `dias`, `calendarioMes`, `gantt` (geometría), `filtros`, `opciones` (límites de una lista y cómo se leen de un texto pegado), `vencimiento`, `estilos` (colores de dominio), `actividadUsuario` (refresco vivo), `cn` |
 
 ## Rutas
@@ -151,8 +151,20 @@ Reglas:
 - Cabecera del tablero: en el teléfono vista a todo el ancho y un único menú
   «…» que también trae Archivadas, Exportar e Importar (`ItemMenu` con
   `className="sm:hidden"`); los filtros se pliegan tras «Filtros» con contador.
-- Kanban: columnas que encajan al deslizar (`max-sm:snap-mandatory`) y alto
-  con `dvh`. Lista: sin la columna «#» y con el título que envuelve.
+- Kanban: **una columna por pantalla** (`max-sm:w-full`, `snap-mandatory` +
+  `snap-always`: cada deslizamiento para en la siguiente) y alto con `dvh`.
+  Encima, `IndiceColumnas` (`Kanban.tsx`, solo `sm:hidden`): una pastilla por
+  columna con su cuenta, resaltada la que está a la vista (`data-columna` +
+  `onScroll`); tocarla desplaza a esa columna. Las pastillas son zonas de
+  dnd-kit (`p:<id>`): soltar una tarjeta encima la deja al final de esa
+  columna; solo cuentan con el puntero encima (fuera del `closestCorners`).
+  Mientras se arrastra se quita el imán (`snap-none`) para que el
+  desplazamiento automático de dnd-kit no pelee con él.
+- Tarjeta abierta: en una columna (`< md`) el panel lateral es `contents` y sus
+  secciones (Estado en dos columnas, Fechas, Responsables…) van antes de la
+  descripción; «Creada por», mover a otro tablero y archivar quedan al final. La rejilla lleva
+  `grid-cols-[minmax(0,1fr)]`: sin eso una sección ancha desbordaba de lado.
+- Lista: sin la columna «#» y con el título que envuelve.
   Calendario: `CalendarioMovil` (mes compacto + tarjetas del día elegido, con
   «Nueva tarea este día»), sin arrastre. Gantt: deslizar sobre las barras desplaza (tocar abre la tarjeta);
   no se arrastran barras ni se enlazan en táctil.

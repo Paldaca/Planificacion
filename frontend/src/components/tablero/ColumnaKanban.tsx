@@ -88,12 +88,14 @@ export function ColumnaKanban({
       ref={setNodeRef}
       style={estilo}
       className={cn(
-        "entrada flex max-h-full w-[min(85vw,300px)] shrink-0 snap-start flex-col rounded-[18px] bg-columna/80",
+        // En el teléfono una columna ocupa todo el ancho: se pasa a la siguiente deslizando.
+        "entrada flex max-h-full w-[min(85vw,300px)] shrink-0 snap-start snap-always flex-col rounded-[18px] bg-columna/80 max-sm:w-full",
         "border border-transparent transition-[border-color,background-color] duration-200",
         zonaActiva && "border-morado/25 bg-[#e6e9f7]",
         isDragging && "opacity-40",
       )}
       aria-label={`Columna ${columna.nombre}`}
+      data-columna={columna.id}
     >
       <header className="flex items-center gap-2 px-3.5 pt-3.5 pb-2">
         {puedeGestionar && (

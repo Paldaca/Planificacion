@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { CalendarDays, CircleCheck, ListChecks, Maximize2, MessageSquare, Paperclip, TextAlignStart } from "lucide-react";
+import { CalendarDays, CircleCheck, Hourglass, ListChecks, Maximize2, MessageSquare, Paperclip, TextAlignStart } from "lucide-react";
 import { memo, type CSSProperties } from "react";
 
 import { urlImagen } from "@/api/adjuntos";
@@ -68,6 +68,7 @@ export function CuerpoTarjeta({
   const config = useConfigTablero();
   const etiquetas = card.etiquetas.map((id) => config.etiquetas.get(id)).filter((e) => e !== undefined);
   const campos = config.camposVisibles.filter((c) => card.campos[String(c.id)] !== undefined);
+  const espera = terminada ? undefined : config.esperando.get(card.id);
 
   return (
     <article
@@ -158,6 +159,16 @@ export function CuerpoTarjeta({
             style={{ background: `color-mix(in srgb, ${urgencia.color} 12%, #fff)`, color: urgencia.color }}
           >
             {urgencia.etiqueta}
+          </span>
+        )}
+        {espera && (
+          <span
+            className="inline-flex items-center gap-1 rounded-full bg-[#fff7ed] px-2 py-0.5 text-[0.72rem] font-semibold text-[#c2410c]"
+            title="Depende de tarjetas que aún no terminan"
+          >
+            <Hourglass className="size-3" />
+            Espera a {espera.slice(0, 2).map((n) => `#${n}`).join(", ")}
+            {espera.length > 2 && ` +${espera.length - 2}`}
           </span>
         )}
         {fechas && (

@@ -1,7 +1,7 @@
 # Módulo `gantt`
 
 > Leer antes de modificar `backend/gantt/` o `frontend/src/components/gantt/`.
-> Revisado: 2026-09-30.
+> Revisado: 2026-10-26.
 
 ## Responsabilidad
 
@@ -70,7 +70,7 @@ Gantt propio en HTML + SVG, sin librería (decisión D-05), y `lib/gantt.ts`
 | `Avance.tsx` | `ResumenAvance` (línea de avance del Gantt visible) y `ResumenGrupo` (barra resumen de un grupo). |
 | `Escala.tsx` | `Escala` (meses y días) y `Fondo` (fines de semana, feriados, líneas de filas). |
 | `Filas.tsx` | `EtiquetaCard` (columna fija de títulos) y `Barra` (barra con tiradores). |
-| `Dependencias.tsx` | `Flechas` (SVG) y `PanelDependencia` (editar tipo, desfase, quitar). |
+| `Dependencias.tsx` | `Flechas` (SVG) y `PanelDependencia` (el globo de una flecha; su cuerpo —tipo, desfase, quitar— es `EditorDependencia` de `components/card/Dependencias.tsx`, el mismo que usa la tarjeta abierta). |
 | `Bandeja.tsx` | `BotonBandeja` y la bandeja «Sin fechas» (panel plegable sobre la línea de tiempo) para arrastrar tarjetas a la línea de tiempo. |
 | `Ayuda.tsx` | `InterruptorSucesoras` y `AyudaSucesoras` (botón redondo «?»: qué es una sucesora, cómo crearla y qué hace «Mover sucesoras»). |
 | `tipos.ts` | `ALTO_ESCALA` y los tipos `Modo`, `Enlace`, `Colocando` que comparten. |
@@ -123,6 +123,20 @@ sin esfuerzo:
   segunda falla, la tarjeta queda y se avisa). Con predecesora, «Crear y
   añadir otra» encadena la siguiente tras la recién creada. La tercera forma
   sigue siendo arrastrar desde el punto al final de una barra.
+- **Enlazar desde la tarjeta abierta** (`components/card/Dependencias.tsx`,
+  sección «Dependencias» de `CardDialogo`): lista «Espera a (van primero)» y
+  «La esperan (van después)» (incumplida en rojo; solo lo que no es fin →
+  inicio sin espera lleva etiqueta, p. ej. «Empiezan juntas · +2 d»; tocar una
+  abre `EditorDependencia` con «Abrir #n»). `EditorDependencia` lo explica con
+  las dos tarjetas por número: «Primero / Después», «¿Cómo se unen?» con
+  frases («#22 empieza cuando #21 termina») y un ejemplo, y «Días de espera»
+  con lo que significa el valor elegido. Y **«Enlazar tarjeta»**: «Va después de…» / «Va antes de…» y
+  un buscador por título o `#número`; crea una fin → inicio con la misma API.
+  Es la única forma de enlazar en el teléfono (el Gantt no enlaza en táctil).
+  El Kanban marca **«Espera a #n»** en las tarjetas con una predecesora sin
+  terminar (`esperando` en `hooks/useConfigTablero`, calculado con las
+  dependencias y las tarjetas del tablero; solo cambia de identidad cuando
+  cambia quién espera a quién, para no repintar todas las tarjetas).
 - **Bandeja «Sin fechas» plegable**: se abre con el botón «Sin fechas (n)» de
   la barra o con «n sin fechas» del resumen, y flota sobre la derecha de la
   línea de tiempo (antes era una columna fija que restaba ~260 px). Mientras
@@ -161,7 +175,8 @@ Carga (medida con un tablero de 400 tarjetas y 200 dependencias):
   con `lazy()` + `Suspense`: React 19 retrasa hasta 300 ms el contenido que
   suspendió aunque el código ya esté descargado.
 - Las dependencias se piden junto con el tablero (`useDependencias` en
-  `TableroPage` con `vista === "gantt"`), no tras el primer render.
+  `TableroPage` con la vista Gantt o Tablero: el Kanban marca «Espera a #n»),
+  no tras el primer render.
 - Al entrar se centra hoy en horizontal y se baja hasta la primera tarjeta que
   sigue abierta hoy (también con el botón «Hoy»); al cambiar el zoom solo se
   recoloca en horizontal.

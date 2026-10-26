@@ -41,6 +41,18 @@ const TABLERO: TemaAyuda = {
       parrafos: [
         "Arrástrala a otra columna, o arriba y abajo dentro de la misma para cambiar su orden.",
         "Con el teclado: Espacio o Enter para tomarla, las flechas para moverla, Espacio o Enter para soltarla y Escape para cancelar.",
+        "**En el teléfono** ves una columna a la vez: desliza de lado para pasar a la siguiente, o toca su nombre en la fila de arriba. Para mover una tarjeta, mantenla pulsada y suéltala sobre el **nombre de la columna** de destino (o, dentro de la tarjeta, toca su nuevo **Estado**).",
+      ],
+    },
+    {
+      id: "dependencias",
+      titulo: "Enlazar tarjetas: una después de otra",
+      parrafos: [
+        "Dentro de la tarjeta, en **Dependencias**, pulsa **Enlazar tarjeta** y elige otra del tablero (puedes buscarla por título o #número):",
+        "• **Va después de…**: esta tarjeta empieza cuando termine la que elijas.",
+        "• **Va antes de…**: la que elijas empieza cuando termine esta.",
+        "Son las mismas flechas del Gantt: lo que enlazas aquí se ve allí y al revés. Toca una dependencia para cambiar su tipo, dejar días de espera, abrir la otra tarjeta o quitarla. Si quedaría un círculo (A espera a B y B a A), no se crea.",
+        "En el tablero, una tarjeta cuya anterior aún no termina muestra **Espera a #12**.",
       ],
     },
     {
@@ -61,6 +73,7 @@ const TABLERO: TemaAyuda = {
         "• **Responsables**: reciben un aviso en la campana del Portal.",
         "• **Comentarios** con @menciones, y la **Actividad**: el historial de todo lo que cambió.",
         "• **Gantt**: si la tarjeta entra en el Gantt «Según columna», siempre o nunca.",
+        "• **Dependencias**: qué tarjetas van antes y después de esta.",
         "Cada tarjeta tiene un número (#12): puedes buscarla por él o compartir su enlace.",
       ],
     },
@@ -248,7 +261,7 @@ const GANTT: TemaAyuda = {
         "Una **sucesora** es una tarea que no puede empezar hasta que termine otra (su predecesora). Las une una flecha. Para crearla:",
         "• Pasa el ratón sobre una tarea de la lista y pulsa **+**: la nueva empieza cuando esa termina.",
         "• En **+ Tarea**, elige **Empieza después de**.",
-        "• Para enlazar dos que ya existen, arrastra desde el punto al final de una barra hasta la otra.",
+        "• Para enlazar dos que ya existen, arrastra desde el punto al final de una barra hasta la otra, o abre la tarjeta y usa **Enlazar tarjeta** en **Dependencias** (también en el teléfono).",
         "Haz clic en una flecha para cambiar el tipo (fin → inicio, inicio → inicio, fin → fin), dejar días de espera o quitarla.",
       ],
     },

@@ -104,13 +104,14 @@ export default function TableroPage() {
       agrupar: agrupacionVigente(leerPreferencia<string>("gantt:agrupar", "columna"), tablero?.campos ?? []),
       plegados: [],
     });
-  const config = useValorConfigTablero(tablero);
+  // Las dependencias se piden junto con el tablero, no tras su primer render: el
+  // Gantt dibuja sus flechas y el Kanban marca las tarjetas que esperan a otra.
+  const { data: dependencias } = useDependencias(id, vista === "gantt" || vista === "tablero");
+  const config = useValorConfigTablero(tablero, dependencias);
 
   useTitulo(tablero?.nombre);
   const calendario = useModuloDiferido(moduloCalendario, vista === "calendario");
   const gantt = useModuloDiferido(moduloGantt, vista === "gantt");
-  // Las dependencias del Gantt se piden junto con el tablero, no tras su primer render.
-  useDependencias(id, vista === "gantt");
   const diferida = vista === "gantt" ? gantt : calendario;
 
   // Una etiqueta eliminada deja de filtrar (si no, el tablero quedaría vacío sin chip que quitar).
@@ -425,6 +426,7 @@ export function TarjetaAbierta() {
       numero={Number(numero)}
       onCerrar={() => navigate(`/tableros/${tableroId}${search}`)}
       onTrasladada={(card) => navigate(`/tableros/${card.tablero.id}/cards/${card.numero}`, { replace: true })}
+      onAbrirOtra={(otra) => navigate(`/tableros/${tableroId}/cards/${otra}${search}`)}
     />
   );
 }

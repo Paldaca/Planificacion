@@ -144,6 +144,7 @@ export default function MisTareasPage() {
           numero={abierta.numero}
           onCerrar={() => setAbierta(null)}
           onTrasladada={(card) => setAbierta({ tableroId: card.tablero.id, numero: card.numero })}
+          onAbrirOtra={(numero) => setAbierta({ tableroId: abierta.tableroId, numero })}
           enlaceTablero={
             <Link
               to={`/tableros/${abierta.tableroId}/cards/${abierta.numero}`}

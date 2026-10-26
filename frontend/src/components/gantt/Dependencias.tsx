@@ -1,14 +1,11 @@
 /** Flechas de dependencias y el panel para editarlas. */
 
-import { Minus, Plus, Trash2, Waypoints } from "lucide-react";
 import { Popover } from "radix-ui";
-import { useState, type PointerEvent as ReactPointerEvent } from "react";
+import { type PointerEvent as ReactPointerEvent } from "react";
 
-import { useEditarDependencia, useEliminarDependencia } from "@/api/queries";
-import type { CardResumen, Dependencia, TipoDependencia } from "@/api/tipos";
-import { Boton } from "@/components/ui/Boton";
-import { cn } from "@/lib/cn";
-import { ETIQUETAS_TIPO, rutaFlecha } from "@/lib/gantt";
+import type { CardResumen, Dependencia } from "@/api/tipos";
+import { EditorDependencia } from "@/components/card/Dependencias";
+import { rutaFlecha } from "@/lib/gantt";
 
 import type { Enlace } from "./tipos";
 
@@ -114,16 +111,6 @@ export function PanelDependencia({
   puede: boolean;
   onCerrar: () => void;
 }) {
-  const editar = useEditarDependencia(tableroId);
-  const eliminar = useEliminarDependencia(tableroId);
-  const [desfase, setDesfase] = useState(dep.desfase_dias);
-
-  function guardarDesfase(valor: number) {
-    const limpio = Math.max(-365, Math.min(365, Math.round(valor) || 0));
-    setDesfase(limpio);
-    if (limpio !== dep.desfase_dias) editar.mutate({ id: dep.id, cambios: { desfase_dias: limpio } });
-  }
-
   return (
     <Popover.Root open onOpenChange={(v) => !v && onCerrar()}>
       <Popover.Anchor asChild>
@@ -138,70 +125,16 @@ export function PanelDependencia({
           // Gantt, que cierra la selección al tocarla: sin esto el panel se
           // cerraba antes del clic y sus botones no respondían.
           onPointerDown={(e) => e.stopPropagation()}
-          className="flotante z-50 w-72 rounded-2xl border border-linea bg-white p-4 shadow-[0_24px_48px_-20px_rgba(20,22,68,0.5)]"
+          className="flotante z-50 w-80 rounded-2xl border border-linea bg-white p-4 shadow-[0_24px_48px_-20px_rgba(20,22,68,0.5)]"
         >
-          <div className="mb-3 flex items-start gap-2">
-            <Waypoints className="mt-0.5 size-4 shrink-0 text-morado" />
-            <p className="text-sm leading-snug text-texto">
-              <span className="font-semibold">{predecesora?.titulo ?? `#${dep.predecesora}`}</span>
-              <span className="text-tenue"> va antes de </span>
-              <span className="font-semibold">{sucesora?.titulo ?? `#${dep.sucesora}`}</span>
-            </p>
-          </div>
-          {dep.incumplida && (
-            <p className="mb-3 rounded-lg bg-[#fef2f2] px-2.5 py-2 text-xs font-medium text-[#b91c1c]">
-              La sucesora empieza antes de lo que esta dependencia permite. Muévela o activa «Mover sucesoras» y reprograma la predecesora.
-            </p>
-          )}
-          <div className="space-y-1.5">
-            {(Object.keys(ETIQUETAS_TIPO) as TipoDependencia[]).map((tipo) => (
-              <button
-                key={tipo}
-                type="button"
-                disabled={!puede}
-                onClick={() => tipo !== dep.tipo && editar.mutate({ id: dep.id, cambios: { tipo } })}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors",
-                  dep.tipo === tipo ? "border-morado bg-morado/8 font-semibold text-morado" : "border-linea text-texto hover:border-morado/40",
-                )}
-              >
-                <span className="w-6 font-bold">{ETIQUETAS_TIPO[tipo].corta}</span>
-                {ETIQUETAS_TIPO[tipo].larga}
-              </button>
-            ))}
-          </div>
-          <div className="mt-3 flex items-center justify-between gap-2">
-            <span className="text-xs text-tenue">Desfase (días hábiles)</span>
-            <div className="flex items-center gap-1">
-              <Boton variante="secundario" tamano="icono-sm" aria-label="Un día menos" disabled={!puede} onClick={() => guardarDesfase(desfase - 1)}>
-                <Minus />
-              </Boton>
-              <input
-                type="number"
-                value={desfase}
-                disabled={!puede}
-                onChange={(e) => setDesfase(Number(e.target.value))}
-                onBlur={() => guardarDesfase(desfase)}
-                onKeyDown={(e) => e.key === "Enter" && guardarDesfase(desfase)}
-                className="h-7 w-14 rounded-lg border border-linea text-center text-sm font-semibold tabular-nums outline-none focus:border-morado"
-              />
-              <Boton variante="secundario" tamano="icono-sm" aria-label="Un día más" disabled={!puede} onClick={() => guardarDesfase(desfase + 1)}>
-                <Plus />
-              </Boton>
-            </div>
-          </div>
-          {puede && (
-            <Boton
-              variante="peligro"
-              tamano="sm"
-              className="mt-4 w-full"
-              cargando={eliminar.isPending}
-              onClick={() => eliminar.mutate(dep, { onSuccess: onCerrar })}
-            >
-              <Trash2 />
-              Quitar dependencia
-            </Boton>
-          )}
+          <EditorDependencia
+            tableroId={tableroId}
+            dep={dep}
+            predecesora={predecesora}
+            sucesora={sucesora}
+            puede={puede}
+            onQuitada={onCerrar}
+          />
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>

@@ -58,7 +58,7 @@ export function AyudaSucesoras({ puede }: { puede: boolean }) {
               <span>
                 Para enlazar dos que ya existen, arrastra desde el punto{" "}
                 <span className="inline-block size-2.5 rounded-full bg-morado align-middle" aria-hidden /> al final de una barra
-                hasta la otra.
+                hasta la otra, o abre la tarjeta y usa <b>Enlazar tarjeta</b> en <b>Dependencias</b>.
               </span>
             </li>
           </ol>

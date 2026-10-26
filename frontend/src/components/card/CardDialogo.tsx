@@ -15,6 +15,7 @@ import {
   Tag,
   TextAlignStart,
   UsersRound,
+  Waypoints,
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -26,7 +27,6 @@ import { ApiError } from "@/api/client";
 import {
   useArchivarCard,
   useCard,
-  useDependencias,
   usePatchCard,
   useTablero,
   useTableros,
@@ -45,6 +45,7 @@ import { haceCuanto, relativoFin } from "@/lib/fechas";
 import { Adjuntos } from "./Adjuntos";
 import { Checklist } from "./Checklist";
 import { Comentarios } from "./Comentarios";
+import { DependenciasTarjeta } from "./Dependencias";
 import { CamposTarjeta, EtiquetasTarjeta } from "./EtiquetasYCampos";
 import { Historial } from "./Historial";
 
@@ -55,9 +56,11 @@ type Props = {
   enlaceTablero?: ReactNode;
   /** La tarjeta cambió de tablero (su URL ya no es la misma). */
   onTrasladada?: (card: CardDetalle) => void;
+  /** Abrir otra tarjeta del mismo tablero (desde sus dependencias). */
+  onAbrirOtra?: (numero: number) => void;
 };
 
-export function CardDialogo({ tableroId, numero, onCerrar, enlaceTablero, onTrasladada }: Props) {
+export function CardDialogo({ tableroId, numero, onCerrar, enlaceTablero, onTrasladada, onAbrirOtra }: Props) {
   const [abierto, setAbierto] = useState(true);
   const cerrar = () => setAbierto(false);
 
@@ -79,14 +82,20 @@ export function CardDialogo({ tableroId, numero, onCerrar, enlaceTablero, onTras
             "sm:rounded-[24px] sm:border sm:border-linea sm:shadow-[0_40px_80px_-30px_rgba(20,22,68,0.55)]",
           )}
         >
-          <Contenido tableroId={tableroId} numero={numero} enlaceTablero={enlaceTablero} onTrasladada={onTrasladada} />
+          <Contenido
+            tableroId={tableroId}
+            numero={numero}
+            enlaceTablero={enlaceTablero}
+            onTrasladada={onTrasladada}
+            onAbrirOtra={onAbrirOtra}
+          />
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
   );
 }
 
-function Contenido({ tableroId, numero, enlaceTablero, onTrasladada }: Omit<Props, "onCerrar">) {
+function Contenido({ tableroId, numero, enlaceTablero, onTrasladada, onAbrirOtra }: Omit<Props, "onCerrar">) {
   const { data: card, error, isLoading } = useCard(tableroId, numero);
   const { data: tablero } = useTablero(tableroId);
 
@@ -122,7 +131,9 @@ function Contenido({ tableroId, numero, enlaceTablero, onTrasladada }: Omit<Prop
     );
   }
 
-  return <Detalle card={card} tablero={tablero} enlaceTablero={enlaceTablero} onTrasladada={onTrasladada} />;
+  return (
+    <Detalle card={card} tablero={tablero} enlaceTablero={enlaceTablero} onTrasladada={onTrasladada} onAbrirOtra={onAbrirOtra} />
+  );
 }
 
 function Detalle({
@@ -130,11 +141,13 @@ function Detalle({
   tablero,
   enlaceTablero,
   onTrasladada,
+  onAbrirOtra,
 }: {
   card: CardDetalle;
   tablero: TableroDetalle;
   enlaceTablero?: ReactNode;
   onTrasladada?: (card: CardDetalle) => void;
+  onAbrirOtra?: (numero: number) => void;
 }) {
   const identidad = useIdentidad();
   const patch = usePatchCard(tablero.id);
@@ -209,17 +222,20 @@ function Detalle({
         </Dialog.Close>
       </div>
 
-      <div className="grid flex-1 gap-8 overflow-y-auto px-6 pt-4 pb-8 sm:px-8 md:grid-cols-[minmax(0,1fr)_270px]">
-        <div className="min-w-0 space-y-8">
+      {/* En el teléfono (una sola columna) el panel lateral se deshace (`contents`)
+          y sus secciones van primero: estado, fechas y responsables sin bajar
+          hasta después de los comentarios. Lo de archivar y mover queda al final. */}
+      <div className="grid flex-1 gap-8 overflow-y-auto px-6 pt-4 pb-8 max-md:grid-cols-[minmax(0,1fr)] max-md:gap-6 sm:px-8 md:grid-cols-[minmax(0,1fr)_270px]">
+        <div className="min-w-0 space-y-8 max-md:order-1">
           <Descripcion card={card} puede={puede} onGuardar={(descripcion) => guardar({ descripcion })} />
           <Adjuntos card={card} tableroId={tablero.id} puede={puede} />
           <Checklist card={card} tableroId={tablero.id} puede={puede} />
           <Conversacion card={card} tablero={tablero} yo={yo} puede={puede} />
         </div>
 
-        <aside className="space-y-6 md:sticky md:top-0 md:self-start">
+        <aside className="space-y-6 max-md:contents max-md:space-y-0 md:sticky md:top-0 md:self-start">
           <Seccion titulo="Estado" icono={CircleCheck}>
-            <div className="grid gap-1.5">
+            <div className="grid gap-1.5 max-md:grid-cols-2">
               {[...tablero.columnas]
                 .sort((a, b) => a.orden - b.orden)
                 .map((col) => {
@@ -296,6 +312,10 @@ function Detalle({
             <OpcionGantt card={card} tablero={tablero} puede={puede} onGuardar={(en_gantt) => guardar({ en_gantt })} />
           </Seccion>
 
+          <Seccion titulo="Dependencias" icono={Waypoints}>
+            <DependenciasTarjeta card={card} tablero={tablero} puede={puede} onAbrirOtra={onAbrirOtra} />
+          </Seccion>
+
           <Seccion titulo="Responsables" icono={UsersRound}>
             <Responsables
               card={card}
@@ -305,7 +325,7 @@ function Detalle({
             />
           </Seccion>
 
-          <div className="space-y-3 border-t border-linea/70 pt-5 text-xs text-tenue">
+          <div className="space-y-3 border-t border-linea/70 pt-5 text-xs text-tenue max-md:order-2">
             {card.creada_por && (
               <p>
                 Creada por <span className="font-semibold text-texto">{card.creada_por.nombre}</span>{" "}
@@ -342,7 +362,7 @@ const OPCIONES_GANTT: { id: EnGantt; etiqueta: string }[] = [
   { id: "no", etiqueta: "No" },
 ];
 
-/** Si la tarjeta entra en el Gantt y de qué otras depende. */
+/** Si la tarjeta entra en el Gantt (sus dependencias van en su propia sección). */
 function OpcionGantt({
   card,
   tablero,
@@ -354,11 +374,7 @@ function OpcionGantt({
   puede: boolean;
   onGuardar: (valor: EnGantt) => void;
 }) {
-  const { data: dependencias = [] } = useDependencias(tablero.id);
   const columna = tablero.columnas.find((c) => c.id === card.columna);
-  const titulo = (id: number) => tablero.cards.find((c) => c.id === id)?.titulo ?? `#${id}`;
-  const antes = dependencias.filter((d) => d.sucesora === card.id);
-  const despues = dependencias.filter((d) => d.predecesora === card.id);
   const sinFechas = !card.fecha_inicio || !card.fecha_fin;
 
   return (
@@ -398,22 +414,6 @@ function OpcionGantt({
             ? `No aparece: la columna ${columna?.nombre ?? ""} está fuera del Gantt.`
             : "No aparece en el Gantt."}
       </p>
-      {(antes.length > 0 || despues.length > 0) && (
-        <ul className="space-y-1 text-xs">
-          {antes.map((d) => (
-            <li key={d.id} className={cn("flex gap-1.5", d.incumplida ? "text-[#b91c1c]" : "text-texto")}>
-              <span className="shrink-0 text-tenue">Después de</span>
-              <span className="truncate font-semibold">{titulo(d.predecesora)}</span>
-            </li>
-          ))}
-          {despues.map((d) => (
-            <li key={d.id} className="flex gap-1.5 text-texto">
-              <span className="shrink-0 text-tenue">Antes de</span>
-              <span className="truncate font-semibold">{titulo(d.sucesora)}</span>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }
