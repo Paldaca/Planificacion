@@ -21,6 +21,16 @@ MAX_RESULTADOS = 10
 MIN_CONSULTA = directorio.MIN_CONSULTA
 
 
+def invitables(qs):
+    """Usuarios y administradores del módulo; nunca superadmins del Portal.
+
+    El espejo traduce un superadmin del Portal a rol administrador local con
+    la fila del módulo (`paldaca_sso.provisioning`), así que localmente no se
+    distingue de un admin: se reconoce por el último payload de `/api/auth/me/`.
+    El directorio del Portal ya los excluye; esto cubre el respaldo local."""
+    return qs.exclude(cuenta_portal__payload_snapshot__es_superadmin=True)
+
+
 def ocupados_en(equipo: Equipo) -> set[int]:
     """Miembros e invitados pendientes: no tiene sentido volver a invitarles."""
     miembros = MiembroEquipo.objects.filter(equipo=equipo).values_list("usuario_id", flat=True)
@@ -37,7 +47,7 @@ def buscar_candidatos(request, q: str, *, excluidos: set[int]) -> dict:
     try:
         encontrados = directorio.buscar(request, q)
     except directorio.DirectorioNoDisponible:
-        locales = buscar(q).exclude(pk__in=excluidos)[:MAX_RESULTADOS]
+        locales = invitables(buscar(q)).exclude(pk__in=excluidos)[:MAX_RESULTADOS]
         return {"resultados": [persona(u) for u in locales], "fuente": "local"}
 
     cuentas = {
@@ -62,9 +72,9 @@ def resolver_invitado(request, *, usuario_id: int | None = None, portal_id: int 
     contra el Portal antes de crear nada; por `usuario_id` basta con que la
     cuenta espejo tenga el módulo."""
     if usuario_id is not None:
-        return usuarios_del_modulo().filter(pk=usuario_id).first()
+        return invitables(usuarios_del_modulo()).filter(pk=usuario_id).first()
     if not directorio.cookie_portal(request):
-        return usuarios_del_modulo().filter(cuenta_portal__portal_user_id=portal_id).first()
+        return invitables(usuarios_del_modulo()).filter(cuenta_portal__portal_user_id=portal_id).first()
     try:
         confirmado = directorio.confirmar(request, portal_id)
     except directorio.DirectorioNoDisponible:

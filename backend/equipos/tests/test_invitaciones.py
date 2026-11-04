@@ -10,6 +10,7 @@ from core.testing import ConAvisos, crear_usuario
 from equipos.models import EstadoInvitacion, InvitacionEquipo, MiembroEquipo
 from integracion_portal.services import notificaciones
 from integracion_portal.services import notificaciones as n
+from paldaca_sso.models import CuentaPortal
 
 from .base import EscenarioEquipos
 
@@ -26,6 +27,21 @@ class InvitacionesTests(EscenarioEquipos):
         self.assertEqual(respuesta["fuente"], "local")
         nombres = {p["username"] for p in respuesta["resultados"]}
         self.assertEqual(nombres, {"carla"})  # ana (yo), beto (pendiente) y ajeno (sin módulo) fuera
+
+    def test_buscador_local_muestra_admins_y_oculta_superadmins(self):
+        equipo = self.crear_equipo()
+        admin = crear_usuario("dario", rol="administrador")
+        root = crear_usuario("root", rol="administrador")
+        CuentaPortal.objects.filter(usuario=admin).update(payload_snapshot={"es_superadmin": False})
+        CuentaPortal.objects.filter(usuario=root).update(payload_snapshot={"es_superadmin": True})
+        cliente = self.cliente(self.ana)
+        respuesta = cliente.get("/api/v1/personas/", {"q": "@cpaldaca", "equipo": equipo["id"]}).json()
+        nombres = {p["username"] for p in respuesta["resultados"]}
+        self.assertIn("dario", nombres)
+        self.assertNotIn("root", nombres)
+        r = cliente.post(f"/api/v1/equipos/{equipo['id']}/invitaciones/", {"usuario": root.pk}, format="json")
+        self.assertGreaterEqual(r.status_code, 400)
+        self.assertFalse(InvitacionEquipo.objects.filter(invitado=root).exists())
 
     @override_settings(PALDACA_NOTIF_SECRET="s" * 40, PALDACA_PORTAL_API_URL="http://portal.test")
     def test_invitar_avisa_en_el_portal_y_aceptar_lo_resuelve(self):

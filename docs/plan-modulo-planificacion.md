@@ -320,14 +320,20 @@ preguntar al Portal.
 - **Hecho (fase 1):** el Portal expone
   `GET /api/auth/directorio/modulos/<codigo>/personas/` (`?q=` o `?id=`), de
   **solo lectura**, para cualquier usuario con acceso a ese módulo. Devuelve
-  solo cuentas activas con el módulo asignado explícitamente, sin
-  superusuarios ni staff, en forma mínima. Cada módulo debe estar en
+  solo cuentas activas con el módulo asignado explícitamente, con rol
+  usuario o administrador (tengan o no `is_staff`: en el Portal los
+  administradores suelen tenerlo), nunca superusuarios, en forma mínima.
+  El respaldo local también oculta a los superadmins del Portal (por el
+  `payload_snapshot` de la cuenta espejo). Cada módulo debe estar en
   `PALDACA_DIRECTORIO_LECTURA_MODULOS` (por defecto `planificacion`). El
   directorio de administradores (`/api/auth/directorio/*`) no se usa: además
   de buscar permite crear usuarios en el Portal.
 - Planificación consulta ese endpoint con la cookie del Portal de quien opera
   (`integracion_portal/services/directorio.py`). Si el Portal no responde, el buscador
   cae a las cuentas que ya entraron al módulo y lo avisa.
+- **Corregido (2026-11-04):** el endpoint excluía también `is_staff`, y como
+  los administradores del Portal tienen `is_staff=True` no aparecían en el
+  buscador de invitaciones aunque tuvieran el módulo.
 - Al invitar a alguien que nunca entró, se **confirma con el Portal** (`?id=`)
   y solo entonces se crea su cuenta espejo (contraseña inutilizable, nunca
   superusuario, revisión vacía para que su primer ingreso sincronice todo).
