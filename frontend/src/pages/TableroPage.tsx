@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Settings2,
   UsersRound,
+  UserCheck,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
@@ -33,6 +34,7 @@ import type { CardResumen, Vista } from "@/api/tipos";
 import { CardDialogo } from "@/components/card/CardDialogo";
 import { Encabezado } from "@/components/layout/Encabezado";
 import { GuardarPlantillaDialogo } from "@/components/plantillas/GuardarPlantillaDialogo";
+import { AsignarDialogo } from "@/components/tablero/AsignarDialogo";
 import { ConfiguracionDialogo } from "@/components/tablero/ConfiguracionDialogo";
 import { ExportarPdfDialogo, type ConfigGantt } from "@/components/tablero/ExportarPdfDialogo";
 import { BarraFiltros } from "@/components/tablero/Filtros";
@@ -89,6 +91,7 @@ export default function TableroPage() {
   const exportar = useExportar(id);
   const [importando, setImportando] = useState(false);
   const [configurando, setConfigurando] = useState(false);
+  const [asignando, setAsignando] = useState(false);
   const [guardandoPlantilla, setGuardandoPlantilla] = useState(false);
   /** Configuración del Gantt con la que se abre «Gantt en PDF» (null = cerrado). */
   const [pdfGantt, setPdfGantt] = useState<ConfigGantt | null>(null);
@@ -277,6 +280,9 @@ export default function TableroPage() {
                   <ItemMenu icono={Settings2} onSelect={() => setConfigurando(true)}>
                     Etiquetas y campos…
                   </ItemMenu>
+                  <ItemMenu icono={UserCheck} onSelect={() => setAsignando(true)}>
+                    Asignar por etiqueta o fase…
+                  </ItemMenu>
                 </>
               )}
               <ItemMenu icono={LayoutTemplate} onSelect={() => setGuardandoPlantilla(true)}>
@@ -351,6 +357,7 @@ export default function TableroPage() {
         onCerrar={() => setImportando(false)}
       />
       <ConfiguracionDialogo tablero={tablero} abierto={configurando} onCerrar={() => setConfigurando(false)} />
+      <AsignarDialogo tablero={tablero} abierto={asignando} onCerrar={() => setAsignando(false)} />
       <GuardarPlantillaDialogo tablero={tablero} abierto={guardandoPlantilla} onCerrar={() => setGuardandoPlantilla(false)} />
       {ultimoPdf && (
         <ExportarPdfDialogo

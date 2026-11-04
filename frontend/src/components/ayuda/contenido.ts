@@ -142,7 +142,7 @@ const TABLERO: TemaAyuda = {
       id: "asignar",
       titulo: "Asignar todas las tarjetas de una etiqueta o de una fase",
       parrafos: [
-        "En **Etiquetas y campos… → Asignar** eliges una etiqueta (o una opción de un campo de lista, como una **Fase**) y una persona: queda como responsable de **todas las tarjetas abiertas** que la llevan. Sirve para repartir un plan recién importado: cada fase a quien la hace.",
+        "En el menú **«…» del tablero → Asignar por etiqueta o fase…** eliges una etiqueta (o una opción de un campo de lista, como una **Fase**) y una persona: queda como responsable de **todas las tarjetas abiertas** que la llevan. Sirve para repartir un plan recién importado: cada fase a quien la hace.",
         "• Se suma a los responsables que ya había; con **Solo esta persona** los reemplaza.",
         "• Las tarjetas terminadas o archivadas no se tocan, y las que se creen después no se asignan solas.",
         "• Cada cambio queda en el historial de su tarjeta y la persona recibe **un solo aviso**. Solo quien gestiona el tablero lo puede hacer.",
