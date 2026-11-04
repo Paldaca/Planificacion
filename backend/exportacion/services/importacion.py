@@ -8,6 +8,9 @@ Importar tarjetas desde un archivo (Excel o MS Project) en dos pasos:
    las filas sin errores y sus dependencias. No se guarda nada entre pasos:
    el navegador vuelve a enviar el archivo.
 
+El checklist de cada tarjeta (columna «Checklist» del Excel, un paso por
+línea) se crea con sus pasos ya marcados si traían `[x]`.
+
 Los responsables reciben un solo aviso agrupado («Te asignaron 12 tarjetas»)
 en lugar de uno por tarjeta.
 
@@ -32,6 +35,7 @@ from integracion_portal.services import notificaciones as n
 from integracion_portal.services.personas import nombre as nombre_persona
 from tableros import permisos
 from tableros.models import Columna, Tablero, Urgencia
+from tableros.services import checklist as servicio_checklist
 from tableros.services import tarjetas
 from tableros.services.campos import valor_valido
 from tableros.services.columnas import crear_columna, reordenar_columnas
@@ -184,6 +188,12 @@ def resolver(tablero: Tablero, entradas: list[FilaEntrada], crear: Crear | None 
             elif etiqueta not in r.etiquetas:
                 r.etiquetas.append(etiqueta)
 
+        if len(e.checklist) > servicio_checklist.MAX_ITEMS:
+            e.avisos.append(
+                f"El checklist trae {len(e.checklist)} pasos: se crean los primeros {servicio_checklist.MAX_ITEMS}."
+            )
+            del e.checklist[servicio_checklist.MAX_ITEMS:]
+
         for nombre, valor in e.campos.items():
             campo = campos.get(normalizar(nombre))
             if campo is None:
@@ -221,6 +231,7 @@ def _serializar(r: FilaResuelta) -> dict:
         "etiquetas": [et.nombre for et in r.etiquetas] + r.etiquetas_nuevas,
         "etiquetas_nuevas": r.etiquetas_nuevas,
         "depende": [referencia_texto(ref, tipo, d) for ref, tipo, d in e.depende],
+        "checklist": len(e.checklist),
         "errores": e.errores,
         "avisos": e.avisos,
     }
@@ -313,6 +324,10 @@ def importar(tablero: Tablero, nombre: str, contenido: bytes, *, actor, crear: C
                 actor=actor,
                 avisar=False,
             )
+            for texto, hecho in e.checklist:
+                item = servicio_checklist.agregar_item(card, texto=texto, actor=actor)
+                if hecho:
+                    servicio_checklist.editar_item(item, actor=actor, hecho=True)
             cards.append(card)
             if e.ref is not None:
                 creadas[e.ref] = card

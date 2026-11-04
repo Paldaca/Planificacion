@@ -1,7 +1,7 @@
 # Módulo `exportacion` (fase 4)
 
 > Leer antes de modificar `backend/exportacion/` o
-> `frontend/src/components/tablero/ImportarDialogo.tsx`. Revisado: 2026-09-30.
+> `frontend/src/components/tablero/ImportarDialogo.tsx`. Revisado: 2026-11-04.
 >
 > Estado: implementado (commit `6e9157a`) y auditado (`e81f239`). Falta abrir
 > el XML en un MS Project real para cerrar el criterio de aceptación.
@@ -17,7 +17,10 @@ Llevar un tablero a las herramientas de la empresa y traerlo de vuelta:
   columna por semana). La hoja *Tarjetas* abre con un bloque de
   identificación (tablero, fecha, resumen, filtros aplicados). Desde la fase 5
   lleva también la columna *Etiquetas* (nombres separados por coma) y una
-  columna por cada campo personalizado activo, todas importables.
+  columna por cada campo personalizado activo, todas importables. La columna
+  *Checklist* (importable, antes de los campos) trae un paso por línea, los
+  marcados con `[x]` delante; el avance «2/5» va aparte, en la informativa
+  *Avance del checklist*.
 - **MS Project**: XML de Project (**MSPDI**). El `.mpp` es cerrado y no se
   genera. Etiquetas y campos personalizados **no** viajan al XML.
 - **Gantt en PDF** (`services/pdf.py`, ReportLab): el diagrama para compartir
@@ -33,12 +36,12 @@ Llevar un tablero a las herramientas de la empresa y traerlo de vuelta:
 
 | Archivo | Qué hace |
 |---|---|
-| `services/datos.py` | Qué se exporta y cómo se nombra, compartido por los tres formatos. `Filtros` = los mismos del tablero en pantalla (`frontend/src/lib/filtros.ts`, incluidas las etiquetas) para exportar exactamente lo que se ve. Dependencias en texto estilo Project en español: `3`, `3CC+2`, `3FF-1`. `Contenido.campos`: campos activos del tablero. |
+| `services/datos.py` | Qué se exporta y cómo se nombra, compartido por los tres formatos. `checklist_texto` / `leer_checklist`: el checklist en una celda (un paso por línea, `[x]` o ☑/✓ = marcado; quita viñetas `-`, `•`, `☐`, `[ ]`; una celda «3/5», el avance que exportaban los Excel anteriores con el encabezado «Checklist», no es un paso). `Filtros` = los mismos del tablero en pantalla (`frontend/src/lib/filtros.ts`, incluidas las etiquetas) para exportar exactamente lo que se ve. Dependencias en texto estilo Project en español: `3`, `3CC+2`, `3FF-1`. `Contenido.campos`: campos activos del tablero. |
 | `services/excel.py` | `exportar`, `plantilla`, `leer`. Antes de guardar, toda celda que openpyxl tomó por fórmula pasa a texto (`_sin_formulas`): un título que empieza por `=` no se ejecuta en el Excel de quien descarga. `leer` busca la fila de encabezados (título + otro conocido) en las 15 primeras y recorre bajo demanda con tope (`FILAS_MAXIMAS_LEIDAS`). |
 | `services/mspdi.py` | `exportar`, `leer`. Proyecto = tablero; tareas resumen = columnas; tareas = tarjetas del Gantt con inicio y fin; tareas **programadas manualmente**; `Milestone` = 1 si la tarjeta es un hito (`Card.es_hito`); calendario «Planificación» lun–vie 8–12 y 13–17 con feriados como excepciones; vínculos FC=1, CC=3, FF=0 con desfase; responsables → recursos; urgencia ↔ prioridad (baja 300, media 500, alta 700, crítica 900); avance = checklist; descripción → notas. Elementos en el orden del esquema MSPDI; sin caracteres de control. `leer` rechaza XML con `DOCTYPE`/`ENTITY`. |
 | `services/pdf.py` | `exportar(contenido, OpcionesPdf)` y `planificar` (páginas antes de dibujar, para «hoja x de y»). Opciones (`OpcionesPdf.desde_query`): `escala` ajustar\|zoom, `zoom` dia\|semana\|mes (14 / 5,5 / 1,8 pt por día), `agrupar` (columna\|responsable\|urgencia\|ninguna o `campo:<nombre>` de un campo de lista activo del tablero; si no existe o no es de lista, `ReglaDeNegocio` → 400), `plegado` (claves de grupo, repetible), `desde`/`hasta` (las dos o ninguna; solo tareas que tocan el periodo, recortadas en los bordes) y `hoja` carta\|tabloide (11×17), siempre horizontal. Filas y flechas son **espejo** de `frontend/src/lib/gantt.ts` (`grupoDe`, `construirFilas`, `rutaFlecha`). Con zoom, un plan largo se reparte en tramos de hojas; muchas filas siguen en más hojas repitiendo la escala. Un hito (`Card.es_hito`) se dibuja como un **rombo** en su último día (`hito`, `rombo`; espejo de `Barra` en `components/gantt/Filas.tsx`) y sale en la leyenda. Flechas solo si las dos puntas caen en la hoja (debajo de barras y títulos). Más de 150 hojas → `ReglaDeNegocio`. Texto en las fuentes base del PDF (Windows-1252): lo que no cabe en ella sale como «?». |
 | `services/modelo.py` | `FilaEntrada`: una fila leída antes de validar (incluye `etiquetas` y `campos` por nombre de encabezado). |
-| `services/importacion.py` | `vista_previa` (valida sin tocar la BD: errores y avisos por fila) e `importar` (revalida y crea en **una** transacción las filas válidas y sus dependencias). Límites: 5 MB y 1000 filas. Los responsables reciben **un** aviso agrupado en vez de uno por tarjeta (`crear_card(avisar=False)`). Valores de campo inválidos se ignoran **con aviso** (no son error); las columnas del Excel que no son campos del tablero se ignoran sin más. **Columnas y etiquetas que el tablero no tiene** no dan un aviso por fila: `faltantes` las resume una vez (sin repetir, grafía de su primera aparición) en `vista_previa`. Con `Crear` (casillas del diálogo; solo quien **gestiona** el tablero, `puede_crear`), la vista previa las marca como nuevas y `importar` las crea en la **misma transacción** que las tarjetas (`_crear_faltantes`): columnas antes de la columna final, **dentro del Gantt y no finales** (no se adivina por el nombre: «Pendientes» se saca del Gantt a mano) y etiquetas con colores de `COLORES_ETIQUETA` (primero los no usados). Pasar el cupo de 30 etiquetas es un `problemas` en la vista previa y un 400 al importar, sin crear nada. Sin crearlas: las tarjetas van a la primera columna y sin esas etiquetas. |
+| `services/importacion.py` | `vista_previa` (valida sin tocar la BD: errores y avisos por fila) e `importar` (revalida y crea en **una** transacción las filas válidas y sus dependencias). Límites: 5 MB y 1000 filas. Los responsables reciben **un** aviso agrupado en vez de uno por tarjeta (`crear_card(avisar=False)`). El checklist (encabezados «Checklist», «Pasos del checklist» o «Pasos») se crea con `tableros.services.checklist` (los `[x]`, ya marcados); más de `MAX_ITEMS` (100) pasos se recortan con aviso; la vista previa da `checklist` (cuántos pasos) por fila. Valores de campo inválidos se ignoran **con aviso** (no son error); las columnas del Excel que no son campos del tablero se ignoran sin más. **Columnas y etiquetas que el tablero no tiene** no dan un aviso por fila: `faltantes` las resume una vez (sin repetir, grafía de su primera aparición) en `vista_previa`. Con `Crear` (casillas del diálogo; solo quien **gestiona** el tablero, `puede_crear`), la vista previa las marca como nuevas y `importar` las crea en la **misma transacción** que las tarjetas (`_crear_faltantes`): columnas antes de la columna final, **dentro del Gantt y no finales** (no se adivina por el nombre: «Pendientes» se saca del Gantt a mano) y etiquetas con colores de `COLORES_ETIQUETA` (primero los no usados). Pasar el cupo de 30 etiquetas es un `problemas` en la vista previa y un 400 al importar, sin crear nada. Sin crearlas: las tarjetas van a la primera columna y sin esas etiquetas. |
 
 No se guarda nada entre vista previa y confirmación: el navegador reenvía el
 archivo.
@@ -59,7 +62,8 @@ archivo.
 
 ## Pruebas
 
-`tests/test_exportacion.py` (incluye la ida y vuelta y `EtiquetasYCamposTests`) y
+`tests/test_exportacion.py` (incluye la ida y vuelta, `EtiquetasYCamposTests` y
+`ChecklistTests`: pasos marcados, viñetas, el «3/5» de los Excel anteriores y el tope de 100) y
 `tests/test_importar_faltantes.py` (resumen, crear columnas y etiquetas, permisos,
 cupo sin crear nada) y `tests/test_pdf.py` (hojas, filas como la pantalla, agrupar por un campo de lista, hitos (también `Milestone` en el XML), plegados, filtros, periodo,
 tramos, límite de hojas, permisos). Criterios de aceptación

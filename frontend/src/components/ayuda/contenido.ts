@@ -460,6 +460,7 @@ const PREGUNTAS: TemaAyuda = {
       titulo: "¿Puedo cargar tarjetas desde Excel?",
       parrafos: [
         "Sí: **Excel / Project → Importar tarjetas…**. Descarga la plantilla, llénala y súbela (también acepta un XML de MS Project). Antes de crear nada ves cómo quedará cada tarjeta.",
+        "El **checklist** va en su columna, un paso por línea (Alt+Enter dentro de la celda); con **[x]** delante el paso se crea marcado.",
       ],
     },
     {

@@ -252,6 +252,11 @@ function FilaPrevia({ fila }: { fila: FilaVistaPrevia }) {
             <span className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: URGENCIAS[fila.urgencia].color }} />
             <span className={cn("font-medium", error ? "text-tenue" : "text-texto")}>{fila.titulo || "(sin título)"}</span>
             {fila.depende.length > 0 && <span className="text-xs text-tenue">después de {fila.depende.join(", ")}</span>}
+            {fila.checklist > 0 && (
+              <span className="shrink-0 text-xs text-tenue">
+                {fila.checklist} paso{fila.checklist === 1 ? "" : "s"}
+              </span>
+            )}
             {fila.etiquetas.map((e) => {
               const nueva = fila.etiquetas_nuevas.includes(e);
               return (

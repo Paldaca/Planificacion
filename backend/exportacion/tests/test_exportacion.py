@@ -10,6 +10,7 @@ from openpyxl import Workbook, load_workbook
 from gantt.models import Dependencia
 from integracion_portal.services import notificaciones as n
 from tableros.models import Card, Tablero
+from tableros.services import checklist as servicio_checklist
 from tableros.tests.base import EscenarioTablero
 
 NS = {"p": "http://schemas.microsoft.com/project"}
@@ -279,7 +280,7 @@ class EtiquetasYCamposTests(Base):
         )
         libro = load_workbook(io.BytesIO(self.exportar("xlsx").content))
         encabezados = [c.value for c in libro["Tarjetas"][6]]
-        self.assertEqual(encabezados[9:12], ["Etiquetas", "Horas", "Fase"])
+        self.assertEqual(encabezados[9:13], ["Etiquetas", "Checklist", "Horas", "Fase"])
 
         destino = self.otro_tablero()
         durl = f"/api/v1/tableros/{destino['id']}"
@@ -301,5 +302,65 @@ class EtiquetasYCamposTests(Base):
         url = f"/api/v1/tableros/{self.tablero['id']}"
         self.cliente(self.ana).post(f"{url}/campos/", {"nombre": "Fase", "tipo": "lista", "opciones": ["Básica", "Detalle"]}, format="json")
         libro = load_workbook(io.BytesIO(self.cliente(self.ana).get(f"{url}/importar/plantilla/").content))
-        self.assertEqual([c.value for c in libro["Tarjetas"][1]][-2:], ["Etiquetas", "Fase"])
+        self.assertEqual([c.value for c in libro["Tarjetas"][1]][-3:], ["Etiquetas", "Checklist", "Fase"])
         self.assertEqual(len(libro["Tarjetas"].data_validations.dataValidation), 3)
+
+
+def excel_con(filas, encabezados=("#", "Título", "Checklist")):
+    libro = Workbook()
+    hoja = libro.active
+    hoja.title = "Tarjetas"
+    hoja.append(list(encabezados))
+    for fila in filas:
+        hoja.append(list(fila))
+    salida = io.BytesIO()
+    libro.save(salida)
+    return salida.getvalue()
+
+
+class ChecklistTests(Base):
+    """El checklist va y vuelve por Excel: un paso por línea, `[x]` = marcado."""
+
+    def test_ida_y_vuelta_con_pasos_marcados(self):
+        card = Card.objects.get(pk=self.a["id"])
+        servicio_checklist.agregar_item(card, texto="Medir", actor=self.ana)
+        hecho = servicio_checklist.agregar_item(card, texto="Fotos", actor=self.ana)
+        servicio_checklist.editar_item(hecho, actor=self.ana, hecho=True)
+        datos = self.exportar("xlsx").content
+        hoja = load_workbook(io.BytesIO(datos))["Tarjetas"]
+        encabezados = [c.value for c in hoja[6]]
+        fila = next(r for r in hoja.iter_rows(min_row=7, values_only=True) if r[1] == "Levantamiento")
+        self.assertEqual(fila[encabezados.index("Checklist")], "Medir\n[x] Fotos")
+        self.assertEqual(fila[encabezados.index("Avance del checklist")], "1/2")
+
+        destino = self.otro_tablero()
+        previa = self.importar(destino["id"], "plan.xlsx", datos).json()
+        self.assertEqual(next(f for f in previa["filas"] if f["titulo"] == "Levantamiento")["checklist"], 2)
+        self.importar(destino["id"], "plan.xlsx", datos, confirmar=True)
+        copia = self.cards_de(destino["id"])["Levantamiento"]
+        self.assertEqual([(i.texto, i.hecho) for i in copia.checklist.all()], [("Medir", False), ("Fotos", True)])
+        self.assertEqual(self.cards_de(destino["id"])["Planos"].checklist.count(), 0)
+
+    def test_vinetas_y_avance_de_excel_anteriores(self):
+        datos = excel_con([(1, "Uno", "- Diseño\n☐ Planos\n\n[X] Visita"), (2, "Dos", "3/5")])
+        previa = self.importar(self.tablero["id"], "plan.xlsx", datos).json()
+        self.assertEqual([f["checklist"] for f in previa["filas"]], [3, 0])
+        self.importar(self.tablero["id"], "plan.xlsx", datos, confirmar=True)
+        uno = self.cards_de(self.tablero["id"])["Uno"]
+        self.assertEqual(
+            [(i.texto, i.hecho) for i in uno.checklist.all()], [("Diseño", False), ("Planos", False), ("Visita", True)]
+        )
+
+    def test_encabezado_pasos_del_checklist(self):
+        datos = excel_con([(1, "Uno", "a\nb")], encabezados=("#", "Título", "Pasos del checklist"))
+        self.importar(self.tablero["id"], "plan.xlsx", datos, confirmar=True)
+        self.assertEqual(self.cards_de(self.tablero["id"])["Uno"].checklist.count(), 2)
+
+    def test_mas_pasos_que_el_maximo_se_recortan_con_aviso(self):
+        pasos = "\n".join(f"Paso {i}" for i in range(servicio_checklist.MAX_ITEMS + 5))
+        datos = excel_con([(1, "Larga", pasos)])
+        previa = self.importar(self.tablero["id"], "plan.xlsx", datos).json()
+        self.assertEqual(previa["filas"][0]["checklist"], servicio_checklist.MAX_ITEMS)
+        self.assertTrue(any("primeros" in a for a in previa["filas"][0]["avisos"]))
+        self.importar(self.tablero["id"], "plan.xlsx", datos, confirmar=True)
+        self.assertEqual(self.cards_de(self.tablero["id"])["Larga"].checklist.count(), servicio_checklist.MAX_ITEMS)

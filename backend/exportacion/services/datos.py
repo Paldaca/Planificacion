@@ -142,6 +142,36 @@ def etiquetas_texto(card: Card) -> str:
     return ", ".join(e.nombre for e in card.etiquetas.all())
 
 
+#: Prefijo de un paso marcado en la columna «Checklist» del Excel.
+HECHO = "[x]"
+#: Viñetas que se quitan al leer un paso (las que se suelen escribir a mano).
+_VINETAS = re.compile(r"^(?:\[\s?\]|[-•☐*])\s*")
+_MARCADO = re.compile(r"^(?:\[[xX]\]|[☑✓✔])\s*")
+#: «3/5»: el avance que exportaba la columna informativa «Checklist» antes de
+#: que fuera importable. No es un paso.
+_AVANCE = re.compile(r"\d+\s*/\s*\d+")
+
+
+def checklist_texto(card: Card) -> str:
+    """Un paso por línea; los marcados con `[x]` delante."""
+    return "\n".join(f"{HECHO} {i.texto}" if i.hecho else i.texto for i in card.checklist.all())
+
+
+def leer_checklist(texto) -> list[tuple[str, bool]]:
+    """«Diseño\\n[x] Pruebas» → [("Diseño", False), ("Pruebas", True)]."""
+    texto = str(texto or "").strip()
+    if not texto or _AVANCE.fullmatch(texto):
+        return []
+    pasos = []
+    for linea in texto.splitlines():
+        linea = linea.strip()
+        marcado = _MARCADO.match(linea)
+        linea = linea[marcado.end():] if marcado else _VINETAS.sub("", linea)
+        if linea.strip():
+            pasos.append((linea.strip(), bool(marcado)))
+    return pasos
+
+
 def responsables_texto(card: Card) -> str:
     return ", ".join(nombre_persona(a.usuario) for a in card.asignaciones.all())
 

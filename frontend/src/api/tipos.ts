@@ -275,6 +275,8 @@ export type FilaVistaPrevia = {
   /** Etiquetas (incluidas en `etiquetas`) que se crearán al importar. */
   etiquetas_nuevas: string[];
   depende: string[];
+  /** Pasos del checklist que trae la fila. */
+  checklist: number;
   /** Con errores la fila no se importa; con avisos, se importa con un ajuste. */
   errores: string[];
   avisos: string[];

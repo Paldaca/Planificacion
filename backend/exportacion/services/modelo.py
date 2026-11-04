@@ -27,5 +27,7 @@ class FilaEntrada:
     etiquetas: list[str] = field(default_factory=list)
     #: Valores de campos personalizados por nombre del campo (fase 5).
     campos: dict[str, object] = field(default_factory=dict)
+    #: Pasos del checklist: (texto, hecho).
+    checklist: list[tuple[str, bool]] = field(default_factory=list)
     errores: list[str] = field(default_factory=list)
     avisos: list[str] = field(default_factory=list)

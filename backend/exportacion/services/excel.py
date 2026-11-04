@@ -5,7 +5,9 @@ Excel (.xlsx) con openpyxl.
   aplicados) y una fila por tarjeta con las columnas de importación (así un
   archivo exportado se puede volver a importar: la importación busca la fila
   de encabezados) más columnas informativas que la importación ignora
-  (vencimiento, días hábiles, checklist, Gantt). Mismo criterio de
+  (vencimiento, días hábiles, avance del checklist, Gantt). El checklist va
+  completo en su columna importable: un paso por línea, los marcados con
+  `[x]` delante. Mismo criterio de
   presentación que el desglose de Nómina (`Reportes/services/desglose_excel.py`):
   valores reales con formato, bordes, filas alternadas y sin cuadrícula.
 - **Gantt:** las tarjetas incluidas en el Gantt, con los días pintados del
@@ -29,7 +31,16 @@ from openpyxl.worksheet.datavalidation import DataValidation
 from calendario.services.dias_habiles import duracion_habil, feriados_entre
 from tableros.models import Urgencia
 
-from .datos import Contenido, etiquetas_texto, leer_referencias, normalizar, referencia, responsables_texto
+from .datos import (
+    Contenido,
+    checklist_texto,
+    etiquetas_texto,
+    leer_checklist,
+    leer_referencias,
+    normalizar,
+    referencia,
+    responsables_texto,
+)
 from .modelo import FilaEntrada
 
 # --- Estilo (los colores de la Suite y de la escala de urgencia de la app) ---------------
@@ -67,11 +78,12 @@ COLUMNAS_IMPORTABLES = [
     ("Depende de", 14),
     ("Descripción", 50),
     ("Etiquetas", 20),
+    ("Checklist", 40),
 ]
 #: Después de las importables van los campos personalizados del tablero (una
 #: columna por campo, con su nombre como encabezado; también se importan).
 #: Solo informativas (la importación las ignora).
-COLUMNAS_INFORMATIVAS = [("Vencimiento", 14), ("Días hábiles", 12), ("Checklist", 11), ("En Gantt", 10)]
+COLUMNAS_INFORMATIVAS = [("Vencimiento", 14), ("Días hábiles", 12), ("Avance del checklist", 11), ("En Gantt", 10)]
 
 #: Encabezados aceptados al importar (sin tildes ni mayúsculas).
 ALIAS = {
@@ -85,6 +97,9 @@ ALIAS = {
     "depende": {"depende de", "predecesoras", "dependencias"},
     "descripcion": {"descripcion", "notas", "detalle"},
     "etiquetas": {"etiquetas", "etiqueta"},
+    # «Checklist» también era el encabezado del avance («3/5») en los Excel
+    # exportados antes de que fuera importable: `leer_checklist` lo descarta.
+    "checklist": {"checklist", "pasos del checklist", "pasos"},
 }
 
 DIAS_MAXIMOS_POR_DIA = 366
@@ -170,6 +185,7 @@ def _hoja_tarjetas(hoja, c: Contenido) -> None:
     hoja.sheet_view.showGridLines = False
     columnas = COLUMNAS_IMPORTABLES + [(campo.nombre, 16) for campo in c.campos] + COLUMNAS_INFORMATIVAS
     col_urgencia = 4
+    col_checklist = len(COLUMNAS_IMPORTABLES)
     col_vencimiento = len(COLUMNAS_IMPORTABLES) + len(c.campos) + 1
     _identificacion(hoja, c, len(columnas))
     _encabezados(hoja, columnas, fila=FILA_ENCABEZADOS)
@@ -199,6 +215,7 @@ def _hoja_tarjetas(hoja, c: Contenido) -> None:
             ", ".join(predecesoras.get(card.pk, [])),
             card.descripcion,
             etiquetas_texto(card),
+            checklist_texto(card),
             *[(card.campos or {}).get(str(campo.pk)) for campo in c.campos],
             ETIQUETA_VENCIMIENTO.get(venc, venc),
             duracion_habil(card.fecha_inicio, card.fecha_fin) if card.fecha_inicio and card.fecha_fin else None,
@@ -209,7 +226,7 @@ def _hoja_tarjetas(hoja, c: Contenido) -> None:
         for col, valor in enumerate(valores, start=1):
             celda = hoja.cell(row=fila, column=col, value=valor)
             celda.border = _BORDE_CELDA
-            celda.alignment = Alignment(vertical="top")
+            celda.alignment = Alignment(vertical="top", wrap_text=col == col_checklist)
             if alterna:
                 celda.fill = _ALTERNA
             if isinstance(valor, datetime.date):
@@ -349,7 +366,8 @@ def plantilla(nombres_columnas: list[str], campos: list | None = None) -> bytes:
         ("Depende de", "Números de otras filas: 3 (empieza cuando la 3 termina), 3CC (empieza cuando la 3 empieza), 3FF (termina cuando la 3 termina). Desfase en días hábiles: 3+2, 3CC-1."),
         ("Descripción", "Opcional."),
         ("Etiquetas", "Nombres de etiquetas del tablero separados por comas."),
-        ("Campos propios", "Las columnas después de «Etiquetas» son los campos personalizados del tablero."),
+        ("Checklist", "Un paso por línea (Alt+Enter dentro de la celda). Con [x] delante, el paso se crea marcado. Hasta 100 por tarjeta."),
+        ("Campos propios", "Las columnas después de «Checklist» son los campos personalizados del tablero."),
         ("", ""),
         ("Nota", "Un Excel exportado desde Planificación también se puede importar tal cual."),
     ]
@@ -460,6 +478,7 @@ def leer(contenido_archivo: bytes, limite: int | None = None) -> list[FilaEntrad
                 depende=refs,
                 etiquetas=etiquetas,
                 campos=campos,
+                checklist=leer_checklist(valor(fila, "checklist")),
                 errores=errores,
             )
         )
