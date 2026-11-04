@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import adjuntos, checklist, columnas, comentarios, configuracion, mis_tareas, tableros, tarjetas
+from .views import adjuntos, checklist, columnas, comentarios, configuracion, mis_tareas, recurrencias, tableros, tarjetas
 
 urlpatterns = [
     # Tableros
@@ -39,7 +39,15 @@ urlpatterns = [
     path("tableros/<int:pk>/etiquetas/", configuracion.EtiquetasView.as_view(), name="tablero-etiquetas"),
     path("etiquetas/<int:pk>/", configuracion.EtiquetaDetalleView.as_view(), name="etiqueta-detalle"),
     path("tableros/<int:pk>/campos/", configuracion.CamposView.as_view(), name="tablero-campos"),
+    path(
+        "tableros/<int:pk>/asignar-en-lote/", configuracion.AsignarEnLoteView.as_view(), name="tablero-asignar-en-lote"
+    ),
     path("campos/<int:pk>/", configuracion.CampoDetalleView.as_view(), name="campo-detalle"),
     # Mis tareas
+    # Tarjetas recurrentes
+    path("tableros/<int:pk>/recurrencias/", recurrencias.RecurrenciasView.as_view(), name="tablero-recurrencias"),
+    path("cards/<int:pk>/recurrencia/", recurrencias.CardRecurrenciaView.as_view(), name="card-recurrencia"),
+    path("recurrencias/<int:pk>/", recurrencias.RecurrenciaDetalleView.as_view(), name="recurrencia-detalle"),
+
     path("mis-tareas/", mis_tareas.MisTareasView.as_view(), name="mis-tareas"),
 ]

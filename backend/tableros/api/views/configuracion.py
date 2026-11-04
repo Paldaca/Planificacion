@@ -1,5 +1,6 @@
-"""Configuración de un tablero (fase 5): etiquetas y campos personalizados.
-Solo quien gestiona el tablero (como las columnas)."""
+"""Configuración de un tablero (fase 5): etiquetas, campos personalizados y
+el atajo de asignar por etiqueta o por opción de un campo de lista. Solo quien
+gestiona el tablero (como las columnas)."""
 
 from __future__ import annotations
 
@@ -12,8 +13,15 @@ from rest_framework.views import APIView
 from tableros.models import CampoPersonalizado, Etiqueta
 from tableros.services import campos as servicio_campos
 from tableros.services import etiquetas as servicio_etiquetas
+from tableros.services import tarjetas as servicio_tarjetas
 
-from ..serializers import CampoEscrituraSerializer, CampoSerializer, EtiquetaEscrituraSerializer, EtiquetaSerializer
+from ..serializers import (
+    AsignarEnLoteSerializer,
+    CampoEscrituraSerializer,
+    CampoSerializer,
+    EtiquetaEscrituraSerializer,
+    EtiquetaSerializer,
+)
 from .comunes import obtener_tablero
 
 
@@ -49,6 +57,17 @@ class EtiquetaDetalleView(APIView):
     def delete(self, request, pk):
         servicio_etiquetas.eliminar_etiqueta(self._obtener(request, pk))
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class AsignarEnLoteView(APIView):
+    """POST {usuario, etiqueta} o {usuario, campo, opcion}, y `reemplazar`."""
+
+    def post(self, request, pk):
+        tablero = obtener_tablero(request, pk, gestionar=True)
+        datos = AsignarEnLoteSerializer(data=request.data, context={"tablero": tablero})
+        datos.is_valid(raise_exception=True)
+        resultado = servicio_tarjetas.asignar_en_lote(tablero, actor=request.user, **datos.validated_data)
+        return Response(resultado)
 
 
 class CamposView(APIView):

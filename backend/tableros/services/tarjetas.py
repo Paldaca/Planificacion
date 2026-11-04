@@ -16,7 +16,7 @@ from django.db.models import Max
 from django.utils import timezone
 
 from core.errores import ConflictoDeVersion, ReglaDeNegocio
-from tableros.models import Actividad, Card, Columna, ResponsableCard, Tablero
+from tableros.models import Actividad, CampoPersonalizado, Card, Columna, Etiqueta, ResponsableCard, Tablero, TipoCampo
 from tableros.signals import tarjeta_trasladada
 
 from . import actividad, avisos, campos as servicio_campos, vencimientos
@@ -169,10 +169,13 @@ def editar_card(
     columna: Columna | None = None,
     etiquetas: Iterable | None = None,
     valores_campos: dict | None = None,
+    avisar: bool = True,
     **campos,
 ) -> Card:
     """Edita campos, responsables, etiquetas, campos personalizados (ya
-    validados) y, opcional, la columna. Lanza ConflictoDeVersion."""
+    validados) y, opcional, la columna. Lanza ConflictoDeVersion.
+    `avisar=False`: sin aviso de asignación (`asignar_en_lote` manda uno
+    agrupado)."""
     actual = Card.objects.select_for_update().select_related("tablero__equipo", "columna").get(pk=card.pk)
     if version != actual.version:
         raise ConflictoDeVersion(actual)
@@ -196,9 +199,65 @@ def editar_card(
         desde = actual.columna.nombre
         _reubicar(actual, columna, posicion=10**6)
         actividad.registrar(actual, actor, Actividad.Accion.MOVIO, desde=desde, hacia=columna.nombre)
-    avisos.avisar_asignacion(actual, nuevos, actor)
+    if avisar:
+        avisos.avisar_asignacion(actual, nuevos, actor)
     vencimientos.sincronizar(actual)
     return actual
+
+
+@transaction.atomic
+def asignar_en_lote(
+    tablero: Tablero,
+    *,
+    usuario,
+    actor,
+    etiqueta: Etiqueta | None = None,
+    campo: CampoPersonalizado | None = None,
+    opcion: str | None = None,
+    reemplazar: bool = False,
+) -> dict:
+    """Atajo: hace a `usuario` responsable de todas las tarjetas **abiertas**
+    que llevan `etiqueta` o tienen `opcion` en el campo de lista `campo` (una
+    fase, por ejemplo). `reemplazar`: queda como único responsable; si no, se
+    suma a los que ya había. Cada tarjeta pasa por `editar_card` (historial y
+    versión) y la persona recibe un solo aviso. Devuelve
+    `{"tarjetas": las que cumplen, "cambiadas": las que cambiaron}`."""
+    if (etiqueta is None) == (campo is None):
+        raise ReglaDeNegocio("Elige una etiqueta o una opción de un campo de lista.")
+    if usuario.pk not in {p.pk for p in tablero.personas_asignables()}:
+        raise ReglaDeNegocio("Esa persona no puede ser responsable en este tablero.")
+    cards = Card.objects.filter(tablero=tablero).activas().abiertas().prefetch_related("asignaciones__usuario")
+    if etiqueta is not None:
+        if etiqueta.tablero_id != tablero.pk:
+            raise ReglaDeNegocio("Esa etiqueta no es de este tablero.")
+        cards = list(cards.filter(etiquetas=etiqueta).order_by("numero"))
+        motivo = f"la etiqueta «{etiqueta.nombre}»"
+    else:
+        if campo.tablero_id != tablero.pk or campo.archivado or campo.tipo != TipoCampo.LISTA:
+            raise ReglaDeNegocio("Elige un campo de lista activo de este tablero.")
+        if opcion not in campo.opciones:
+            raise ReglaDeNegocio(f"«{opcion}» no es una opción de «{campo.nombre}».")
+        # En Python y no con un filtro JSON (como `campos._renombrar_opciones`).
+        cards = [c for c in cards.order_by("numero") if (c.campos or {}).get(str(campo.pk)) == opcion]
+        motivo = f"«{campo.nombre}: {opcion}»"
+    cambiadas, nuevas = [], []
+    for card in cards:
+        actuales = [a.usuario for a in card.asignaciones.all()]
+        ya_estaba = any(u.pk == usuario.pk for u in actuales)
+        if reemplazar:
+            if ya_estaba and len(actuales) == 1:
+                continue
+            deseados = [usuario]
+        else:
+            if ya_estaba:
+                continue
+            deseados = [*actuales, usuario]
+        editar_card(card, actor=actor, version=card.version, responsables=deseados, avisar=False)
+        cambiadas.append(card)
+        if not ya_estaba:
+            nuevas.append(card)
+    avisos.avisar_asignacion_en_lote(tablero, usuario, nuevas, actor, motivo=motivo)
+    return {"tarjetas": len(cards), "cambiadas": len(cambiadas)}
 
 
 @transaction.atomic
@@ -259,6 +318,9 @@ def trasladar_card(card: Card, *, destino: Tablero, actor) -> Card:
     card.numero = _tomar_numero(destino)
     card.tablero = destino
     card.columna = columna
+    # Una serie recurrente es de su tablero: la tarjeta trasladada sale de ella.
+    card.recurrencia = None
+    card.ocurrencia = None
     card.orden = _al_final_de(columna)
     card.version += 1
     card.alinear_con_columna(columna, timezone.now())

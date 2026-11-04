@@ -1,6 +1,16 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { CalendarDays, CircleCheck, Hourglass, ListChecks, Maximize2, MessageSquare, Paperclip, TextAlignStart } from "lucide-react";
+import {
+  CalendarDays,
+  CircleCheck,
+  Hourglass,
+  ListChecks,
+  Maximize2,
+  MessageSquare,
+  Paperclip,
+  Repeat,
+  TextAlignStart,
+} from "lucide-react";
 import { memo, type CSSProperties } from "react";
 
 import { urlImagen } from "@/api/adjuntos";
@@ -198,6 +208,7 @@ export function CuerpoTarjeta({
           </span>
         )}
         {card.tiene_descripcion && <TextAlignStart className="size-3.5 text-tenue/70" aria-label="Tiene descripción" />}
+        {card.recurrencia !== null && <Repeat className="size-3.5 text-tenue/70" aria-label="Tarjeta que se repite" />}
         {card.comentarios > 0 && (
           <span className="inline-flex items-center gap-0.5 text-[0.72rem] font-medium text-tenue">
             <MessageSquare className="size-3.5" />

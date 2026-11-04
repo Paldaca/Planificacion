@@ -62,6 +62,37 @@ def avisar_asignacion(card, nuevos, actor) -> None:
     )
 
 
+def avisar_asignacion_en_lote(tablero, usuario, cards, actor, *, motivo: str) -> None:
+    """Un solo aviso por las tarjetas que `asignar_en_lote` le dio a `usuario`."""
+    if not cards or usuario.pk == getattr(actor, "pk", None) or not permisos.puede_ver_tablero(usuario, tablero):
+        return
+    cantidad = len(cards)
+    lugar = f"{tablero.nombre} · {tablero.equipo.nombre}" if tablero.equipo_id else tablero.nombre
+    n.emitir(
+        codigo=n.CARD_ASIGNADA,
+        titulo=f"Te asignaron {cantidad} tarjeta{'s' if cantidad != 1 else ''} en {tablero.nombre}",
+        cuerpo=f"{nombre(actor)} te hizo responsable de las tarjetas de {motivo} en {lugar}.",
+        destinatarios=[usuario],
+        actor=actor,
+        ruta=f"/tableros/{tablero.pk}",
+    )
+
+
+def avisar_recurrente(card, responsables) -> None:
+    """La tarjeta de una serie recién creada: la crea el sistema, así que
+    avisa a todos sus responsables, también a quien armó la serie."""
+    destinatarios = con_acceso(card, responsables)
+    if not destinatarios:
+        return
+    n.emitir(
+        codigo=n.CARD_ASIGNADA,
+        titulo=f"Recordatorio: «{card.titulo}»",
+        cuerpo=f"Tarjeta que se repite en {donde(card)}. Vence el {dia(card.fecha_fin)}.",
+        destinatarios=destinatarios,
+        ruta=ruta(card),
+    )
+
+
 def avisar_menciones(comentario, mencionados, actor) -> list:
     """Avisa a los mencionados con acceso al tablero. Devuelve a quiénes."""
     card = comentario.card

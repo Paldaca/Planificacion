@@ -15,12 +15,15 @@ from tableros.models import (
     Comentario,
     EnGantt,
     Etiqueta,
+    Frecuencia,
     ItemChecklist,
+    Recurrencia,
     TIPOS_IMAGEN,
     Tablero,
     TipoCampo,
     Urgencia,
 )
+from tableros.services import recurrencias as servicio_recurrencias
 from tableros.services.adjuntos import es_imagen
 from tableros.services.campos import validar_valores
 from tableros.services.favoritos import ids_favoritos
@@ -97,6 +100,7 @@ class CardResumenSerializer(serializers.ModelSerializer):
             "portada",
             "vencimiento",
             "completada_en",
+            "recurrencia",
             "version",
             "actualizado_en",
         ]
@@ -213,6 +217,76 @@ class CardDetalleSerializer(CardResumenSerializer):
 
     def get_permisos(self, card):
         return {"editar": permisos.puede_editar_tablero(self.context["request"].user, card.tablero)}
+
+
+class RecurrenciaSerializer(serializers.ModelSerializer):
+    """Una serie de tarjetas recurrentes, con sus fechas ya calculadas."""
+
+    titulo = serializers.SerializerMethodField()
+    descripcion = serializers.SerializerMethodField()
+    vence = serializers.SerializerMethodField()
+    se_crea = serializers.SerializerMethodField()
+    tarjetas = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Recurrencia
+        fields = [
+            "id", "titulo", "descripcion", "frecuencia", "intervalo", "dia", "anticipacion",
+            "activa", "proxima", "vence", "se_crea", "tarjetas",
+        ]
+
+    def get_titulo(self, regla):
+        return regla.modelo.get("titulo", "")
+
+    def get_descripcion(self, regla):
+        return servicio_recurrencias.describir(regla)
+
+    def get_vence(self, regla):
+        return servicio_recurrencias.vence(regla.proxima)
+
+    def get_se_crea(self, regla):
+        return servicio_recurrencias.se_crea(regla)
+
+    def get_tarjetas(self, regla):
+        return regla.cards.count()
+
+
+class RecurrenciaEscrituraSerializer(serializers.Serializer):
+    frecuencia = serializers.ChoiceField(choices=Frecuencia.choices, required=False)
+    intervalo = serializers.IntegerField(min_value=1, max_value=servicio_recurrencias.MAX_INTERVALO, required=False)
+    dia = serializers.IntegerField(min_value=0, max_value=31, required=False)
+    anticipacion = serializers.IntegerField(
+        min_value=0, max_value=servicio_recurrencias.MAX_ANTICIPACION, required=False
+    )
+    activa = serializers.BooleanField(required=False)
+    #: Id de una tarjeta de la serie cuyo contenido pasa a ser el modelo.
+    modelo_desde = serializers.IntegerField(required=False)
+
+
+class AsignarEnLoteSerializer(serializers.Serializer):
+    """Atajo de asignación: ids → objetos del tablero (`context["tablero"]`)."""
+
+    usuario = serializers.IntegerField()
+    etiqueta = serializers.IntegerField(required=False)
+    campo = serializers.IntegerField(required=False)
+    opcion = serializers.CharField(max_length=60, required=False)
+    reemplazar = serializers.BooleanField(required=False, default=False)
+
+    def validate(self, datos):
+        tablero = self.context["tablero"]
+        usuario = next((u for u in tablero.personas_asignables() if u.pk == datos["usuario"]), None)
+        if usuario is None:
+            raise serializers.ValidationError({"usuario": "Solo puedes asignar a personas de este tablero."})
+        datos["usuario"] = usuario
+        if "etiqueta" in datos:
+            datos["etiqueta"] = tablero.etiquetas.filter(pk=datos["etiqueta"]).first()
+            if datos["etiqueta"] is None:
+                raise serializers.ValidationError({"etiqueta": "La etiqueta no es de este tablero."})
+        if "campo" in datos:
+            datos["campo"] = tablero.campos.filter(pk=datos["campo"]).first()
+            if datos["campo"] is None:
+                raise serializers.ValidationError({"campo": "El campo no es de este tablero."})
+        return datos
 
 
 class CardEscrituraSerializer(serializers.Serializer):

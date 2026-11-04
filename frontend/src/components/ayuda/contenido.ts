@@ -139,6 +139,28 @@ const TABLERO: TemaAyuda = {
       ],
     },
     {
+      id: "asignar",
+      titulo: "Asignar todas las tarjetas de una etiqueta o de una fase",
+      parrafos: [
+        "En **Etiquetas y campos… → Asignar** eliges una etiqueta (o una opción de un campo de lista, como una **Fase**) y una persona: queda como responsable de **todas las tarjetas abiertas** que la llevan. Sirve para repartir un plan recién importado: cada fase a quien la hace.",
+        "• Se suma a los responsables que ya había; con **Solo esta persona** los reemplaza.",
+        "• Las tarjetas terminadas o archivadas no se tocan, y las que se creen después no se asignan solas.",
+        "• Cada cambio queda en el historial de su tarjeta y la persona recibe **un solo aviso**. Solo quien gestiona el tablero lo puede hacer.",
+      ],
+    },
+    {
+      id: "recurrentes",
+      titulo: "Tarjetas que se repiten (recordatorios)",
+      parrafos: [
+        "Para lo que hay que hacer en una fecha fija: el respaldo de cada mes, el informe del viernes, un mantenimiento cada tres meses. Abre la tarjeta y, en **Repetir**, elige **cada cuánto** (semanas o meses), **qué día vence** y con cuántos **días hábiles de anticipación** aparece.",
+        "• Cada tarjeta nueva copia la original (título, descripción, columna, responsables, etiquetas, campos y checklist) y lleva el periodo en el título: «Respaldo · noviembre 2026».",
+        "• Si el día no es hábil, vence el hábil anterior; «último del mes» vence el último día de cada mes.",
+        "• Se crea aunque la anterior no se haya terminado: cada periodo es su propia tarea, y la anterior ya avisa que está vencida.",
+        "• **Usar como modelo** (en una tarjeta de la serie) hace que las próximas copien esa tarjeta tal como está. Las ves todas, las pausas o las quitas en **Etiquetas y campos… → Recurrentes**; quitar una no borra las tarjetas que ya creó.",
+        "• Las crea el programa una vez al día, temprano, y avisa a sus responsables. Solo quien gestiona el tablero las arma o las cambia.",
+      ],
+    },
+    {
       id: "filtros",
       titulo: "Buscar y filtrar",
       parrafos: [

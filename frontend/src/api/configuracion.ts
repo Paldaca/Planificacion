@@ -57,6 +57,25 @@ export function useEliminarEtiqueta(tableroId: number) {
   });
 }
 
+// --- Asignar por etiqueta o por fase ---------------------------------------------------
+
+/** Qué tarjetas: las de una etiqueta o las que tienen una opción de un campo de lista. */
+export type GrupoAsignacion = { etiqueta: number } | { campo: number; opcion: string };
+
+export function useAsignarEnLote(tableroId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (datos: GrupoAsignacion & { usuario: number; reemplazar: boolean }) =>
+      api.post<{ tarjetas: number; cambiadas: number }>(`${V1}/tableros/${tableroId}/asignar-en-lote/`, datos),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: claves.tablero(tableroId) });
+      qc.invalidateQueries({ queryKey: ["card", tableroId] });
+      qc.invalidateQueries({ queryKey: claves.misTareas });
+    },
+    onError: avisarError,
+  });
+}
+
 // --- Campos personalizados ------------------------------------------------------------
 
 export type CambiosCampo = Partial<Pick<CampoPersonalizado, "nombre" | "opciones" | "visible_en_tarjeta" | "atajo_al_crear" | "orden" | "archivado">> & {

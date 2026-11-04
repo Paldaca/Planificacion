@@ -86,8 +86,34 @@ export type CardResumen = {
   portada: number | null;
   vencimiento: Vencimiento;
   completada_en: string | null;
+  /** Id de la serie si es una tarjeta recurrente (o la tarjeta de la que nació). */
+  recurrencia: number | null;
   version: number;
   actualizado_en: string;
+};
+
+export type Frecuencia = "semanal" | "mensual";
+
+/** Una tarjeta que se repite: cada `intervalo` semanas o meses, el `dia` (semanal: 0 = lunes; mensual: 1–31, 31 = último). */
+export type Recurrencia = {
+  id: number;
+  /** Título del modelo, sin el periodo que se agrega a cada tarjeta. */
+  titulo: string;
+  /** «Cada mes, el día 5». */
+  descripcion: string;
+  frecuencia: Frecuencia;
+  intervalo: number;
+  dia: number;
+  /** Días hábiles antes del vencimiento en que se crea la tarjeta. */
+  anticipacion: number;
+  activa: boolean;
+  /** Fecha de la serie sin ajustar a día hábil. */
+  proxima: string;
+  /** Cuándo vence la próxima tarjeta (día hábil). */
+  vence: string;
+  /** Cuándo se crea. */
+  se_crea: string;
+  tarjetas: number;
 };
 
 export type ItemChecklist = {

@@ -11,6 +11,7 @@ import {
   LayoutGrid,
   MessageSquare,
   Plus,
+  Repeat,
   Settings2,
   Tag,
   TextAlignStart,
@@ -48,6 +49,7 @@ import { Comentarios } from "./Comentarios";
 import { DependenciasTarjeta } from "./Dependencias";
 import { CamposTarjeta, EtiquetasTarjeta } from "./EtiquetasYCampos";
 import { Historial } from "./Historial";
+import { BotonRepetir, SerieTarjeta } from "./Repetir";
 
 type Props = {
   tableroId: number;
@@ -302,6 +304,12 @@ function Detalle({
             <Fechas card={card} puede={puede} onGuardar={guardar} />
           </Seccion>
 
+          {card.recurrencia !== null && (
+            <Seccion titulo="Se repite" icono={Repeat}>
+              <SerieTarjeta card={card} tablero={tablero} />
+            </Seccion>
+          )}
+
           {camposActivos.length > 0 && (
             <Seccion titulo="Campos" icono={Settings2}>
               <CamposTarjeta card={card} campos={camposActivos} puede={puede} onGuardar={guardar} />
@@ -333,6 +341,7 @@ function Detalle({
               </p>
             )}
             <p>Actualizada {haceCuanto(card.actualizado_en)}</p>
+            <BotonRepetir card={card} tablero={tablero} />
             {puede && <MoverATablero card={card} tablero={tablero} onTrasladada={onTrasladada} />}
             {card.permisos.editar && (
               <Boton

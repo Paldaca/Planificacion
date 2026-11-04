@@ -334,6 +334,12 @@ class Card(models.Model):
     )
     archivada = models.BooleanField(default=False)
     archivada_en = models.DateTimeField(null=True, blank=True)
+    #: Serie a la que pertenece (tarjeta recurrente) y la fecha de su vencimiento
+    #: en esa serie: una sola tarjeta por fecha, aunque el comando corra dos veces.
+    recurrencia = models.ForeignKey(
+        "Recurrencia", null=True, blank=True, on_delete=models.SET_NULL, related_name="cards"
+    )
+    ocurrencia = models.DateField(null=True, blank=True)
     version = models.PositiveIntegerField(default=1)
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)
@@ -345,6 +351,7 @@ class Card(models.Model):
         ordering = ["orden", "id"]
         constraints = [
             models.UniqueConstraint(fields=["tablero", "numero"], name="numero_card_unico_por_tablero"),
+            models.UniqueConstraint(fields=["recurrencia", "ocurrencia"], name="una_card_por_ocurrencia"),
             models.CheckConstraint(
                 condition=Q(fecha_inicio__isnull=True) | Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=F("fecha_inicio")),
                 name="card_fin_no_antes_de_inicio",
@@ -510,3 +517,40 @@ class Actividad(models.Model):
 
     def __str__(self):
         return f"{self.card_id} {self.accion}"
+
+
+class Frecuencia(models.TextChoices):
+    SEMANAL = "semanal", "Semanal"
+    MENSUAL = "mensual", "Mensual"
+
+
+class Recurrencia(models.Model):
+    """Tarjeta que se repite: cada `intervalo` semanas o meses, con vencimiento
+    el `dia` (semanal: 0 = lunes … 6 = domingo; mensual: 1–31, y si el mes es
+    más corto, su último día). Si el día no es hábil, vence el hábil anterior.
+    Cada tarjeta se crea `anticipacion` días hábiles antes de vencer, copiando
+    `modelo` (lo que tenía la tarjeta de la que nació). `proxima` es la fecha
+    de vencimiento de la siguiente que se creará. La crea `generar_recurrentes`
+    (comando diario); ver `services/recurrencias.py`."""
+
+    tablero = models.ForeignKey(Tablero, on_delete=models.CASCADE, related_name="recurrencias")
+    #: {titulo, descripcion, columna, urgencia, en_gantt, responsables [ids],
+    #: etiquetas [ids], campos {id: valor}, checklist [textos]}
+    modelo = models.JSONField(default=dict)
+    frecuencia = models.CharField(max_length=10, choices=Frecuencia.choices, default=Frecuencia.MENSUAL)
+    intervalo = models.PositiveSmallIntegerField(default=1)
+    dia = models.PositiveSmallIntegerField(default=1)
+    anticipacion = models.PositiveSmallIntegerField(default=5)
+    proxima = models.DateField()
+    activa = models.BooleanField(default=True)
+    creada_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "planificacion_recurrencia"
+        ordering = ["proxima", "id"]
+
+    def __str__(self):
+        return f"{self.modelo.get('titulo', '?')} ({self.frecuencia})"
