@@ -5,7 +5,7 @@ import { toast } from "sonner";
 
 import { mensajeError } from "@/api/client";
 import { useDescargarPlantilla, useImportar, useVistaPreviaImportacion } from "@/api/queries";
-import type { CrearFaltantes, FilaVistaPrevia, VistaPrevia } from "@/api/tipos";
+import type { CampoFaltante, CrearFaltantes, FilaVistaPrevia, VistaPrevia } from "@/api/tipos";
 import { Boton } from "@/components/ui/Boton";
 import { Dialogo } from "@/components/ui/Dialogo";
 import { Pildora } from "@/components/ui/Estados";
@@ -21,9 +21,10 @@ const ACEPTADOS = ".xlsx,.xml";
  * Excel exportado desde Planificación o XML de MS Project) → revisar la vista
  * previa (nada se guarda) → confirmar.
  *
- * Las columnas y etiquetas que el archivo nombra y el tablero no tiene salen
- * resumidas arriba de la vista previa; quien gestiona el tablero puede
- * crearlas al importar (casillas marcadas por defecto). Cambiar una casilla
+ * Las columnas, etiquetas y campos de lista (o sus opciones) que el archivo
+ * nombra y el tablero no tiene salen resumidos arriba de la vista previa;
+ * quien gestiona el tablero puede crearlos al importar (casillas marcadas por
+ * defecto; cada campo se puede dejar fuera). Cambiar una casilla
  * vuelve a pedir la vista previa: la decide el servidor.
  */
 export function ImportarDialogo({
@@ -40,7 +41,7 @@ export function ImportarDialogo({
 }) {
   const [archivo, setArchivo] = useState<File | null>(null);
   const [vista, setVista] = useState<VistaPrevia | null>(null);
-  const [crear, setCrear] = useState<CrearFaltantes>({ columnas: puedeCrear, etiquetas: puedeCrear });
+  const [crear, setCrear] = useState<CrearFaltantes>({ columnas: puedeCrear, etiquetas: puedeCrear, campos: puedeCrear, omitirCampos: [] });
   const [soloProblemas, setSoloProblemas] = useState(false);
   const [encima, setEncima] = useState(false);
   const entrada = useRef<HTMLInputElement>(null);
@@ -52,7 +53,7 @@ export function ImportarDialogo({
     setArchivo(null);
     setVista(null);
     setSoloProblemas(false);
-    setCrear({ columnas: puedeCrear, etiquetas: puedeCrear });
+    setCrear({ columnas: puedeCrear, etiquetas: puedeCrear, campos: puedeCrear, omitirCampos: [] });
     previa.reset();
   });
 
@@ -83,6 +84,7 @@ export function ImportarDialogo({
         const partes = [
           r.columnas_creadas.length ? `${r.columnas_creadas.length} columna${r.columnas_creadas.length === 1 ? "" : "s"} nueva${r.columnas_creadas.length === 1 ? "" : "s"}` : null,
           r.etiquetas_creadas.length ? `${r.etiquetas_creadas.length} etiqueta${r.etiquetas_creadas.length === 1 ? "" : "s"} nueva${r.etiquetas_creadas.length === 1 ? "" : "s"}` : null,
+          r.campos_creados.length ? `campo${r.campos_creados.length === 1 ? "" : "s"} ${r.campos_creados.join(", ")}` : null,
           r.dependencias ? `${r.dependencias} dependencia${r.dependencias === 1 ? "" : "s"}` : null,
           r.omitidas ? `${r.omitidas} fila${r.omitidas === 1 ? "" : "s"} con errores sin importar` : null,
         ].filter(Boolean);
@@ -317,15 +319,19 @@ function Faltantes({
   onCambio: (cambio: Partial<CrearFaltantes>) => void;
   recalculando: boolean;
 }) {
-  const { columnas, etiquetas, primera_columna } = vista.faltantes;
-  if (!columnas.length && !etiquetas.length) return null;
+  const { columnas, etiquetas, campos, primera_columna } = vista.faltantes;
+  if (!columnas.length && !etiquetas.length && !campos.length) return null;
   const puede = vista.puede_crear;
   const plural = (n: number, uno: string, varios: string) => (n === 1 ? `1 ${uno}` : `${n} ${varios}`);
   return (
     <div className={cn("space-y-3 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-4 py-3 text-sm", recalculando && "opacity-70")}>
       <p className="flex items-start gap-2 font-medium text-[#92400e]">
         <CircleAlert className="mt-0.5 size-4 shrink-0" />
-        El archivo usa {[columnas.length && plural(columnas.length, "columna", "columnas"), etiquetas.length && plural(etiquetas.length, "etiqueta", "etiquetas")]
+        El archivo usa {[
+          columnas.length && plural(columnas.length, "columna", "columnas"),
+          etiquetas.length && plural(etiquetas.length, "etiqueta", "etiquetas"),
+          campos.length && plural(campos.length, "campo de lista", "campos de lista"),
+        ]
           .filter(Boolean)
           .join(" y ")}{" "}
         que este tablero no tiene.
@@ -348,6 +354,14 @@ function Faltantes({
           onCambio={(v) => onCambio({ etiquetas: v })}
           textoCrear={`Crear ${plural(etiquetas.length, "etiqueta", "etiquetas")} (cada una con su color)`}
           textoSin="Sin crearlas, no se asignan."
+        />
+      )}
+      {campos.length > 0 && (
+        <CamposFaltantes
+          campos={campos}
+          puede={puede}
+          crear={crear}
+          onCambio={onCambio}
         />
       )}
       {!puede && (
@@ -390,6 +404,68 @@ function GrupoFaltante({
         </label>
       ) : null}
       {(!puede || !marcado) && <p className="text-xs text-[#92400e]">{textoSin}</p>}
+    </div>
+  );
+}
+
+/**
+ * Campos de lista que el archivo usa: nuevos (con todas sus opciones, en el
+ * orden del archivo) o existentes a los que les faltan opciones. Una casilla
+ * para todos y una por campo para dejarlo fuera.
+ */
+function CamposFaltantes({
+  campos,
+  puede,
+  crear,
+  onCambio,
+}: {
+  campos: CampoFaltante[];
+  puede: boolean;
+  crear: CrearFaltantes;
+  onCambio: (cambio: Partial<CrearFaltantes>) => void;
+}) {
+  const omitido = (nombre: string) => crear.omitirCampos.includes(nombre);
+  function alternar(nombre: string, incluir: boolean) {
+    const resto = crear.omitirCampos.filter((n) => n !== nombre);
+    onCambio({ omitirCampos: incluir ? resto : [...resto, nombre] });
+  }
+  return (
+    <div className="space-y-1.5">
+      <ul className="space-y-1">
+        {campos.map((c) => (
+          <li key={c.nombre} className="text-xs text-[#92400e]">
+            <label className={cn("inline-flex items-start gap-2", puede && crear.campos && "cursor-pointer")}>
+              {puede && crear.campos && (
+                <input
+                  type="checkbox"
+                  checked={!omitido(c.nombre)}
+                  onChange={(e) => alternar(c.nombre, e.target.checked)}
+                  className="mt-0.5 size-3.5 accent-morado"
+                />
+              )}
+              <span>
+                <span className="font-semibold">{c.nombre}</span>
+                {c.existe ? ` · le faltan ${c.opciones.length} opción${c.opciones.length === 1 ? "" : "es"}: ` : ` · lista nueva: `}
+                <span className="text-texto">{c.opciones.join(" · ")}</span>
+              </span>
+            </label>
+          </li>
+        ))}
+      </ul>
+      {puede ? (
+        <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-texto pointer-coarse:py-1">
+          <input
+            type="checkbox"
+            checked={crear.campos}
+            onChange={(e) => onCambio({ campos: e.target.checked })}
+            className="size-4 accent-morado"
+          />
+          Crear los campos de lista y agregar las opciones (en el orden del archivo)
+        </label>
+      ) : null}
+      {(!puede || !crear.campos) && (
+        <p className="text-xs text-[#92400e]">Sin crearlos, esos valores no se guardan en la tarjeta.</p>
+      )}
     </div>
   );
 }

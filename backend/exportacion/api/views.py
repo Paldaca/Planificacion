@@ -63,8 +63,9 @@ class PlantillaView(APIView):
 class ImportarView(APIView):
     """Multipart con `archivo`. Sin `confirmar`: vista previa (nada se guarda).
     Con `confirmar=true`: crea las filas válidas y sus dependencias.
-    `crear_columnas` / `crear_etiquetas`: crear las que el archivo nombra y el
-    tablero no tiene (solo quien gestiona el tablero)."""
+    `crear_columnas` / `crear_etiquetas` / `crear_campos`: crear lo que el
+    archivo nombra y el tablero no tiene (solo quien gestiona el tablero);
+    `omitir_campos` (repetible): campos de lista que no se crean ni amplían."""
 
     parser_classes = [MultiPartParser]
 
@@ -80,9 +81,11 @@ class ImportarView(APIView):
         crear = importacion.Crear(
             etiquetas=booleano(request, "crear_etiquetas", False),
             columnas=booleano(request, "crear_columnas", False),
+            campos=booleano(request, "crear_campos", False),
+            omitir_campos=frozenset(request.data.getlist("omitir_campos")),
         )
-        if (crear.etiquetas or crear.columnas) and not puede_crear:
-            raise PermissionDenied("Solo quien gestiona el tablero puede crear columnas y etiquetas.")
+        if (crear.etiquetas or crear.columnas or crear.campos) and not puede_crear:
+            raise PermissionDenied("Solo quien gestiona el tablero puede crear columnas, etiquetas y campos.")
         if booleano(request, "confirmar", False):
             resultado = importacion.importar(tablero, archivo.name, datos, actor=request.user, crear=crear)
             return Response(resultado, status=status.HTTP_201_CREATED)

@@ -461,6 +461,7 @@ const PREGUNTAS: TemaAyuda = {
       parrafos: [
         "Sí: **Excel / Project → Importar tarjetas…**. Descarga la plantilla, llénala y súbela (también acepta un XML de MS Project). Antes de crear nada ves cómo quedará cada tarjeta.",
         "El **checklist** va en su columna, un paso por línea (Alt+Enter dentro de la celda); con **[x]** delante el paso se crea marcado.",
+        "Si el archivo trae una columna como **Fase** que el tablero no tiene, o valores que no están en su lista, la vista previa te ofrece **crear el campo de lista** (con las opciones en el orden del archivo) o agregarle las opciones que faltan.",
       ],
     },
     {

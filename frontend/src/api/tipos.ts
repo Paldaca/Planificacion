@@ -289,14 +289,24 @@ export type VistaPrevia = {
   con_errores: number;
   dependencias: number;
   /** Lo que el archivo nombra y el tablero no tiene (sin repetir). */
-  faltantes: { columnas: string[]; etiquetas: string[]; primera_columna: string };
+  faltantes: { columnas: string[]; etiquetas: string[]; campos: CampoFaltante[]; primera_columna: string };
   /** Quien importa gestiona el tablero: puede crear columnas y etiquetas. */
   puede_crear: boolean;
   /** Impiden importar tal como se pide (p. ej. más etiquetas que el cupo). */
   problemas: string[];
 };
 
-export type CrearFaltantes = { columnas: boolean; etiquetas: boolean };
+export type CrearFaltantes = {
+  columnas: boolean;
+  etiquetas: boolean;
+  /** Campos de lista nuevos y opciones que faltan en los existentes. */
+  campos: boolean;
+  /** Nombres de los campos que no se crean ni amplían. */
+  omitirCampos: string[];
+};
+
+/** Un campo de lista que el archivo usa: nuevo (todas sus opciones) o existente (las que le faltan). */
+export type CampoFaltante = { nombre: string; opciones: string[]; existe: boolean };
 
 export type ResultadoImportacion = {
   creadas: number;
@@ -305,6 +315,7 @@ export type ResultadoImportacion = {
   avisos: string[];
   columnas_creadas: string[];
   etiquetas_creadas: string[];
+  campos_creados: string[];
 };
 
 // --- Plantillas (fase 5) -------------------------------------------------------------

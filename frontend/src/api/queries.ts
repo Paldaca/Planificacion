@@ -999,6 +999,8 @@ function formularioImportacion(archivo: File, confirmar: boolean, crear?: CrearF
   if (confirmar) datos.append("confirmar", "true");
   if (crear?.columnas) datos.append("crear_columnas", "true");
   if (crear?.etiquetas) datos.append("crear_etiquetas", "true");
+  if (crear?.campos) datos.append("crear_campos", "true");
+  for (const nombre of crear?.omitirCampos ?? []) datos.append("omitir_campos", nombre);
   return datos;
 }
 

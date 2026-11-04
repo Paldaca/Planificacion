@@ -1,11 +1,12 @@
-"""Importar con columnas y etiquetas que el tablero no tiene: resumen y creación."""
+"""Importar con columnas, etiquetas y campos de lista que el tablero no tiene: resumen y creación."""
 
 import io
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from openpyxl import Workbook
 
-from tableros.models import Card, Columna, Etiqueta, Tablero
+from tableros.models import CampoPersonalizado, Card, Columna, Etiqueta, Tablero
+from tableros.services.campos import MAX_OPCIONES, crear_campo
 from tableros.services.etiquetas import MAX_ETIQUETAS, crear_etiqueta
 
 from .test_exportacion import Base
@@ -110,3 +111,102 @@ class FaltantesTests(Base):
         self.assertEqual(r.status_code, 400)
         self.assertEqual(Card.objects.count(), antes)
         self.assertEqual(len(self.columnas()), 3)  # tampoco quedan columnas a medias
+
+
+def excel_campos(encabezados, filas):
+    libro = Workbook()
+    hoja = libro.active
+    hoja.title = "Tarjetas"
+    hoja.append(encabezados)
+    for fila in filas:
+        hoja.append(fila)
+    salida = io.BytesIO()
+    libro.save(salida)
+    return salida.getvalue()
+
+
+# «Fase» y «Frente» parecen listas; «Horas» es un número y «Vencimiento» es
+# una columna informativa del Excel exportado: nunca se ofrecen.
+CON_CAMPOS = excel_campos(
+    ["#", "Título", "Fase", "Frente", "Horas", "Vencimiento"],
+    [
+        [1, "Repositorios", "F0 · Entorno", "A", 4, "Al día"],
+        [2, "Servidor", "F0 · Entorno", "A", 8, "Vencida"],
+        [3, "Modelos", "F2 · Identidad", "B", 6, "Al día"],
+        [4, "Pendiente sin fase", "", "A", None, ""],
+    ],
+)
+
+
+class CamposFaltantesTests(Base):
+    """Campos de lista que el archivo usa: se crean, o se les agregan las opciones."""
+
+    def importar_campos(self, confirmar=False, usuario=None, **extra):
+        cuerpo = {"archivo": SimpleUploadedFile("plan.xlsx", CON_CAMPOS)}
+        cuerpo |= {k: ("true" if v is True else v) for k, v in extra.items() if v}
+        if confirmar:
+            cuerpo["confirmar"] = "true"
+        with self.captureOnCommitCallbacks(execute=True):
+            return self.cliente(usuario or self.ana).post(
+                f"/api/v1/tableros/{self.tablero['id']}/importar/", cuerpo, format="multipart"
+            )
+
+    def campo(self, nombre):
+        return CampoPersonalizado.objects.get(tablero_id=self.tablero["id"], nombre=nombre, archivado=False)
+
+    def fase_de(self, titulo):
+        card = Card.objects.get(tablero_id=self.tablero["id"], titulo=titulo)
+        return (card.campos or {}).get(str(self.campo("Fase").pk))
+
+    def test_resumen_solo_ofrece_columnas_de_texto(self):
+        campos = self.importar_campos().json()["faltantes"]["campos"]
+        self.assertEqual(
+            campos,
+            [
+                {"nombre": "Fase", "opciones": ["F0 · Entorno", "F2 · Identidad"], "existe": False},
+                {"nombre": "Frente", "opciones": ["A", "B"], "existe": False},
+            ],
+        )
+
+    def test_crea_el_campo_de_lista_en_el_orden_del_archivo(self):
+        r = self.importar_campos(confirmar=True, crear_campos=True)
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(r.json()["campos_creados"], ["Fase", "Frente"])
+        fase = self.campo("Fase")
+        self.assertEqual((fase.tipo, fase.opciones, fase.visible_en_tarjeta), ("lista", ["F0 · Entorno", "F2 · Identidad"], True))
+        self.assertEqual(self.fase_de("Servidor"), "F0 · Entorno")
+        self.assertIsNone(self.fase_de("Pendiente sin fase"))
+        self.assertFalse(CampoPersonalizado.objects.filter(tablero_id=self.tablero["id"], nombre="Vencimiento").exists())
+
+    def test_omitir_un_campo(self):
+        r = self.importar_campos(confirmar=True, crear_campos=True, omitir_campos=["frente"])
+        self.assertEqual(r.json()["campos_creados"], ["Fase"])
+        self.assertFalse(CampoPersonalizado.objects.filter(tablero_id=self.tablero["id"], nombre="Frente").exists())
+
+    def test_agrega_las_opciones_que_le_faltan_a_un_campo_existente(self):
+        tablero = Tablero.objects.get(pk=self.tablero["id"])
+        crear_campo(tablero, nombre="Fase", tipo="lista", opciones=["F2 · Identidad", "Cierre"])
+        sin_crear = self.importar_campos().json()
+        self.assertEqual(sin_crear["faltantes"]["campos"][0], {"nombre": "Fase", "opciones": ["F0 · Entorno"], "existe": True})
+        self.assertTrue(any("no es una opción" in a for a in sin_crear["filas"][0]["avisos"]))
+        con_crear = self.importar_campos(crear_campos=True, omitir_campos=["Frente"]).json()
+        self.assertEqual(con_crear["filas"][0]["avisos"], [])
+        self.importar_campos(confirmar=True, crear_campos=True, omitir_campos=["Frente"])
+        self.assertEqual(self.campo("Fase").opciones, ["F2 · Identidad", "Cierre", "F0 · Entorno"])
+        self.assertEqual(self.fase_de("Repositorios"), "F0 · Entorno")
+        self.assertEqual(self.fase_de("Modelos"), "F2 · Identidad")
+
+    def test_sin_crear_no_cambia_nada(self):
+        self.importar_campos(confirmar=True)
+        self.assertFalse(CampoPersonalizado.objects.filter(tablero_id=self.tablero["id"]).exists())
+
+    def test_sin_permiso_de_gestionar_no_crea_campos(self):
+        self.assertEqual(self.importar_campos(confirmar=True, usuario=self.beto, crear_campos=True).status_code, 403)
+
+    def test_mas_opciones_que_el_maximo_no_crea_nada(self):
+        tablero = Tablero.objects.get(pk=self.tablero["id"])
+        crear_campo(tablero, nombre="Fase", tipo="lista", opciones=[f"O{i}" for i in range(MAX_OPCIONES - 1)])
+        antes = Card.objects.count()
+        self.assertTrue(self.importar_campos(crear_campos=True).json()["problemas"])
+        self.assertEqual(self.importar_campos(confirmar=True, crear_campos=True).status_code, 400)
+        self.assertEqual(Card.objects.count(), antes)

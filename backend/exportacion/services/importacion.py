@@ -20,6 +20,14 @@ importa gestiona el tablero y lo pide (`Crear`), `importar` las crea en la
 misma transacción que las tarjetas. Las columnas nuevas van antes de la
 columna final y **dentro del Gantt**: no se adivina nada por el nombre (una
 «Pendientes» se saca del Gantt a mano si se quiere).
+
+Campos de lista, con el mismo criterio: a un campo de lista del tablero le
+faltan opciones que el archivo usa, o una columna del archivo que no es campo
+parece una lista (solo texto, hasta 30 valores distintos de hasta 60
+caracteres). Con `Crear.campos` se agregan las opciones (al final, en el
+orden en que aparecen) o se crea el campo de lista con sus valores en ese
+orden, visible en la tarjeta. `Crear.omitir_campos` deja fuera los que no se
+quieren. Las columnas informativas del Excel exportado nunca se ofrecen.
 """
 
 from __future__ import annotations
@@ -34,10 +42,10 @@ from gantt.services.dependencias import crear_dependencia
 from integracion_portal.services import notificaciones as n
 from integracion_portal.services.personas import nombre as nombre_persona
 from tableros import permisos
-from tableros.models import Columna, Tablero, Urgencia
+from tableros.models import Columna, Tablero, TipoCampo, Urgencia
 from tableros.services import checklist as servicio_checklist
 from tableros.services import tarjetas
-from tableros.services.campos import valor_valido
+from tableros.services.campos import MAX_CAMPOS, MAX_OPCIONES, crear_campo, editar_campo, valor_valido
 from tableros.services.columnas import crear_columna, reordenar_columnas
 from tableros.services.etiquetas import MAX_ETIQUETAS, crear_etiqueta
 
@@ -61,6 +69,19 @@ class Crear:
 
     etiquetas: bool = False
     columnas: bool = False
+    #: Campos de lista nuevos y opciones que faltan en los existentes.
+    campos: bool = False
+    #: Nombres (como en `faltantes`) de los campos que no se crean ni amplían.
+    omitir_campos: frozenset[str] = frozenset()
+
+    def crea_campo(self, nombre: str) -> bool:
+        return self.campos and normalizar(nombre) not in {normalizar(o) for o in self.omitir_campos}
+
+
+#: Largo máximo de una opción de lista y del nombre de un campo (`tableros.services.campos`).
+MAX_LARGO_OPCION = 60
+#: Columnas del Excel exportado que nunca son un campo.
+_INFORMATIVAS = {normalizar(nombre) for nombre, _ in excel.COLUMNAS_INFORMATIVAS}
 
 
 _URGENCIAS = {normalizar(etiqueta): valor for valor, etiqueta in Urgencia.choices} | {
@@ -107,9 +128,10 @@ def leer_archivo(nombre: str, contenido: bytes) -> list[FilaEntrada]:
     return filas
 
 
-def faltantes(tablero: Tablero, entradas: list[FilaEntrada]) -> dict[str, list[str]]:
-    """Columnas y etiquetas que nombra el archivo y el tablero no tiene, sin
-    repetir (con la grafía de su primera aparición) y en ese orden."""
+def faltantes(tablero: Tablero, entradas: list[FilaEntrada]) -> dict[str, list]:
+    """Columnas, etiquetas y campos de lista (u opciones) que nombra el archivo
+    y el tablero no tiene, sin repetir (con la grafía de su primera aparición)
+    y en ese orden."""
     columnas = list(tablero.columnas.activas())
     por_nombre = {normalizar(c.nombre) for c in columnas}
     hay_final = any(c.es_final for c in columnas)
@@ -123,7 +145,46 @@ def faltantes(tablero: Tablero, entradas: list[FilaEntrada]) -> dict[str, list[s
         for nombre in e.etiquetas:
             if normalizar(nombre) not in etiquetas:
                 nuevas_et.setdefault(normalizar(nombre), nombre.strip())
-    return {"columnas": list(nuevas_col.values()), "etiquetas": list(nuevas_et.values())}
+    return {
+        "columnas": list(nuevas_col.values()),
+        "etiquetas": list(nuevas_et.values()),
+        "campos": _campos_faltantes(tablero, entradas),
+    }
+
+
+def _campos_faltantes(tablero: Tablero, entradas: list[FilaEntrada]) -> list[dict]:
+    """[{"nombre", "opciones", "existe"}]: opciones que les faltan a los campos
+    de lista del tablero (`existe`) y columnas del archivo que pueden ser un
+    campo de lista nuevo (todas sus opciones). En el orden del archivo."""
+    campos = {normalizar(c.nombre): c for c in tablero.campos.filter(archivado=False)}
+    valores: dict[str, list] = {}
+    nombres: dict[str, str] = {}
+    for e in entradas:
+        for nombre, valor in e.campos.items():
+            clave = normalizar(nombre)
+            nombres.setdefault(clave, nombre.strip())
+            valores.setdefault(clave, []).append(valor)
+    resultado = []
+    for clave, lista in valores.items():
+        campo = campos.get(clave)
+        if campo is not None:
+            if campo.tipo != TipoCampo.LISTA:
+                continue
+            nuevas = [
+                o for o in dict.fromkeys(str(v).strip() for v in lista)
+                if o and o not in campo.opciones and len(o) <= MAX_LARGO_OPCION
+            ]
+            if nuevas:
+                resultado.append({"nombre": campo.nombre, "opciones": nuevas, "existe": True})
+            continue
+        if clave in _INFORMATIVAS or len(nombres[clave]) > MAX_LARGO_OPCION:
+            continue
+        if not all(isinstance(v, str) for v in lista):
+            continue  # números o fechas: no es una lista
+        opciones = [o for o in dict.fromkeys(v.strip() for v in lista) if o]
+        if 0 < len(opciones) <= MAX_OPCIONES and all(len(o) <= MAX_LARGO_OPCION for o in opciones):
+            resultado.append({"nombre": nombres[clave], "opciones": opciones, "existe": False})
+    return resultado
 
 
 def resolver(tablero: Tablero, entradas: list[FilaEntrada], crear: Crear | None = None) -> list[FilaResuelta]:
@@ -197,7 +258,14 @@ def resolver(tablero: Tablero, entradas: list[FilaEntrada], crear: Crear | None 
         for nombre, valor in e.campos.items():
             campo = campos.get(normalizar(nombre))
             if campo is None:
-                continue  # columna que el tablero no conoce: se ignora
+                continue  # columna que el tablero no conoce: se ignora (o se creará)
+            if (
+                campo.tipo == TipoCampo.LISTA
+                and str(valor).strip() not in campo.opciones
+                and len(str(valor).strip()) <= MAX_LARGO_OPCION
+                and crear.crea_campo(campo.nombre)
+            ):
+                continue  # opción que se agregará al importar
             try:
                 normalizado = valor_valido(campo, valor)
             except ReglaDeNegocio as exc:
@@ -245,6 +313,21 @@ def _problemas(tablero: Tablero, falta: dict, crear: Crear) -> list[str]:
             f"El archivo usa {len(falta['etiquetas'])} etiquetas nuevas y a este tablero le caben "
             f"{max(cupo, 0)} más (máximo {MAX_ETIQUETAS}). Quita etiquetas del archivo o no las crees."
         ]
+    pedidos = [c for c in falta["campos"] if crear.crea_campo(c["nombre"])]
+    nuevos = [c for c in pedidos if not c["existe"]]
+    libres = MAX_CAMPOS - tablero.campos.filter(archivado=False).count()
+    if len(nuevos) > libres:
+        return [
+            f"El archivo trae {len(nuevos)} campos nuevos y a este tablero le caben {max(libres, 0)} más "
+            f"(máximo {MAX_CAMPOS}). Deja fuera alguno o no los crees."
+        ]
+    actuales = {normalizar(c.nombre): c for c in tablero.campos.filter(archivado=False)}
+    for c in pedidos:
+        if c["existe"] and len(actuales[normalizar(c["nombre"])].opciones) + len(c["opciones"]) > MAX_OPCIONES:
+            return [
+                f"«{c['nombre']}» quedaría con más de {MAX_OPCIONES} opciones. Quita las que no uses "
+                "en «Etiquetas y campos» o no lo amplíes."
+            ]
     return []
 
 
@@ -275,7 +358,7 @@ def _crear_faltantes(tablero: Tablero, entradas: list[FilaEntrada], crear: Crear
     problemas = _problemas(tablero, falta, crear)
     if problemas:
         raise ReglaDeNegocio(problemas[0])
-    creadas: dict[str, list[str]] = {"columnas": [], "etiquetas": []}
+    creadas: dict[str, list[str]] = {"columnas": [], "etiquetas": [], "campos": []}
     if crear.columnas and falta["columnas"]:
         existentes = list(tablero.columnas.activas())
         nuevas = [crear_columna(tablero, nombre=nombre) for nombre in falta["columnas"]]
@@ -290,6 +373,16 @@ def _crear_faltantes(tablero: Tablero, entradas: list[FilaEntrada], crear: Crear
         for i, nombre in enumerate(falta["etiquetas"]):
             etiqueta = crear_etiqueta(tablero, nombre=nombre[:40], color=libres[i % len(libres)])
             creadas["etiquetas"].append(etiqueta.nombre)
+    actuales = {normalizar(c.nombre): c for c in tablero.campos.filter(archivado=False)}
+    for c in falta["campos"]:
+        if not crear.crea_campo(c["nombre"]):
+            continue
+        if c["existe"]:
+            campo = actuales[normalizar(c["nombre"])]
+            editar_campo(campo, opciones=[*campo.opciones, *c["opciones"]])
+        else:
+            crear_campo(tablero, nombre=c["nombre"], tipo=TipoCampo.LISTA, opciones=c["opciones"], visible_en_tarjeta=True)
+        creadas["campos"].append(c["nombre"])
     return creadas
 
 
@@ -360,6 +453,7 @@ def importar(tablero: Tablero, nombre: str, contenido: bytes, *, actor, crear: C
         "avisos": omitidas_dep,
         "columnas_creadas": nuevas["columnas"],
         "etiquetas_creadas": nuevas["etiquetas"],
+        "campos_creados": nuevas["campos"],
     }
 
 
