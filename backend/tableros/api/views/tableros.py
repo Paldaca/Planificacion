@@ -75,6 +75,12 @@ class TableroDetalleView(APIView):
         servicio.editar_tablero(tablero, **datos.validated_data)
         return Response(detalle_tablero(request, tablero))
 
+    def delete(self, request, pk):
+        """Borra de verdad un tablero archivado (400 si no lo está)."""
+        tablero = obtener_tablero(request, pk, gestionar=True)
+        servicio.borrar_tablero(tablero, actor=request.user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class TableroArchivarView(APIView):
     def post(self, request, pk):

@@ -176,7 +176,8 @@ export type MisTarea = CardResumen & {
 
 export type TipoTablero = "personal" | "equipo";
 
-export type PermisosTablero = { editar: boolean; gestionar: boolean; archivar: boolean };
+/** `borrar`: borrarlo de verdad; solo si está archivado y lo gestiona quien consulta. */
+export type PermisosTablero = { editar: boolean; gestionar: boolean; archivar: boolean; borrar: boolean };
 
 export type TableroResumen = {
   id: number;

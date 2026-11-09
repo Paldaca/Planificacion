@@ -140,7 +140,8 @@ Reglas transversales:
   una edición con versión vieja responde **409** y el frontend ofrece recargar.
 - **Nada se borra físicamente** en la operación normal: cards, columnas y
   tableros se **archivan**. El borrado definitivo es una acción aparte y
-  explícita.
+  explícita: «Borrar tablero», solo para un tablero ya archivado y
+  escribiendo su nombre para confirmar (2026-11-04).
 
 ### 3.2 Frontend (React)
 

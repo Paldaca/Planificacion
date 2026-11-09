@@ -9,6 +9,7 @@ quien no lo tiene). Esto decide el acceso DENTRO del módulo:
 | Ver                                      | Solo dueño   | Miembros y lectores           |
 | Crear / editar / mover cards, comentar   | Solo dueño   | Administradores y miembros    |
 | Columnas, renombrar, archivar el tablero | Solo dueño   | Administradores del equipo    |
+| Borrar el tablero (solo si está archivado) | Solo dueño | Administradores del equipo    |
 
 El administrador del MÓDULO (según el Portal) ve y administra todos los
 equipos, para soporte; nunca ve tableros personales ajenos (D-07).
@@ -24,6 +25,7 @@ __all__ = [
     "membresia",
     "permisos_tablero",
     "puede_administrar_equipo",
+    "puede_borrar_tablero",
     "puede_editar_tablero",
     "puede_gestionar_tablero",
     "puede_ver_equipo",
@@ -61,7 +63,13 @@ def permisos_tablero(usuario, tablero) -> dict:
         "editar": puede_editar_tablero(usuario, tablero),
         "gestionar": puede_gestionar_tablero(usuario, tablero) and not tablero.archivado,
         "archivar": _puede_archivar(usuario, tablero),
+        "borrar": puede_borrar_tablero(usuario, tablero),
     }
+
+
+def puede_borrar_tablero(usuario, tablero) -> bool:
+    """Borrar de verdad: quien lo gestiona, y solo si ya está archivado."""
+    return tablero.archivado and puede_gestionar_tablero(usuario, tablero)
 
 
 def _puede_archivar(usuario, tablero) -> bool:

@@ -13,6 +13,7 @@ import {
   Pencil,
   RefreshCw,
   Settings2,
+  Trash2,
   UsersRound,
   UserCheck,
 } from "lucide-react";
@@ -35,6 +36,7 @@ import { CardDialogo } from "@/components/card/CardDialogo";
 import { Encabezado } from "@/components/layout/Encabezado";
 import { GuardarPlantillaDialogo } from "@/components/plantillas/GuardarPlantillaDialogo";
 import { AsignarDialogo } from "@/components/tablero/AsignarDialogo";
+import { BorrarTableroDialogo } from "@/components/tablero/BorrarTableroDialogo";
 import { ConfiguracionDialogo } from "@/components/tablero/ConfiguracionDialogo";
 import { ExportarPdfDialogo, type ConfigGantt } from "@/components/tablero/ExportarPdfDialogo";
 import { BarraFiltros } from "@/components/tablero/Filtros";
@@ -87,6 +89,7 @@ export default function TableroPage() {
   const [verArchivadas, setVerArchivadas] = useState(false);
   const [editando, setEditando] = useState(false);
   const [confirmarArchivo, setConfirmarArchivo] = useState(false);
+  const [confirmarBorrado, setConfirmarBorrado] = useState(false);
   const archivarTablero = useArchivarTablero(id);
   const exportar = useExportar(id);
   const [importando, setImportando] = useState(false);
@@ -138,7 +141,7 @@ export default function TableroPage() {
         texto={
           prohibido
             ? "Es un tablero personal de otra persona o de un equipo del que no eres miembro. Si deberías verlo, pide a un administrador del equipo que te invite."
-            : "Puede que lo hayan archivado o que el enlace esté incompleto."
+            : "Puede que lo hayan borrado o que el enlace esté incompleto."
         }
         accion={
           <Link to="/tableros">
@@ -307,6 +310,12 @@ export default function TableroPage() {
                 Restaurar tablero
               </Boton>
             )}
+            {tablero.archivado && permisos.borrar && (
+              <Boton variante="peligro" tamano="sm" onClick={() => setConfirmarBorrado(true)}>
+                <Trash2 />
+                <span className="max-sm:hidden">Borrar tablero</span>
+              </Boton>
+            )}
           </>
         }
       />
@@ -377,6 +386,13 @@ export default function TableroPage() {
         id={id}
         nombre={tablero.nombre}
         descripcion={tablero.descripcion}
+      />
+
+      <BorrarTableroDialogo
+        tablero={tablero}
+        abierto={confirmarBorrado}
+        onCerrar={() => setConfirmarBorrado(false)}
+        onBorrado={() => navigate(tablero.equipo ? `/equipos/${tablero.equipo.id}` : "/tableros", { replace: true })}
       />
 
       <Dialogo

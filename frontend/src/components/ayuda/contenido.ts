@@ -174,6 +174,7 @@ const TABLERO: TemaAyuda = {
       parrafos: [
         "Abre la tarjeta y pulsa **Archivar tarjeta**: deja de verse, pero conserva todo su historial.",
         "Con **Archivadas** ves las tarjetas archivadas del tablero y puedes restaurarlas.",
+        "Un **tablero** archivado sí se puede borrar para siempre, con todas sus tarjetas: en su página, **Borrar tablero** (o la papelera en Tableros → Archivados, para los personales). Hay que escribir su nombre para confirmar y no se puede deshacer. Solo lo hace quien gestiona el tablero.",
       ],
     },
   ],

@@ -1,14 +1,18 @@
-"""Tableros: alta con columnas predeterminadas, tablero personal, edición y archivo."""
+"""Tableros: alta con columnas predeterminadas, tablero personal, edición, archivo y borrado."""
 
 from __future__ import annotations
+
+import logging
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
 
 from core.errores import ReglaDeNegocio
-from tableros.models import COLUMNAS_PREDETERMINADAS, Columna, Tablero, TipoTablero
+from tableros.models import COLUMNAS_PREDETERMINADAS, Card, Columna, Tablero, TipoTablero
 
 NOMBRE_TABLERO_PERSONAL = "Mi tablero"
+
+logger = logging.getLogger("planificacion.tableros")
 
 
 MAX_ENTRADAS_AYUDA = 40
@@ -127,3 +131,24 @@ def archivar_tablero(tablero: Tablero, *, archivado: bool) -> Tablero:
     tablero.archivado = archivado
     tablero.save(update_fields=["archivado", "actualizado_en"])
     return tablero
+
+
+@transaction.atomic
+def borrar_tablero(tablero: Tablero, *, actor) -> None:
+    """Borra de verdad un tablero **archivado** y todo lo que tiene: columnas,
+    tarjetas (con su checklist, comentarios, adjuntos e historial),
+    dependencias, etiquetas, campos, recurrencias y favoritos. No se puede
+    deshacer: por eso solo se borra lo que ya se archivó (archivar es el paso
+    reversible). Las plantillas guardadas desde él no se tocan (son copias)."""
+    tablero = Tablero.objects.select_for_update().get(pk=tablero.pk)
+    if not tablero.archivado:
+        raise ReglaDeNegocio("Solo se puede borrar un tablero archivado: archívalo primero.")
+    pk, nombre, tarjetas = tablero.pk, tablero.nombre, tablero.cards.count()
+    # Primero las tarjetas: `Card.columna` es PROTECT, y la cascada desde el
+    # tablero llegaría a las columnas con sus tarjetas todavía colgando.
+    Card.objects.filter(tablero=tablero).delete()
+    tablero.delete()
+    logger.info(
+        "TABLERO_BORRADO | tablero=%s | nombre=%s | tarjetas=%s | por=%s",
+        pk, nombre, tarjetas, getattr(actor, "pk", None),
+    )

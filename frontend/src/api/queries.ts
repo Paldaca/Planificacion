@@ -319,6 +319,27 @@ export function useRestaurarTablero() {
   });
 }
 
+/** Borrar de verdad un tablero archivado, con todas sus tarjetas. No se deshace. */
+export function useBorrarTablero() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (t: Pick<TableroResumen, "id" | "equipo">) => api.del(`${V1}/tableros/${t.id}/`),
+    onSuccess: (_respuesta, t) => {
+      // Incluye los personales archivados (["tableros", "archivados"]).
+      qc.invalidateQueries({ queryKey: claves.tableros });
+      if (t.equipo) qc.invalidateQueries({ queryKey: ["equipo", t.equipo.id] });
+      // Su caché se quita cuando la página del tablero ya se cerró (quien llama
+      // navega fuera en su onSuccess): quitarla con la página montada la vuelve
+      // a pedir y responde 404.
+      setTimeout(() => {
+        qc.removeQueries({ queryKey: claves.tablero(t.id), type: "inactive" });
+        qc.removeQueries({ queryKey: ["card", t.id], type: "inactive" });
+      }, 0);
+    },
+    onError: avisarError,
+  });
+}
+
 export function useCrearColumna(tableroId: number) {
   const qc = useQueryClient();
   return useMutation({

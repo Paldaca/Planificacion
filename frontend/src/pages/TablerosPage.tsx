@@ -1,4 +1,4 @@
-import { Archive, ArchiveRestore, ChevronDown, LayoutGrid, LayoutTemplate, Plus, Star, UsersRound } from "lucide-react";
+import { Archive, ArchiveRestore, ChevronDown, LayoutGrid, LayoutTemplate, Plus, Star, Trash2, UsersRound } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -11,6 +11,7 @@ import { MosaicoTablero } from "@/components/equipos/MosaicoTablero";
 import { AvisoInvitaciones } from "@/components/invitaciones/AvisoInvitaciones";
 import { Encabezado } from "@/components/layout/Encabezado";
 import { PlantillasDialogo } from "@/components/plantillas/PlantillasDialogo";
+import { BorrarTableroDialogo } from "@/components/tablero/BorrarTableroDialogo";
 import { Boton } from "@/components/ui/Boton";
 import { Esqueleto, Vacio } from "@/components/ui/Estados";
 import { useTitulo } from "@/hooks/useTitulo";
@@ -199,6 +200,7 @@ function PersonalesArchivados() {
   const [abierto, setAbierto] = useState(false);
   const { data, isLoading } = usePersonalesArchivados(abierto);
   const restaurar = useRestaurarTablero();
+  const [aBorrar, setABorrar] = useState<TableroResumen | null>(null);
 
   return (
     <div className="mt-3">
@@ -243,6 +245,18 @@ function PersonalesArchivados() {
                         <ArchiveRestore />
                         Restaurar
                       </Boton>
+                      {t.permisos.borrar && (
+                        <Boton
+                          variante="fantasma"
+                          tamano="icono-sm"
+                          aria-label={`Borrar ${t.nombre}`}
+                          title="Borrar para siempre"
+                          className="hover:bg-[#fef2f2] hover:text-[#dc2626]"
+                          onClick={() => setABorrar(t)}
+                        >
+                          <Trash2 />
+                        </Boton>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -253,6 +267,7 @@ function PersonalesArchivados() {
           </motion.div>
         )}
       </AnimatePresence>
+      {aBorrar && <BorrarTableroDialogo tablero={aBorrar} abierto onCerrar={() => setABorrar(null)} />}
     </div>
   );
 }

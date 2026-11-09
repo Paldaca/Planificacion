@@ -50,7 +50,7 @@ historial + avisos + estado de vencimiento). Argumentos por nombre; lanzan
 
 | Archivo | Operaciones |
 |---|---|
-| `tableros.py` | `crear_tablero` (con Tareas / En curso / Hecho, o las `columnas` que se le pasen, y la `ayuda` de la plantilla: así lo usa `plantillas`), `limpiar_ayuda` (la guía, solo como texto y con límites; lo que no tiene la forma esperada se descarta), `asegurar_tablero_personal` («Mi tablero» en el primer ingreso), `personales_de`, `puede_archivar_personal`, `editar_tablero`, `archivar_tablero` |
+| `tableros.py` | `crear_tablero` (con Tareas / En curso / Hecho, o las `columnas` que se le pasen, y la `ayuda` de la plantilla: así lo usa `plantillas`), `limpiar_ayuda` (la guía, solo como texto y con límites; lo que no tiene la forma esperada se descarta), `asegurar_tablero_personal` («Mi tablero» en el primer ingreso), `personales_de`, `puede_archivar_personal`, `editar_tablero`, `archivar_tablero`, `borrar_tablero` (borrado **definitivo**, solo de un tablero ya archivado —si no, `ReglaDeNegocio`—; borra primero las tarjetas porque `Card.columna` es PROTECT y después el tablero, que arrastra columnas, etiquetas, campos, recurrencias y favoritos; las plantillas guardadas desde él quedan; deja `TABLERO_BORRADO` en el log `planificacion.tableros`) |
 | `columnas.py` | `crear_columna`, `reordenar_columnas`, `editar_columna` (con `version`; incluye `limite_cards`), `archivar_columna` (exige destino para sus tarjetas) |
 | `tarjetas.py` | `crear_card` (`avisar=False` para la importación y las plantillas; acepta `etiquetas` y `valores_campos`), `editar_card` (con `version` → `ConflictoDeVersion`; `etiquetas` y `valores_campos` registran su historial; `avisar=False` sin aviso de asignación), `asignar_en_lote` (atajo: hace a una persona responsable de todas las tarjetas **abiertas** de una etiqueta o con una opción de un campo de lista —una fase—; `reemplazar` la deja sola; cada tarjeta pasa por `editar_card` y la persona recibe **un** aviso agrupado; es de una vez, no una regla para las tarjetas futuras), `mover_card`, `archivar_card`, `trasladar_card` (emite la señal `tarjeta_trasladada`; conserva las etiquetas y los campos que existan en el destino con el mismo nombre —y tipo, en los campos—; el resto se pierde, no se crea) |
 | `favoritos.py` | `marcar_favorito` (idempotente; quien llama ya comprobó que lo ve), `ids_favoritos` |
@@ -71,10 +71,12 @@ historial + avisos + estado de vencimiento). Argumentos por nombre; lanzan
 | Ver | solo dueño | miembros y lectores |
 | Tarjetas y comentarios (`puede_editar_tablero`) | solo dueño | administradores y miembros (+ admin del módulo) |
 | Columnas, nombre, archivar (`puede_gestionar_tablero`) | solo dueño | administradores del equipo |
+| Borrar para siempre (`puede_borrar_tablero`: gestionar + archivado) | solo dueño | administradores del equipo |
 
 - El admin del módulo **nunca** ve tableros personales ajenos (D-07).
 - Tablero o equipo archivado → solo lectura.
 - Un personal solo se archiva si a su dueño le queda otro activo.
+- Solo se borra un tablero **archivado**: archivar es el paso reversible y borrar, el definitivo.
 - `permisos_tablero()` se serializa para que el frontend **refleje** (no
   decida) qué botones mostrar.
 
@@ -88,7 +90,7 @@ serializer). Piezas comunes en `api/views/comunes.py`: `obtener_tablero`,
 | Ruta | Operaciones |
 |---|---|
 | `tableros/` | listar (personales + de mis equipos; `?archivados=personales`), crear (sin `equipo` = personal) |
-| `tableros/<id>/` · `archivar/` · `archivadas/` | ver (con columnas, tarjetas y `ayuda`: la guía propia o null), editar · archivar/restaurar · tarjetas archivadas |
+| `tableros/<id>/` · `archivar/` · `archivadas/` | ver (con columnas, tarjetas y `ayuda`: la guía propia o null), editar, DELETE borrar para siempre (gestionar; 400 si no está archivado, 204 si se borró) · archivar/restaurar · tarjetas archivadas |
 | `tableros/<id>/favorito/` | POST marcar, DELETE quitar (basta con **ver** el tablero; responde `{es_favorito}`). Los tableros traen `es_favorito` (una consulta por respuesta, no por tablero) |
 | `equipos/<id>/tableros/` | tableros del equipo |
 | `tableros/<id>/columnas/` · `columnas/reordenar/` | crear · reordenar |
@@ -133,7 +135,7 @@ apps va en un solo sentido.
 `tests/base.py` → `EscenarioTablero`: equipo «Obra» con tablero «Plan»; ana
 administra, beto y carla son miembros, `lector` solo consulta, `ajeno` no está
 (ids del Portal fijos 11/22/33 para verificar destinatarios). Archivos por
-funcionalidad: `test_tableros`, `test_columnas`, `test_tarjetas`,
+funcionalidad: `test_tableros`, `test_borrar_tablero` (solo archivado, permisos, personal y de equipo, y que se lleva tarjetas, checklist, adjuntos, dependencias e historial sin tocar las plantillas), `test_columnas`, `test_tarjetas`,
 `test_comentarios`, `test_checklist`, `test_avisos`, `test_vencimientos`,
 `test_mis_tareas`, `test_configuracion` (etiquetas, etiqueta de hito, campos y límite),
 `test_favoritos`, `test_recurrencias` (fechas: último día del mes, día no hábil, semanal y cada tantos; la serie desde una tarjeta, una sola tarjeta por fecha, aviso a todos, ponerse al día con tope, no nacer en «Hecho», pausa y tablero archivado, cambiar calendario y modelo, quitar, trasladar y permisos), `test_asignar_en_lote` (por etiqueta y por fase, reemplazar, repetirlo, aviso único, validaciones y permisos), `test_adjuntos` (subir, listar, descargar, imágenes en línea y falsas
