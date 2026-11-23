@@ -118,7 +118,12 @@ function useEspacioDisponible(
 const MAX_DIAS_FERIADOS = 790;
 
 /** `rango` se congela al empezar: la escala no debe moverse bajo el cursor. */
-type Arrastre = { card: CardResumen; modo: Modo; x0: number; delta: number; movido: boolean; rango: Rango };
+type Arrastre = { card: CardResumen; modo: Modo; x0: number; sl0: number; delta: number; movido: boolean; rango: Rango };
+
+/** Franja (px) junto a los bordes donde, al arrastrar, la vista se desplaza sola. */
+const MARGEN_AUTOSCROLL = 56;
+/** Velocidad máxima del desplazamiento automático (px por fotograma). */
+const VELOCIDAD_AUTOSCROLL = 20;
 type Seleccion = { dep: Dependencia; x: number; y: number };
 
 /** Fechas que tendría la tarjeta si se soltara ahora. */
@@ -178,6 +183,8 @@ export function VistaGantt({
   /** Tarjeta recién creada: se lleva a la vista en cuanto tiene barra. */
   const [enfocar, setEnfocar] = useState<number | null>(null);
   const temporizadorResalte = useRef<number | undefined>(undefined);
+  /** Última posición horizontal del puntero durante un arrastre (para el desplazamiento automático). */
+  const punteroX = useRef(0);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const etiquetasRef = useRef<HTMLDivElement>(null);
@@ -276,6 +283,51 @@ export function VistaGantt({
   }, [enfocar, posiciones]);
   useEffect(() => () => window.clearTimeout(temporizadorResalte.current), []);
 
+  // Esc cancela un arrastre en curso: la tarjeta vuelve a sus fechas sin guardar nada.
+  const hayArrastre = arrastre !== null;
+  useEffect(() => {
+    if (!hayArrastre) return;
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setArrastre(null);
+    };
+    window.addEventListener("keydown", alTeclear);
+    return () => window.removeEventListener("keydown", alTeclear);
+  }, [hayArrastre]);
+
+  // Al arrastrar cerca del borde izquierdo o derecho la vista se desplaza sola,
+  // para poder llevar una barra lejos sin soltarla ni cambiar el zoom.
+  const arrastrando = arrastre?.movido === true;
+  useEffect(() => {
+    if (!arrastrando) return;
+    let cuadro = 0;
+    const paso = () => {
+      const el = scrollRef.current;
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        // La columna de etiquetas queda fija a la izquierda: el borde útil empieza tras ella.
+        const izquierda = rect.left + (etiquetasRef.current?.offsetWidth ?? 0);
+        const x = punteroX.current;
+        let v = 0;
+        if (x > rect.right - MARGEN_AUTOSCROLL) {
+          v = Math.min(1, (x - (rect.right - MARGEN_AUTOSCROLL)) / MARGEN_AUTOSCROLL) * VELOCIDAD_AUTOSCROLL;
+        } else if (x < izquierda + MARGEN_AUTOSCROLL) {
+          v = -Math.min(1, (izquierda + MARGEN_AUTOSCROLL - x) / MARGEN_AUTOSCROLL) * VELOCIDAD_AUTOSCROLL;
+        }
+        if (v) {
+          const antes = el.scrollLeft;
+          el.scrollLeft = antes + v;
+          if (el.scrollLeft !== antes) {
+            const left = el.scrollLeft;
+            setArrastre((a) => (a?.movido ? { ...a, delta: Math.round((x - a.x0 + left - a.sl0) / px) } : a));
+          }
+        }
+      }
+      cuadro = requestAnimationFrame(paso);
+    };
+    cuadro = requestAnimationFrame(paso);
+    return () => cancelAnimationFrame(cuadro);
+  }, [arrastrando, px]);
+
   // Tras «Encajar»: centra el tramo con el zoom nuevo (va después del efecto
   // que centra hoy al cambiar el zoom, para ganarle).
   useLayoutEffect(() => {
@@ -357,14 +409,17 @@ export function VistaGantt({
     e.stopPropagation();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     setSeleccion(null);
-    setArrastre({ card, modo, x0: e.clientX, delta: 0, movido: false, rango });
+    punteroX.current = e.clientX;
+    setArrastre({ card, modo, x0: e.clientX, sl0: scrollRef.current?.scrollLeft ?? 0, delta: 0, movido: false, rango });
   }
 
   function moverArrastre(e: ReactPointerEvent) {
     if (!arrastre) return;
+    punteroX.current = e.clientX;
     const movido = arrastre.movido || Math.abs(e.clientX - arrastre.x0) > 4;
     if (!movido || !puede) return;
-    const delta = Math.round((e.clientX - arrastre.x0) / px);
+    // Cuenta también lo que se desplazó la vista (a mano o sola) desde que se agarró.
+    const delta = Math.round((e.clientX - arrastre.x0 + (scrollRef.current?.scrollLeft ?? 0) - arrastre.sl0) / px);
     if (delta !== arrastre.delta || movido !== arrastre.movido) setArrastre({ ...arrastre, movido, delta });
   }
 

@@ -133,6 +133,9 @@ export const Barra = memo(function Barra({
   const vencida = card.vencimiento === "vencida";
   const ancho = Math.max(caja.x2 - caja.x1 - 4, 8);
   const cabeTitulo = ancho > 70;
+  // Tirador de inicio/fin: 12 px en barras normales; en las cortas, un tercio del
+  // ancho (mín. 5 px) para que siempre quede centro de la barra por donde moverla.
+  const anchoTirador = Math.round(Math.min(12, Math.max(5, ancho / 3)));
   const avance = card.checklist.total ? card.checklist.hechos / card.checklist.total : terminada ? 1 : 0;
   const base = terminada ? "#059669" : color;
 
@@ -246,16 +249,20 @@ export const Barra = memo(function Barra({
         {puede && (
           <>
             <span
-              className="absolute inset-y-0 left-0 w-2 cursor-ew-resize opacity-0 transition-opacity group-hover:opacity-100 pointer-coarse:hidden"
+              className="absolute inset-y-0 left-0 cursor-ew-resize opacity-0 transition-opacity group-hover:opacity-100 hover:bg-marino/10 pointer-coarse:hidden"
+              style={{ width: anchoTirador }}
+              title="Arrastra para cambiar el inicio"
               onPointerDown={(e) => onPointerDown(e, card, "inicio")}
             >
-              <span className="absolute inset-y-1.5 left-0.5 w-0.5 rounded-full bg-marino/40" />
+              <span className="absolute inset-y-1.5 left-1 w-[3px] rounded-full bg-marino/50" />
             </span>
             <span
-              className="absolute inset-y-0 right-0 w-2 cursor-ew-resize opacity-0 transition-opacity group-hover:opacity-100 pointer-coarse:hidden"
+              className="absolute inset-y-0 right-0 cursor-ew-resize opacity-0 transition-opacity group-hover:opacity-100 hover:bg-marino/10 pointer-coarse:hidden"
+              style={{ width: anchoTirador }}
+              title="Arrastra para cambiar el fin"
               onPointerDown={(e) => onPointerDown(e, card, "fin")}
             >
-              <span className="absolute inset-y-1.5 right-0.5 w-0.5 rounded-full bg-marino/40" />
+              <span className="absolute inset-y-1.5 right-1 w-[3px] rounded-full bg-marino/50" />
             </span>
           </>
         )}
